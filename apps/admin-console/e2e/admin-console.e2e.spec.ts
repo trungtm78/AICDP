@@ -93,6 +93,16 @@ test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
     await page.getByRole("link", { name: "Journeys" }).click();
     await expect(page.getByRole("heading", { name: "Journeys" })).toBeVisible();
     await expect(page.getByLabel("Tên journey")).toBeVisible();
+    await page.getByRole("link", { name: "Platform" }).click();
+    await expect(page.getByRole("heading", { name: "Platform" })).toBeVisible();
+  });
+
+  test("Platform: hiển thị user admin (dev seed) + form tạo API key", async ({ page }) => {
+    await page.goto("/platform");
+    await expect(page.getByRole("heading", { name: "Platform" })).toBeVisible();
+    // user admin dev seed (name 'Dev Admin') phải xuất hiện trong bảng
+    await expect(page.getByRole("cell", { name: "Dev Admin", exact: true })).toBeVisible();
+    await expect(page.getByLabel("Tên API key")).toBeVisible();
   });
 
   test("Audiences: nút kích hoạt disabled khi chưa nhập tên/occId", async ({ page }) => {

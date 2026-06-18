@@ -20,6 +20,10 @@ import {
   type Journey,
   type JourneyRunResult,
   type CreateJourneyArgs,
+  type Role,
+  type UserSummary,
+  type ApiKeySummary,
+  type CreatedApiKey,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -167,4 +171,33 @@ export const api = {
     request<JourneyRunResult>(`/v1/journeys/${encodeURIComponent(journeyId)}/run`, {
       method: "POST",
     }),
+
+  // Platform (admin): quản lý user + API key.
+  listUsers: () => request<UserSummary[]>("/v1/auth/users"),
+
+  createUser: (username: string, password: string, role: Role, name: string) =>
+    request<{ id: string }>("/v1/auth/users", {
+      method: "POST",
+      body: JSON.stringify({ username, password, role, name }),
+    }),
+
+  setUserStatus: (id: string, status: "active" | "disabled") =>
+    request<{ id: string; status: string }>(`/v1/auth/users/${encodeURIComponent(id)}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    }),
+
+  listApiKeys: () => request<ApiKeySummary[]>("/v1/auth/api-keys"),
+
+  createApiKey: (name: string, role: Role) =>
+    request<CreatedApiKey>("/v1/auth/api-keys", {
+      method: "POST",
+      body: JSON.stringify({ name, role }),
+    }),
+
+  revokeApiKey: (id: string) =>
+    request<{ id: string; status: string }>(
+      `/v1/auth/api-keys/${encodeURIComponent(id)}/revoke`,
+      { method: "POST" },
+    ),
 };

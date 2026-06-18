@@ -134,6 +134,40 @@ export interface CreateJourneyArgs {
   action: JourneyAction;
 }
 
+export type Role =
+  | "admin"
+  | "data_steward"
+  | "marketer"
+  | "csr"
+  | "analyst"
+  | "compliance"
+  | "executive"
+  | "connector";
+
+export interface UserSummary {
+  id: string;
+  username: string;
+  role: Role;
+  name: string;
+  status: string;
+  created_at: string;
+}
+
+export interface ApiKeySummary {
+  id: string;
+  name: string;
+  role: Role;
+  status: string;
+  created_at: string;
+}
+
+export interface CreatedApiKey {
+  id: string;
+  name: string;
+  role: Role;
+  rawKey: string;
+}
+
 export type IdentifierType =
   | "phone"
   | "email"
