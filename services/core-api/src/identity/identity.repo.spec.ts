@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { pool } from "../db/pool.js";
 import { setupTestDb, truncateAll } from "../test-helpers/db.js";
 import { resolveOccId } from "./identity.repo.js";
@@ -11,9 +11,6 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   await truncateAll();
-});
-afterAll(async () => {
-  await pool.end();
 });
 
 async function countIdentities(): Promise<number> {
