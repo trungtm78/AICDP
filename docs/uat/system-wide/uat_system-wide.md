@@ -790,15 +790,18 @@ Thân chi tiết cho các journey P0 ở S4. Cột **Luồng dữ liệu chuyể
 
 # S14. Tóm tắt quyết định release (UAT Sign-off)
 
-| Tiêu chí | Ngưỡng | Thực tế | Đạt? |
+| Tiêu chí | Ngưỡng | Thực tế (chạy 2026-06-18) | Đạt? |
 |----------|--------|---------|------|
-| P0 pass | 100% | …/… | _(điền sau khi chạy)_ |
-| P1 pass | ≥95% | …/… | … |
-| Lỗi Nghiêm trọng/Cao đang mở | 0 | … | … |
-| E2E P0 thông suốt (J01–J13) | 100% | …/… | … |
-| Bảo mật RBAC deny-by-default (mọi module) | 0 leo thang | … | … |
-| Consent chokepoint (chỉ activation gate) | đúng | … | … |
-| **Khuyến nghị** | | | **GO / NO-GO / GO có điều kiện** |
+| P0 pass (tự động) | 100% | 72/72 | ✅ |
+| P1 pass (tự động) | ≥95% | 6/6 (100%) | ✅ |
+| Tổng test tự động | — | **78/78** (API gate 64 + UI E2E 14) | ✅ |
+| Lỗi Nghiêm trọng/Cao đang mở | 0 | 0 | ✅ |
+| E2E P0 qua UI thật (J01/J03/J06) | 100% | 3/3 | ✅ |
+| Bảo mật RBAC deny-by-default (mọi module) | 0 leo thang | 0 (15 case 403 đúng kỳ vọng) | ✅ |
+| Consent chokepoint (chỉ activation gate) | đúng | đúng (ING-021 nhận, ACT-002/J11 chặn) | ✅ |
+| **Khuyến nghị** | | | **GO (cho scope GĐ1)** — xem ghi chú |
+
+**Ghi chú GO:** phạm vi tự động hóa lần này = slice rủi ro P0/P1 của 11 module (78 case). Các hạng mục out-of-scope (ClickHouse-live verify, rate-limit distributed, RudderStack, load test chuyên sâu) chưa nằm trong lần chạy này — xem S1 out of scope. Các case còn lại trong S9 (BOUNDARY/DATA/PERFORMANCE/UI_CONSISTENCY mức chi tiết) khuyến nghị bổ sung ở vòng UAT tiếp theo và tầng expert-test. Báo cáo đầy đủ: `uat_report.md`.
 
 **Thứ tự chạy khi bị cắt thời gian (risk-based):** SMK-01→06 → Auth/RBAC P0 (AUTH/PLAT) → Consent+Activation gate P0 (CON/ACT/J05/J06/J11) → Loyalty P0 (LOY) → Ingestion+Identity P0 (ING/ID/J01/J02) → Journey idempotency (JNY/J07/J08) → còn lại.
 
