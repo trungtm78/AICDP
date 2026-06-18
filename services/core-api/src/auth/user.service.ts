@@ -32,6 +32,31 @@ export async function createUser(
   return { id: r.rows[0]!.id, username: a.username, role: a.role };
 }
 
+export interface UserSummary {
+  id: string;
+  username: string;
+  role: Role;
+  name: string;
+  status: string;
+  created_at: string;
+}
+
+export async function listUsers(pool: Pool): Promise<UserSummary[]> {
+  const r = await pool.query<UserSummary>(
+    `SELECT id, username, role, name, status, created_at
+       FROM cdp.app_user ORDER BY created_at DESC`,
+  );
+  return r.rows;
+}
+
+export async function setUserStatus(
+  pool: Pool,
+  id: string,
+  status: "active" | "disabled",
+): Promise<void> {
+  await pool.query("UPDATE cdp.app_user SET status=$2 WHERE id=$1", [id, status]);
+}
+
 /** Xác thực username/password -> JWT. Trả null nếu sai (controller map 401). */
 export async function login(
   pool: Pool,

@@ -189,6 +189,15 @@ export const createUserSchema = z.object({
   name: z.string().min(1).max(200),
 });
 
+export const userStatusSchema = z.object({
+  status: z.enum(["active", "disabled"]),
+});
+
+export const apiKeyCreateSchema = z.object({
+  name: z.string().min(1).max(100),
+  role: roleEnum,
+});
+
 export const lookupQuerySchema = z.object({
   type: identifierSchema.shape.type,
   value: z.string().min(1),
