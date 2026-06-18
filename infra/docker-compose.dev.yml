@@ -1,0 +1,55 @@
+# Hạ tầng local cho dev. PostgreSQL 18 chạy native trên host (127.0.0.1:5433),
+# KHÔNG nằm trong compose này. Compose chỉ lo ClickHouse, Redis, MinIO.
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.3
+    container_name: occ-cdp-clickhouse
+    ports:
+      - "8123:8123" # HTTP
+      - "9001:9000" # native (tránh đụng MinIO 9000)
+    environment:
+      CLICKHOUSE_DB: occ_cdp
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - ./.data/clickhouse:/var/lib/clickhouse
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: occ-cdp-redis
+    ports:
+      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - ./.data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: occ-cdp-minio
+    ports:
+      - "9000:9000" # S3 API
+      - "9090:9090" # console
+    environment:
+      MINIO_ROOT_USER: occ_cdp
+      MINIO_ROOT_PASSWORD: occ_cdp_dev_secret
+    command: ["server", "/data", "--console-address", ":9090"]
+    volumes:
+      - ./.data/minio:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

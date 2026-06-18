@@ -1,0 +1,226 @@
+ĐỀ ÁN OCC CUSTOMER DATA PLATFORM (CDP)
+
+Mục tiêu: Biến OCC thành một Data Company
+
+1. Tầm nhìn
+
+OCC không đơn thuần là công ty sở hữu các thương hiệu tiêu dùng.
+
+Mục tiêu trong 3-5 năm tới là xây dựng OCC trở thành một Consumer Data Company sở hữu một trong những cơ sở dữ liệu khách hàng F&B, Bakery và FMCG lớn nhất Việt Nam.
+
+Trong tương lai, dữ liệu khách hàng sẽ có giá trị không kém nhà máy, thương hiệu hay hệ thống phân phối.
+
+Mỗi giao dịch tại Givral, Kem Tràng Tiền, Hải Hà Kotobuki, Fuji Foods, Origato hoặc các thương hiệu OCC trong tương lai phải được thu thập, chuẩn hóa và đưa về một nền tảng dữ liệu tập trung.
+
+---
+
+2. Mục tiêu chiến lược
+
+Giai đoạn 1 (2026)
+
+Xây dựng OCC Customer Data Platform (OCC-CDP).
+
+Thu thập dữ liệu từ:
+
+- Givral
+- Kem Tràng Tiền
+- Hải Hà Kotobuki
+- Fuji Foods
+- Origato
+- Website
+- App
+- Ecommerce
+- POS
+- Loyalty Program
+
+Mục tiêu cuối năm 2026:
+
+- 1 triệu khách hàng định danh
+- 100% giao dịch POS được ghi nhận
+- Dashboard realtime toàn hệ sinh thái
+
+---
+
+Giai đoạn 2 (2027)
+
+Hợp nhất toàn bộ khách hàng thành một OCC ID duy nhất.
+
+Ví dụ:
+
+Một khách hàng:
+
+- Mua bánh sinh nhật Givral
+- Ăn kem Tràng Tiền
+- Mua thực phẩm Fuji
+- Đặt quà Tết OCC
+
+=> hệ thống nhận diện đây là cùng một khách hàng.
+
+OCC bắt đầu hiểu:
+
+- Ai là khách hàng
+- Họ mua gì
+- Bao lâu mua lại
+- Giá trị vòng đời (LTV)
+- Khả năng mua sản phẩm khác
+
+---
+
+Giai đoạn 3 (2028-2030)
+
+AI Driven Consumer Platform
+
+Sử dụng AI để:
+
+- Dự báo nhu cầu
+- Đề xuất sản phẩm
+- Tự động marketing
+- Cross-selling giữa các thương hiệu
+
+Ví dụ:
+
+Khách hàng mua bánh sinh nhật Givral
+
+↓
+
+Hệ thống tự động gửi:
+
+- Kem Tràng Tiền
+- Hộp quà trung thu
+- Combo Tết
+- Thực phẩm Fuji
+
+phù hợp với lịch sử mua hàng.
+
+---
+
+3. Các loại dữ liệu bắt buộc thu thập
+
+Thông tin khách hàng
+
+- Họ tên
+- Số điện thoại
+- Email
+- Ngày sinh
+- Giới tính
+- Địa chỉ
+
+Dữ liệu giao dịch
+
+- Sản phẩm mua
+- Giá trị đơn hàng
+- Ngày mua
+- Kênh mua
+- Cửa hàng mua
+
+Dữ liệu hành vi
+
+- Website
+- App
+- Social Media
+- QR Campaign
+- Loyalty Program
+
+Dữ liệu doanh nghiệp
+
+- Khách hàng B2B
+- Đại lý
+- Nhà phân phối
+- Khách hàng doanh nghiệp
+
+---
+
+4. Yêu cầu đối với các công ty thành viên
+
+POS
+
+100% hệ thống POS phải kết nối với OCC-CDP.
+
+Không được tồn tại hệ thống bán hàng độc lập không truyền dữ liệu về OCC.
+
+---
+
+Loyalty
+
+Tất cả thương hiệu phải sử dụng chung một nền tảng loyalty.
+
+Một điểm thưởng.
+
+Một khách hàng.
+
+Nhiều thương hiệu.
+
+Ví dụ:
+
+Mua bánh Givral tích điểm.
+
+Điểm có thể đổi kem Tràng Tiền.
+
+---
+
+Ecommerce
+
+Website của từng thương hiệu phải tích hợp OCC ID.
+
+Không xây dựng database riêng biệt.
+
+---
+
+Marketing
+
+Tất cả lead phát sinh từ:
+
+- Facebook
+- Tiktok
+- Website
+- Google
+
+đều phải đổ về OCC-CDP.
+
+---
+
+5. Dashboard dành cho Ban Điều hành
+
+Ban Điều hành OCC phải theo dõi realtime:
+
+Sales
+
+- Doanh thu theo thương hiệu
+- Doanh thu theo vùng
+- Doanh thu theo SKU
+
+Customer
+
+- Số khách hàng mới
+- Số khách hàng quay lại
+- Tần suất mua
+- Giá trị vòng đời
+
+Marketing
+
+- CAC
+- ROAS
+- Conversion Rate
+
+Synergy
+
+- Bao nhiêu khách hàng mua từ 2 thương hiệu
+- Bao nhiêu khách hàng mua từ 3 thương hiệu
+- Cross-selling revenue
+
+---
+
+6. Lợi ích chiến lược
+
+Khi OCC có 3-5 triệu khách hàng định danh:
+
+1. Tăng doanh thu thông qua cross-selling.
+2. Giảm chi phí marketing.
+3. Tăng hiệu quả ra mắt sản phẩm mới.
+4. Tăng giá trị doanh nghiệp khi IPO.
+5. Tạo lợi thế cạnh tranh mà đối thủ khó sao chép.
+
+Trong dài hạn, dữ liệu khách hàng sẽ trở thành tài sản chiến lược quan trọng nhất của OCC bên cạnh thương hiệu, nhà máy và hệ thống phân phối.
+
+
+Khi anh làm được điều đó, OCC sẽ bắt đầu có một lợi thế mà gần như không có công ty thực phẩm nào ở Việt Nam đang sở hữu. Đặc biệt với danh mục hiện nay của OCC (bánh sinh nhật, bánh trung thu, bánh hàng ngày, kem, thực phẩm), khả năng cross-sell tự nhiên còn mạnh hơn nhiều tập đoàn F&B chỉ có một ngành hàng.

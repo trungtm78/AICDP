@@ -1,0 +1,20 @@
+{
+  "name": "occ-cdp",
+  "version": "0.0.1",
+  "private": true,
+  "description": "OCC Customer Data Platform (OCC-CDP) — enterprise self-host CDP cho tập đoàn F&B đa thương hiệu",
+  "packageManager": "pnpm@10.32.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3"
+  }
+}
