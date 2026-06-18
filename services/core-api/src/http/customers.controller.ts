@@ -5,8 +5,10 @@ import { validate } from "./validate.js";
 import { lookupQuerySchema } from "./schemas.js";
 import { AppError } from "./errors.js";
 import { getCustomer360 } from "../ingestion/ingestion.service.js";
+import { Roles } from "./auth/roles.js";
 
 /** Tra cứu Customer 360 theo một identifier (phone/email/...). */
+@Roles("csr", "analyst", "marketer", "data_steward")
 @Controller("v1/customers")
 export class CustomersController {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}

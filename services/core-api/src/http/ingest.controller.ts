@@ -4,6 +4,7 @@ import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
 import { orderCompletedSchema, identifySchema } from "./schemas.js";
 import { AppError } from "./errors.js";
+import { Roles } from "./auth/roles.js";
 import { normalizeIdentifier } from "../identity/normalize.js";
 import type { RawIdentifier } from "../identity/identity.repo.js";
 import {
@@ -16,6 +17,8 @@ import {
 const SUPPORTED = new Set(["order_completed", "identify"]);
 
 /** Endpoint ingestion v1: chỉ order_completed + identify (tracking-plan-spec mục 10). */
+// Ingestion từ POS/connector (service-to-service).
+@Roles("connector")
 @Controller("v1")
 export class IngestController {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}

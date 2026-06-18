@@ -1,8 +1,16 @@
+import { createHash } from "node:crypto";
 import { pool } from "../db/pool.js";
 import { runMigrations } from "../db/migrate.js";
 
 export async function setupTestDb(): Promise<void> {
   await runMigrations(pool);
+  // Seed admin key test-local (migration KHÔNG seed credential — bảo mật). Raw khớp ADMIN_KEY.
+  const hash = createHash("sha256").update("occ-dev-admin-key-2026").digest("hex");
+  await pool.query(
+    `INSERT INTO cdp.api_key (name, role, key_hash) VALUES ('test-admin','admin',$1)
+     ON CONFLICT (key_hash) DO NOTHING`,
+    [hash],
+  );
 }
 
 export async function truncateAll(): Promise<void> {

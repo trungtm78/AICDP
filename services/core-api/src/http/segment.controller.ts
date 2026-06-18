@@ -4,8 +4,10 @@ import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
 import { segmentPreviewSchema } from "./schemas.js";
 import { previewSegment } from "../segment/segment.service.js";
+import { Roles } from "./auth/roles.js";
 
 /** Segment builder — preview occId theo tiêu chí (feed vào activation). */
+@Roles("marketer", "analyst")
 @Controller("v1/segments")
 export class SegmentController {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}

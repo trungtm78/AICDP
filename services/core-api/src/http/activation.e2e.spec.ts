@@ -4,6 +4,7 @@ import request from "supertest";
 import type { INestApplication } from "@nestjs/common";
 import { createApp } from "./app.factory.js";
 import { setupTestDb, truncateAll } from "../test-helpers/db.js";
+import { ADMIN_KEY } from "../test-helpers/auth.js";
 
 let app: INestApplication;
 
@@ -19,7 +20,12 @@ beforeEach(async () => {
   await truncateAll();
 });
 
-const http = () => request(app.getHttpServer());
+const srv = () => request(app.getHttpServer());
+const bearer = (t: ReturnType<typeof srv>) => t.set("Authorization", `Bearer ${ADMIN_KEY}`);
+const http = () => ({
+  get: (p: string) => bearer(srv().get(p)),
+  post: (p: string) => bearer(srv().post(p)),
+});
 
 async function makeOcc(phone: string): Promise<string> {
   const res = await http()

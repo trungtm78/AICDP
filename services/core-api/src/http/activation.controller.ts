@@ -4,8 +4,10 @@ import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
 import { activationSchema } from "./schemas.js";
 import { activate, getRun } from "../activation/activation.service.js";
+import { Roles } from "./auth/roles.js";
 
 /** Activation — kích hoạt audience tới destination, GATE bằng consent (deny-by-default). */
+@Roles("marketer")
 @Controller("v1/activation")
 export class ActivationController {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}

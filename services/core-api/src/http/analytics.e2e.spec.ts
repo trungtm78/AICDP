@@ -4,6 +4,7 @@ import request from "supertest";
 import type { INestApplication } from "@nestjs/common";
 import { createApp } from "./app.factory.js";
 import { setupTestDb, truncateAll } from "../test-helpers/db.js";
+import { ADMIN_KEY } from "../test-helpers/auth.js";
 
 let app: INestApplication;
 
@@ -21,7 +22,9 @@ beforeEach(async () => {
 
 describe("analytics HTTP", () => {
   it("GET /v1/analytics/overview trả KPI (brands seed = 5)", async () => {
-    const res = await request(app.getHttpServer()).get("/v1/analytics/overview");
+    const res = await request(app.getHttpServer())
+      .get("/v1/analytics/overview")
+      .set("Authorization", `Bearer ${ADMIN_KEY}`);
     expect(res.status).toBe(200);
     expect(res.body.data.brands).toBe(5);
     expect(res.body.data).toHaveProperty("customers");

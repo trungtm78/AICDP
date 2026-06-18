@@ -8,12 +8,15 @@ import {
   consentCheckQuerySchema,
 } from "./schemas.js";
 import { recordConsent, listConsents, isAllowed } from "../consent/consent.service.js";
+import { Roles } from "./auth/roles.js";
 
 /** Consent deny-by-default. /check là chokepoint dành cho ACTIVATION (không gate ingestion/loyalty). */
+@Roles("compliance", "csr", "marketer", "analyst")
 @Controller("v1/consent")
 export class ConsentController {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
+  @Roles("compliance", "csr")
   @Post()
   @HttpCode(201)
   async record(@Body() body: unknown) {

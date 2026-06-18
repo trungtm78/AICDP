@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Query, Inject, HttpCode } from "@nestjs/common";
 import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
+import { Roles } from "./auth/roles.js";
 import { validate } from "./validate.js";
 import {
   storeCreateSchema,
@@ -19,6 +20,8 @@ import {
 } from "../master/master.repo.js";
 
 /** REST CRUD cho master data (brand/store/category/product/sku_mapping). */
+// Đọc master: nhiều persona; ghi master: data_steward (admin luôn được).
+@Roles("data_steward", "marketer", "csr", "analyst", "executive")
 @Controller("v1")
 export class MastersController {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
@@ -33,6 +36,7 @@ export class MastersController {
     return { data: await listStores(this.pool, brandId) };
   }
 
+  @Roles("data_steward")
   @Post("stores")
   @HttpCode(201)
   async postStore(@Body() body: unknown) {
@@ -46,6 +50,7 @@ export class MastersController {
     return { data: await listProducts(this.pool) };
   }
 
+  @Roles("data_steward")
   @Post("products")
   @HttpCode(201)
   async postProduct(@Body() body: unknown) {
@@ -54,6 +59,7 @@ export class MastersController {
     return { data: { product_master_id: dto.product_master_id } };
   }
 
+  @Roles("data_steward")
   @Post("categories")
   @HttpCode(201)
   async postCategory(@Body() body: unknown) {
@@ -62,6 +68,7 @@ export class MastersController {
     return { data: { category_id: dto.category_id } };
   }
 
+  @Roles("data_steward")
   @Post("sku-mappings")
   @HttpCode(201)
   async postSkuMapping(@Body() body: unknown) {
