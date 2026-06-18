@@ -144,6 +144,11 @@ export const consentCheckQuerySchema = z.object({
   purpose: consentPurposeEnum,
 });
 
+export const aiRecQuerySchema = z.object({
+  occId: z.string().uuid(),
+  limit: z.coerce.number().int().positive().max(50).optional(),
+});
+
 export const lookupQuerySchema = z.object({
   type: identifierSchema.shape.type,
   value: z.string().min(1),
