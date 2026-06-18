@@ -109,6 +109,31 @@ export interface Overview {
   products: number;
 }
 
+export type JourneyAction =
+  | { type: "activation"; purpose: ConsentPurpose; channel: string; destination: string }
+  | { type: "loyalty_bonus"; points: number };
+
+export interface Journey {
+  journey_id: string;
+  name: string;
+  segment_criteria: SegmentCriteria;
+  action: JourneyAction;
+  status: string;
+  created_at: string;
+}
+
+export interface JourneyRunResult {
+  runId: string;
+  total: number;
+  actionResult: Record<string, unknown>;
+}
+
+export interface CreateJourneyArgs {
+  name: string;
+  segmentCriteria: SegmentCriteria;
+  action: JourneyAction;
+}
+
 export type IdentifierType =
   | "phone"
   | "email"

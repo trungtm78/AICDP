@@ -16,6 +16,9 @@ import {
   type SegmentCriteria,
   type SegmentPreview,
   type Recommendation,
+  type Journey,
+  type JourneyRunResult,
+  type CreateJourneyArgs,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -146,4 +149,14 @@ export const api = {
     request<{ occId: string; recommendations: Recommendation[] }>(
       `/v1/ai/recommendations?occId=${encodeURIComponent(occId)}`,
     ),
+
+  listJourneys: () => request<Journey[]>("/v1/journeys"),
+
+  createJourney: (args: CreateJourneyArgs) =>
+    request<Journey>("/v1/journeys", { method: "POST", body: JSON.stringify(args) }),
+
+  runJourney: (journeyId: string) =>
+    request<JourneyRunResult>(`/v1/journeys/${encodeURIComponent(journeyId)}/run`, {
+      method: "POST",
+    }),
 };

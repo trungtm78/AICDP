@@ -5,13 +5,14 @@ import { LoyaltyScreen } from "./screens/LoyaltyScreen.js";
 import { GovernanceScreen } from "./screens/GovernanceScreen.js";
 import { AudiencesScreen } from "./screens/AudiencesScreen.js";
 import { ControlTowerScreen } from "./screens/ControlTowerScreen.js";
+import { JourneysScreen } from "./screens/JourneysScreen.js";
 
 // IA 8 workspace (DESIGN.md). GĐ1 hiện thực: Customers + Data Ops; còn lại placeholder.
 const NAV = [
   { to: "/control-tower", label: "Control Tower", ready: true },
   { to: "/customers", label: "Customers", ready: true },
   { to: "/audiences", label: "Audiences", ready: true },
-  { to: "/journeys", label: "Journeys", ready: false },
+  { to: "/journeys", label: "Journeys", ready: true },
   { to: "/loyalty", label: "Loyalty", ready: true },
   { to: "/data-ops", label: "Data Ops", ready: true },
   { to: "/governance", label: "Governance", ready: true },
@@ -57,6 +58,7 @@ export function App() {
           <Route path="/customers" element={<CustomersScreen />} />
           <Route path="/audiences" element={<AudiencesScreen />} />
           <Route path="/loyalty" element={<LoyaltyScreen />} />
+          <Route path="/journeys" element={<JourneysScreen />} />
           <Route path="/data-ops" element={<MastersScreen />} />
           <Route path="/governance" element={<GovernanceScreen />} />
           <Route path="*" element={<Placeholder />} />

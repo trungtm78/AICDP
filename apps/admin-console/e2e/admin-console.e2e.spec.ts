@@ -77,6 +77,9 @@ test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
     await expect(page.getByRole("heading", { name: "Governance · Consent" })).toBeVisible();
     await page.getByRole("link", { name: "Audiences" }).click();
     await expect(page.getByRole("heading", { name: "Audiences · Activation" })).toBeVisible();
+    await page.getByRole("link", { name: "Journeys" }).click();
+    await expect(page.getByRole("heading", { name: "Journeys" })).toBeVisible();
+    await expect(page.getByLabel("Tên journey")).toBeVisible();
   });
 
   test("Audiences: nút kích hoạt disabled khi chưa nhập tên/occId", async ({ page }) => {
