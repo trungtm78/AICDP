@@ -7,6 +7,7 @@ import { CustomersController } from "./customers.controller.js";
 import { LoyaltyController } from "./loyalty.controller.js";
 import { ConsentController } from "./consent.controller.js";
 import { ActivationController } from "./activation.controller.js";
+import { AnalyticsController } from "./analytics.controller.js";
 
 @Module({
   controllers: [
@@ -17,6 +18,7 @@ import { ActivationController } from "./activation.controller.js";
     LoyaltyController,
     ConsentController,
     ActivationController,
+    AnalyticsController,
   ],
   providers: [pgPoolProvider],
 })
