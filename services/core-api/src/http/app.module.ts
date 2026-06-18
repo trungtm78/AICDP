@@ -13,6 +13,7 @@ import { ActivationController } from "./activation.controller.js";
 import { AnalyticsController } from "./analytics.controller.js";
 import { SegmentController } from "./segment.controller.js";
 import { AiController } from "./ai.controller.js";
+import { JourneyController } from "./journey.controller.js";
 
 @Module({
   controllers: [
@@ -26,6 +27,7 @@ import { AiController } from "./ai.controller.js";
     AnalyticsController,
     SegmentController,
     AiController,
+    JourneyController,
   ],
   providers: [
     pgPoolProvider,

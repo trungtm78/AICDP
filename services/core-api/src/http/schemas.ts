@@ -127,6 +127,23 @@ export const segmentPreviewSchema = z.object({
   minTransactions: z.number().int().positive().safe().optional(),
 });
 
+export const journeyCreateSchema = z.object({
+  name: z.string().min(1).max(200),
+  segmentCriteria: segmentPreviewSchema.default({}),
+  action: z.discriminatedUnion("type", [
+    z.object({
+      type: z.literal("activation"),
+      purpose: consentPurposeEnum,
+      channel: z.string().min(1).max(50),
+      destination: z.string().min(1).max(100),
+    }),
+    z.object({
+      type: z.literal("loyalty_bonus"),
+      points: z.number().int().positive().safe(),
+    }),
+  ]),
+});
+
 export const activationSchema = z.object({
   audienceName: z.string().min(1).max(200),
   purpose: consentPurposeEnum, // chỉ kích hoạt theo mục đích có trong danh mục consent
