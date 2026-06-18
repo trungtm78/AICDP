@@ -7,6 +7,7 @@ import {
 import type { Request, Response } from "express";
 import { AppError, buildEnvelope } from "./errors.js";
 import { getCorrelationId } from "./correlation.middleware.js";
+import { LoyaltyError } from "../loyalty/loyalty.service.js";
 
 /** Global filter: mọi lỗi -> ErrorEnvelope chuẩn (không nuốt data im lặng). */
 @Catch()
@@ -29,6 +30,29 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
   private toAppError(exception: unknown): AppError {
     if (exception instanceof AppError) return exception;
+
+    // Lỗi nghiệp vụ loyalty -> HTTP status theo từng mã.
+    if (exception instanceof LoyaltyError) {
+      const statusByCode: Record<string, number> = {
+        INVALID_AMOUNT: 400,
+        INSUFFICIENT_BALANCE: 409,
+        INSUFFICIENT_RESERVED: 409,
+        RESERVATION_NOT_FOUND: 404,
+        RESERVATION_INVALID_STATE: 409,
+        IDEMPOTENCY_CONFLICT: 409,
+      };
+      return new AppError({
+        code: exception.code,
+        httpStatus: statusByCode[exception.code] ?? 409,
+        message: exception.message,
+        why: "Vi phạm bất biến sổ điểm (double-entry / cấm âm / state machine).",
+        fix:
+          exception.code === "INVALID_AMOUNT"
+            ? "Gửi số điểm là số nguyên dương trong giới hạn."
+            : "Kiểm tra số dư / trạng thái reservation / idempotency key trước khi thao tác.",
+        retryable: false,
+      });
+    }
 
     // Vi phạm UNIQUE Postgres (vd idempotency, trùng store_id) -> 409.
     const pgCode = (exception as { code?: string } | null)?.code;

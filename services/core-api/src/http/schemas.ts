@@ -77,6 +77,32 @@ export const identifySchema = z.object({
     .optional(),
 });
 
+// points: số nguyên trong khoảng an toàn (chống precision-loss bigint); dấu/biên trị
+// nghiệp vụ do service quyết (trả INVALID_AMOUNT) để giữ mã lỗi nhất quán.
+const pointsSchema = z.number().int().safe();
+
+export const loyaltyEarnSchema = z.object({
+  occId: z.string().uuid(),
+  points: pointsSchema,
+  idempotencyKey: z.string().min(1),
+  reason: z.string().optional(),
+});
+
+export const loyaltyReserveSchema = z.object({
+  occId: z.string().uuid(),
+  points: pointsSchema,
+  idempotencyKey: z.string().min(1),
+});
+
+export const loyaltyReservationOpSchema = z.object({
+  reservationId: z.string().uuid(),
+  idempotencyKey: z.string().min(1),
+});
+
+export const loyaltyBalanceQuerySchema = z.object({
+  occId: z.string().uuid(),
+});
+
 export const lookupQuerySchema = z.object({
   type: identifierSchema.shape.type,
   value: z.string().min(1),
