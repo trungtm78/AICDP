@@ -26,11 +26,18 @@ interface Envelope<T> {
 // Rỗng (mặc định) = same-origin: dev qua Vite proxy /v1, prod cần reverse-proxy /v1 -> core-api.
 // Đặt VITE_API_BASE_URL khi admin-console và core-api khác origin.
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
+// DEV: dùng key admin seed sẵn để UI hoạt động. PROD: thay bằng login/JWT (KHÔNG nhúng
+// key admin vào bundle SPA — xem memory occ-cdp-auth-gap).
+const API_KEY = import.meta.env.VITE_API_KEY ?? "occ-dev-admin-key-2026";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${API_KEY}`,
+      ...(init?.headers ?? {}),
+    },
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
