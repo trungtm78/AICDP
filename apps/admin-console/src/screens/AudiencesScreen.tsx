@@ -1,6 +1,12 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { api } from "../lib/api.js";
-import { ApiError, type ActivateResult, type ConsentPurpose } from "../lib/types.js";
+import {
+  ApiError,
+  type ActivateResult,
+  type ConsentPurpose,
+  type SegmentCriteria,
+} from "../lib/types.js";
 
 const PURPOSES: { value: ConsentPurpose; label: string }[] = [
   { value: "marketing_email", label: "Email marketing" },
@@ -20,6 +26,32 @@ export function AudiencesScreen() {
   const [result, setResult] = useState<ActivateResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Segment builder: dựng danh sách OCC ID theo tiêu chí thay vì nhập tay.
+  const [segBrand, setSegBrand] = useState("");
+  const [segMinSpend, setSegMinSpend] = useState("");
+  const [segMinTxn, setSegMinTxn] = useState("");
+  const [segCount, setSegCount] = useState<number | null>(null);
+  const brands = useQuery({ queryKey: ["brands"], queryFn: api.listBrands });
+
+  async function previewSegment() {
+    setBusy(true);
+    setError(null);
+    try {
+      const criteria: SegmentCriteria = {
+        ...(segBrand ? { brandId: segBrand } : {}),
+        ...(segMinSpend.trim() ? { minSpend: Number(segMinSpend) } : {}),
+        ...(segMinTxn.trim() ? { minTransactions: Number(segMinTxn) } : {}),
+      };
+      const seg = await api.previewSegment(criteria);
+      setRaw(seg.occIds.join("\n"));
+      setSegCount(seg.count);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : err instanceof Error ? err.message : "Lỗi segment");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   const occIds = raw
     .split(/[\s,]+/)
@@ -57,6 +89,63 @@ export function AudiencesScreen() {
           (deny-by-default) — đây là chokepoint consent duy nhất.
         </p>
       </header>
+
+      <div className="mb-5 rounded-lg border border-border bg-surface-alt p-4">
+        <div className="mb-3 text-xs uppercase tracking-wide text-text-subtle">
+          Dựng segment theo tiêu chí
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-text-muted">Thương hiệu</span>
+            <select
+              aria-label="Thương hiệu segment"
+              value={segBrand}
+              onChange={(e) => setSegBrand(e.target.value)}
+              className="h-9 rounded-md border border-border bg-surface px-2"
+            >
+              <option value="">— tất cả —</option>
+              {brands.data?.map((b) => (
+                <option key={b.brand_id} value={b.brand_id}>
+                  {b.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-text-muted">Chi tiêu tối thiểu (VND)</span>
+            <input
+              aria-label="Chi tiêu tối thiểu"
+              inputMode="numeric"
+              value={segMinSpend}
+              onChange={(e) => setSegMinSpend(e.target.value)}
+              className="input tabular"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-text-muted">Số giao dịch tối thiểu</span>
+            <input
+              aria-label="Số giao dịch tối thiểu"
+              inputMode="numeric"
+              value={segMinTxn}
+              onChange={(e) => setSegMinTxn(e.target.value)}
+              className="input tabular"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={previewSegment}
+            disabled={busy}
+            className="h-9 rounded-md border border-border bg-surface px-4 font-medium disabled:opacity-40"
+          >
+            Xem trước segment
+          </button>
+          {segCount !== null && (
+            <span className="text-sm text-text-muted">
+              khớp <strong data-testid="segment-count">{segCount}</strong> khách
+            </span>
+          )}
+        </div>
+      </div>
 
       <form
         onSubmit={(e) => {

@@ -71,6 +71,17 @@ export interface ActivateResult {
   allowed: string[];
 }
 
+export interface SegmentCriteria {
+  brandId?: string;
+  minSpend?: number;
+  minTransactions?: number;
+}
+
+export interface SegmentPreview {
+  count: number;
+  occIds: string[];
+}
+
 export interface ActivateArgs {
   audienceName: string;
   purpose: ConsentPurpose;

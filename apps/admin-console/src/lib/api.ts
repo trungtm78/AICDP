@@ -13,6 +13,8 @@ import {
   type ActivateArgs,
   type ActivateResult,
   type Overview,
+  type SegmentCriteria,
+  type SegmentPreview,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -125,4 +127,10 @@ export const api = {
     }),
 
   getOverview: () => request<Overview>("/v1/analytics/overview"),
+
+  previewSegment: (criteria: SegmentCriteria) =>
+    request<SegmentPreview>("/v1/segments/preview", {
+      method: "POST",
+      body: JSON.stringify(criteria),
+    }),
 };
