@@ -1,7 +1,10 @@
 import type { Pool } from "pg";
+import type { Ch } from "../clickhouse/client.js";
+import { getTxAggregate, getRevenueByBrand, type BrandRevenue } from "../clickhouse/clickhouse.repo.js";
 
-// Analytics GĐ1: tổng hợp KPI Control Tower từ Postgres (system of record). Khi lượng dữ
-// liệu lớn, lớp OLAP ClickHouse sẽ đảm nhận realtime (xem DESIGN.md) — interface giữ nguyên.
+// Analytics: KPI Control Tower. transactions + revenue lấy từ lớp OLAP ClickHouse (realtime)
+// khi có client; nếu CH lỗi/không cấu hình -> FALLBACK Postgres (system-of-record) để không
+// gãy dashboard. Các chỉ số vận hành còn lại (loyalty/activation/master) đọc trực tiếp PG.
 
 export interface Overview {
   customers: number;
@@ -16,7 +19,39 @@ export interface Overview {
   products: number;
 }
 
-export async function getOverview(pool: Pool): Promise<Overview> {
+// Circuit breaker đơn giản cho ClickHouse: khi CH lỗi/timeout, MỞ MẠCH trong COOLDOWN để các
+// request sau phục vụ ngay từ Postgres (không chờ timeout lặp lại). Tự đóng sau cooldown.
+const CH_COOLDOWN_MS = 15_000;
+let chOpenUntilMs = 0;
+
+/**
+ * KPI tổng hợp. ch (optional): nguồn OLAP cho transactions + revenue (realtime). CH lỗi ->
+ * MỞ MẠCH + fallback Postgres (resilience). Không truyền ch -> hoàn toàn từ Postgres.
+ */
+export async function getOverview(pool: Pool, ch?: Ch): Promise<Overview> {
+  const pgOverview = await getOverviewFromPg(pool);
+  if (!ch) return pgOverview;
+  if (Date.now() < chOpenUntilMs) return pgOverview; // mạch đang mở -> bỏ qua CH, dùng PG ngay.
+  try {
+    const agg = await getTxAggregate(ch);
+    return { ...pgOverview, transactions: agg.transactions, revenue: agg.revenue };
+  } catch (err) {
+    chOpenUntilMs = Date.now() + CH_COOLDOWN_MS; // mở mạch.
+    // eslint-disable-next-line no-console
+    console.warn(
+      "[analytics] ClickHouse lỗi — mở mạch, fallback Postgres cho transactions/revenue:",
+      (err as Error).message,
+    );
+    return pgOverview;
+  }
+}
+
+/** Doanh thu theo thương hiệu — chỉ từ ClickHouse (OLAP group-by realtime). */
+export async function getBrandRevenue(ch: Ch): Promise<BrandRevenue[]> {
+  return getRevenueByBrand(ch);
+}
+
+async function getOverviewFromPg(pool: Pool): Promise<Overview> {
   const r = await pool.query<{
     customers: string;
     transactions: string;

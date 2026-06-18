@@ -15,7 +15,9 @@ services:
         soft: 262144
         hard: 262144
     volumes:
-      - ./.data/clickhouse:/var/lib/clickhouse
+      # Named volume (KHÔNG bind-mount): bind-mount trên Windows thiếu quyền rename atomic mà
+      # ClickHouse cần khi merge/insert parts -> lỗi "filesystem error: in rename: Permission denied".
+      - clickhouse_data:/var/lib/clickhouse
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:8123/ping"]
       interval: 10s
@@ -53,3 +55,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+
+volumes:
+  clickhouse_data:

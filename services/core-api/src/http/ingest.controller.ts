@@ -1,6 +1,9 @@
 import { Controller, Post, Body, Inject, HttpCode } from "@nestjs/common";
 import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
+import { CH_CLIENT } from "./ch.provider.js";
+import type { Ch } from "../clickhouse/client.js";
+import { projectOrderBestEffort } from "../clickhouse/project.js";
 import { validate } from "./validate.js";
 import { orderCompletedSchema, identifySchema } from "./schemas.js";
 import { AppError } from "./errors.js";
@@ -21,7 +24,10 @@ const SUPPORTED = new Set(["order_completed", "identify"]);
 @Roles("connector")
 @Controller("v1")
 export class IngestController {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    @Inject(CH_CLIENT) private readonly ch: Ch,
+  ) {}
 
   @Post("ingest")
   @HttpCode(202)
@@ -44,7 +50,13 @@ export class IngestController {
       // Identifier là optional (KH ẩn danh hợp lệ). Nhưng nếu CÓ gửi mà TẤT CẢ
       // không hợp lệ -> báo lỗi rõ ràng, KHÔNG nuốt im lặng rồi ghi giao dịch mồ côi.
       assertIdentifiersValidIfPresent(dto.identifiers, dto.brand_id);
-      const result = await ingestOrderCompleted(this.pool, toOrderEvent(dto));
+      const orderEvent = toOrderEvent(dto);
+      const result = await ingestOrderCompleted(this.pool, orderEvent);
+      // Project sang ClickHouse SAU khi PG commit, FIRE-AND-FORGET (không chặn 202).
+      // Chỉ project bản ghi MỚI (không idempotent-replay). Lỗi CH đã nuốt trong helper.
+      if (!result.idempotent) {
+        void projectOrderBestEffort(this.ch, orderEvent, result.messageId, result.occId);
+      }
       return { data: result };
     }
 

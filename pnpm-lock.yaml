@@ -69,6 +69,9 @@ importers:
 
   services/core-api:
     dependencies:
+      '@clickhouse/client':
+        specifier: ^1.21.0
+        version: 1.21.0
       '@nestjs/common':
         specifier: ^10.4.22
         version: 10.4.22(reflect-metadata@0.2.2)(rxjs@7.8.2)
@@ -219,6 +222,13 @@ packages:
 
   '@borewit/text-codec@0.2.2':
     resolution: {integrity: sha512-DDaRehssg1aNrH4+2hnj1B7vnUGEjU6OIlyRdkMd0aUdIUvKXrJfXsy8LVtXAy7DRvYVluWbMspsRhz2lcW0mQ==}
+
+  '@clickhouse/client-common@1.21.0':
+    resolution: {integrity: sha512-UjvA32aaLKbQ5U735qAGdzohrOrfU8zFoOWIOWorWQk+7UzHZxq6pf4Uh/wQ08zAMb9cmkd9h9N1FV8zP8UCOg==}
+
+  '@clickhouse/client@1.21.0':
+    resolution: {integrity: sha512-HJLHX60clPFV4ZYjhd9Radgfqkl0MX6T4GDaS6CK4K2cpMWW4uIDPzXjueIVJh+LRVt1pi7kJKn8BWjmbGAlEA==}
+    engines: {node: '>=16'}
 
   '@csstools/color-helpers@5.1.0':
     resolution: {integrity: sha512-S11EXWJyy0Mz5SYvRmY8nJYTFFd1LCNV+7cXyAgQtOOuzb4EsgfqDufL+9esx72/eLhsRdGZwaldu/h+E4t4BA==}
@@ -2429,6 +2439,12 @@ snapshots:
       '@babel/helper-validator-identifier': 7.29.7
 
   '@borewit/text-codec@0.2.2': {}
+
+  '@clickhouse/client-common@1.21.0': {}
+
+  '@clickhouse/client@1.21.0':
+    dependencies:
+      '@clickhouse/client-common': 1.21.0
 
   '@csstools/color-helpers@5.1.0': {}
 
