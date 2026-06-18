@@ -64,14 +64,16 @@ export class AuthGuard implements CanActivate {
       (req as Request & { auth: AuthContext }).auth = {
         role: u.rows[0]!.role,
         name: u.rows[0]!.name,
+        // sub = app_user.id (uuid) ổn định + duy nhất -> khóa rate-limit theo principal.
+        principalId: `user:${payload.sub}`,
       };
       return true;
     }
 
     // 2) Fallback API key (service-to-service: POS/connector).
     const keyHash = createHash("sha256").update(token).digest("hex");
-    const r = await this.pool.query<{ role: Role; name: string }>(
-      "SELECT role, name FROM cdp.api_key WHERE key_hash=$1 AND status='active'",
+    const r = await this.pool.query<{ id: string; role: Role; name: string }>(
+      "SELECT id, role, name FROM cdp.api_key WHERE key_hash=$1 AND status='active'",
       [keyHash],
     );
     if (r.rows.length === 0) {
@@ -88,6 +90,8 @@ export class AuthGuard implements CanActivate {
     (req as Request & { auth: AuthContext }).auth = {
       role: r.rows[0]!.role,
       name: r.rows[0]!.name,
+      // api_key.id (bigint) duy nhất -> khóa rate-limit theo principal (không dùng name trùng được).
+      principalId: `key:${r.rows[0]!.id}`,
     };
     return true;
   }
