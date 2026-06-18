@@ -22,8 +22,12 @@ export interface ResolveOptions {
  * - Tạo mới nếu chưa có; nếu trùng nhiều occ_id -> merge non-destructive về survivor cũ nhất.
  * Trả null nếu không có identifier hợp lệ nào.
  */
-export async function resolveOccId(
-  pool: Pool,
+/**
+ * Resolve trong một transaction ĐÃ MỞ (caller quản lý BEGIN/COMMIT).
+ * Dùng để compose cùng ingestion/loyalty trong một ACID transaction.
+ */
+export async function resolveOccIdTx(
+  client: PoolClient,
   raw: RawIdentifier[],
   opts: ResolveOptions = {},
 ): Promise<string | null> {
@@ -31,14 +35,19 @@ export async function resolveOccId(
     .map((r) => normalizeIdentifier(r.type, r.value, opts))
     .filter((x): x is NormalizedIdentifier => x !== null);
   if (normalized.length === 0) return null;
+  await acquireLocks(client, normalized);
+  return resolveWithinTx(client, normalized, opts);
+}
 
+export async function resolveOccId(
+  pool: Pool,
+  raw: RawIdentifier[],
+  opts: ResolveOptions = {},
+): Promise<string | null> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
-    await acquireLocks(client, normalized);
-
-    const occId = await resolveWithinTx(client, normalized, opts);
-
+    const occId = await resolveOccIdTx(client, raw, opts);
     await client.query("COMMIT");
     return occId;
   } catch (err) {
