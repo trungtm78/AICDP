@@ -3,10 +3,11 @@ import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
 import { aiRecQuerySchema } from "./schemas.js";
-import { recommendForCustomer } from "../ai/ai.service.js";
+import { recommendForCustomer, recommendV2 } from "../ai/ai.service.js";
+import { getConfig } from "../ai-config/ai-config.service.js";
 import { Roles } from "./auth/roles.js";
 
-/** AI cross-sell — gợi ý next-best-product (collaborative). RBAC: marketer/analyst. */
+/** AI cross-sell — gợi ý next-best-product. RBAC: marketer/analyst. */
 @Roles("marketer", "analyst")
 @Controller("v1/ai")
 export class AiController {
@@ -16,6 +17,15 @@ export class AiController {
   async recommendations(@Query() query: Record<string, string>) {
     const q = validate(aiRecQuerySchema, query, "ai_recommendations");
     const recs = await recommendForCustomer(this.pool, q.occId, q.limit ?? 10);
+    return { data: { occId: q.occId, recommendations: recs } };
+  }
+
+  /** v2: cross-brand NBA + market-basket + diversity + boost/bury (tham số từ ai_config). */
+  @Get("recommendations/v2")
+  async recommendationsV2(@Query() query: Record<string, string>) {
+    const q = validate(aiRecQuerySchema, query, "ai_recommendations");
+    const cfg = await getConfig(this.pool);
+    const recs = await recommendV2(this.pool, q.occId, cfg.reco);
     return { data: { occId: q.occId, recommendations: recs } };
   }
 }
