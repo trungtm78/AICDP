@@ -40,9 +40,9 @@ export async function createStore(
     store_id: string;
     brand_id: string;
     name: string;
-    region?: string;
-    city?: string;
-    address?: string;
+    region?: string | undefined;
+    city?: string | undefined;
+    address?: string | undefined;
   },
 ): Promise<void> {
   await pool.query(
@@ -70,7 +70,7 @@ export async function listStores(pool: Pool, brandId?: string): Promise<Store[]>
 
 export async function createCategory(
   pool: Pool,
-  c: { category_id: string; name: string; parent_id?: string },
+  c: { category_id: string; name: string; parent_id?: string | undefined },
 ): Promise<void> {
   await pool.query(
     `INSERT INTO cdp.product_category (category_id, name, parent_id)
@@ -84,8 +84,8 @@ export async function createProduct(
   p: {
     product_master_id: string;
     name: string;
-    category_id?: string;
-    unit?: string;
+    category_id?: string | undefined;
+    unit?: string | undefined;
   },
 ): Promise<void> {
   await pool.query(

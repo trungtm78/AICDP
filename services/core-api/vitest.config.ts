@@ -1,6 +1,18 @@
 import { defineConfig } from "vitest/config";
+import swc from "unplugin-swc";
 
 export default defineConfig({
+  // SWC để compile decorator + emitDecoratorMetadata cho NestJS (esbuild không hỗ trợ metadata).
+  plugins: [
+    swc.vite({
+      module: { type: "es6" },
+      jsc: {
+        target: "es2022",
+        parser: { syntax: "typescript", decorators: true },
+        transform: { legacyDecorator: true, decoratorMetadata: true },
+      },
+    }),
+  ],
   test: {
     globals: true,
     environment: "node",

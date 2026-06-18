@@ -65,7 +65,7 @@ export async function ingestOrderCompleted(
         ? await resolveOccIdTx(client, ev.identifiers, { brandId: ev.brand_id })
         : null;
 
-    await client.query(
+    const ins = await client.query(
       `INSERT INTO cdp.canonical_transaction
          (message_id, occ_id, brand_id, store_id, source, pos_transaction_id,
           currency, total, payment_method, business_date, occ_timestamp, items)
@@ -86,6 +86,22 @@ export async function ingestOrderCompleted(
         JSON.stringify(ev.properties.items ?? []),
       ],
     );
+
+    // rowCount=0 nghĩa là một transaction đồng thời đã chèn cùng message_id (đua
+    // qua khe SELECT...FOR UPDATE ban đầu). Đây là idempotent thật: đọc lại occ_id
+    // của bản ghi đã thắng, KHÔNG báo created (tránh occId/flag sai lệch).
+    if (ins.rowCount === 0) {
+      const winner = await client.query<{ occ_id: string | null }>(
+        "SELECT occ_id FROM cdp.canonical_transaction WHERE message_id=$1",
+        [messageId],
+      );
+      await client.query("COMMIT");
+      return {
+        messageId,
+        occId: winner.rows[0]?.occ_id ?? occId,
+        idempotent: true,
+      };
+    }
 
     await client.query("COMMIT");
     return { messageId, occId, idempotent: false };

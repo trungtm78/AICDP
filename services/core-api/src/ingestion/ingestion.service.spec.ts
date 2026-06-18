@@ -60,6 +60,45 @@ describe("ingestOrderCompleted", () => {
     expect(cnt.rows[0]!.n).toBe(1);
   });
 
+  it("idempotency-race: khi INSERT đụng conflict (concurrent) phải trả idempotent=true, KHÔNG báo created", async () => {
+    // Điều khiển interleaving xác định: một transaction khác chèn cùng message_id
+    // nhưng CHƯA commit -> ingest sẽ block ở INSERT ON CONFLICT, sau khi tx kia
+    // commit thì ingest gặp conflict (rowCount=0) và phải nhận diện idempotent.
+    const messageId = "givral:givral-q1:RACE-DET";
+    const blocker = await pool.connect();
+    try {
+      await blocker.query("BEGIN");
+      await blocker.query(
+        `INSERT INTO cdp.canonical_transaction
+           (message_id, brand_id, store_id, source, pos_transaction_id, total, occ_timestamp, items)
+         VALUES ($1,'givral','givral-q1','pos','RACE-DET',1,now(),'[]')`,
+        [messageId],
+      );
+
+      const pending = ingestOrderCompleted(
+        pool,
+        order({
+          identifiers: [],
+          properties: { pos_transaction_id: "RACE-DET", total: 999, items: [] },
+        }) as never,
+      );
+      // Cho ingest chạy tới INSERT và bị block bởi lock của blocker.
+      await new Promise((r) => setTimeout(r, 300));
+      await blocker.query("COMMIT"); // nhả lock -> ingest gặp conflict
+
+      const r = await pending;
+      expect(r.idempotent).toBe(true); // PHẢI nhận diện duplicate, không phải created
+    } finally {
+      blocker.release();
+    }
+
+    const cnt = await pool.query(
+      "SELECT count(*)::int AS n FROM cdp.canonical_transaction WHERE message_id=$1",
+      [messageId],
+    );
+    expect(cnt.rows[0]!.n).toBe(1);
+  });
+
   it("giao dịch ẩn danh (không identifier) vẫn được ghi với occ_id null", async () => {
     const r = await ingestOrderCompleted(
       pool,

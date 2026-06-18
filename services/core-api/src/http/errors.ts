@@ -1,0 +1,87 @@
+// Error envelope chuẩn theo tracking-plan-spec mục 8 — KHÔNG nuốt data im lặng.
+
+export type ErrorCode =
+  | "SCHEMA_MISSING_REQUIRED_FIELD"
+  | "SCHEMA_TYPE_MISMATCH"
+  | "INVALID_IDENTIFIER"
+  | "IDEMPOTENCY_CONFLICT"
+  | "RATE_LIMIT_SOURCE_BURST"
+  | "UNKNOWN_EVENT_TYPE"
+  | "CONSENT_PURPOSE_NOT_GRANTED"
+  | "CUSTOMER_NOT_FOUND"
+  | "INTERNAL";
+
+export interface ErrorEnvelope {
+  error: {
+    code: ErrorCode;
+    message: string;
+    why: string;
+    fix: string;
+    field_path: string | null;
+    schema_version: number;
+    docs_url: string | null;
+    correlation_id: string;
+    retryable: boolean;
+    quarantine_id: string | null;
+  };
+}
+
+const DOCS_BASE = "https://docs.occ-cdp.internal/tracking-plan-spec";
+
+export interface AppErrorInit {
+  code: ErrorCode;
+  httpStatus: number;
+  message: string;
+  why?: string;
+  fix?: string;
+  fieldPath?: string | null;
+  retryable?: boolean;
+  quarantineId?: string | null;
+  docsAnchor?: string;
+}
+
+/** Lỗi nghiệp vụ/validation chuẩn hóa — filter sẽ render thành ErrorEnvelope. */
+export class AppError extends Error {
+  readonly code: ErrorCode;
+  readonly httpStatus: number;
+  readonly why: string;
+  readonly fix: string;
+  readonly fieldPath: string | null;
+  readonly retryable: boolean;
+  readonly quarantineId: string | null;
+  readonly docsAnchor: string | undefined;
+
+  constructor(init: AppErrorInit) {
+    super(init.message);
+    this.name = "AppError";
+    this.code = init.code;
+    this.httpStatus = init.httpStatus;
+    this.why = init.why ?? "";
+    this.fix = init.fix ?? "";
+    this.fieldPath = init.fieldPath ?? null;
+    this.retryable = init.retryable ?? false;
+    this.quarantineId = init.quarantineId ?? null;
+    this.docsAnchor = init.docsAnchor;
+  }
+}
+
+export function buildEnvelope(
+  err: AppError,
+  correlationId: string,
+  schemaVersion = 1,
+): ErrorEnvelope {
+  return {
+    error: {
+      code: err.code,
+      message: err.message,
+      why: err.why,
+      fix: err.fix,
+      field_path: err.fieldPath,
+      schema_version: schemaVersion,
+      docs_url: err.docsAnchor ? `${DOCS_BASE}#${err.docsAnchor}` : null,
+      correlation_id: correlationId,
+      retryable: err.retryable,
+      quarantine_id: err.quarantineId,
+    },
+  };
+}

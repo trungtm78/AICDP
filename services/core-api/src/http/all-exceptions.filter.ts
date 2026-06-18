@@ -1,0 +1,92 @@
+import {
+  Catch,
+  type ArgumentsHost,
+  type ExceptionFilter,
+  HttpException,
+} from "@nestjs/common";
+import type { Request, Response } from "express";
+import { AppError, buildEnvelope } from "./errors.js";
+import { getCorrelationId } from "./correlation.middleware.js";
+
+/** Global filter: mọi lỗi -> ErrorEnvelope chuẩn (không nuốt data im lặng). */
+@Catch()
+export class AllExceptionsFilter implements ExceptionFilter {
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const res = ctx.getResponse<Response>();
+    const req = ctx.getRequest<Request>();
+    const correlationId = getCorrelationId(req);
+
+    const appErr = this.toAppError(exception);
+    // Lỗi 5xx không mong đợi: log chi tiết server-side kèm correlation_id để truy
+    // vết, nhưng KHÔNG trả lỗi DB/stack thô ra client (tránh lộ thông tin nội bộ).
+    if (appErr.httpStatus >= 500) {
+      // eslint-disable-next-line no-console
+      console.error(`[${correlationId}] ${appErr.code}:`, exception);
+    }
+    res.status(appErr.httpStatus).json(buildEnvelope(appErr, correlationId));
+  }
+
+  private toAppError(exception: unknown): AppError {
+    if (exception instanceof AppError) return exception;
+
+    // Vi phạm UNIQUE Postgres (vd idempotency, trùng store_id) -> 409.
+    const pgCode = (exception as { code?: string } | null)?.code;
+    if (pgCode === "23505") {
+      return new AppError({
+        code: "IDEMPOTENCY_CONFLICT",
+        httpStatus: 409,
+        message: "Bản ghi đã tồn tại (vi phạm ràng buộc duy nhất).",
+        why: "Khóa duy nhất đã tồn tại trong DB.",
+        fix: "Kiểm tra id/khóa idempotency; nếu retry, dùng cùng khóa để nhận kết quả idempotent.",
+        retryable: false,
+      });
+    }
+    // FK vi phạm (vd brand_id không tồn tại) -> 400.
+    if (pgCode === "23503") {
+      return new AppError({
+        code: "SCHEMA_TYPE_MISMATCH",
+        httpStatus: 400,
+        message: "Tham chiếu không hợp lệ (khóa ngoại không tồn tại).",
+        why: "Giá trị tham chiếu (vd brand_id) chưa tồn tại trong master data.",
+        fix: "Tạo bản ghi cha trước, hoặc sửa lại giá trị tham chiếu.",
+        retryable: false,
+      });
+    }
+
+    if (exception instanceof HttpException) {
+      // Lỗi framework. Lỗi nghiệp vụ (customer-not-found) đã là AppError ở nhánh trên.
+      const status = exception.getStatus();
+      // 4xx của framework là lỗi client (vd JSON body hỏng -> 400 BadRequest).
+      // Gắn nhãn schema để client xử lý đúng, không nhầm thành lỗi nội bộ.
+      if (status === 400) {
+        return new AppError({
+          code: "SCHEMA_TYPE_MISMATCH",
+          httpStatus: 400,
+          message: "Body request không hợp lệ (JSON sai hoặc sai cấu trúc).",
+          why: "Không parse/validate được body theo định dạng mong đợi.",
+          fix: "Gửi JSON hợp lệ đúng schema endpoint.",
+          retryable: false,
+        });
+      }
+      return new AppError({
+        code: "INTERNAL",
+        httpStatus: status,
+        message: exception.message,
+        why: "Lỗi HTTP từ framework (không khớp route/handler nào).",
+        fix: "Kiểm tra method + đường dẫn endpoint.",
+        retryable: status >= 500,
+      });
+    }
+
+    return new AppError({
+      code: "INTERNAL",
+      httpStatus: 500,
+      message: "Lỗi nội bộ không mong đợi.",
+      // KHÔNG nhúng message lỗi thô (có thể lộ chi tiết DB) — đã log server-side.
+      why: "Đã ghi log chi tiết phía server.",
+      fix: "Liên hệ vận hành kèm correlation_id để truy vết.",
+      retryable: true,
+    });
+  }
+}
