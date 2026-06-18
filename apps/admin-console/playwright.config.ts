@@ -8,8 +8,11 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
+  // Đăng nhập 1 lần -> storageState (JWT) dùng cho mọi test (app yêu cầu login).
+  globalSetup: "./e2e/global-setup.ts",
   use: {
     baseURL: "http://localhost:8073",
+    storageState: "./e2e/.auth-state.json",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",

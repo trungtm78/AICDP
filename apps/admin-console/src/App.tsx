@@ -1,4 +1,7 @@
+import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router-dom";
+import { getToken, getName, getRole, clearSession } from "./lib/auth.js";
+import { LoginScreen } from "./screens/LoginScreen.js";
 import { CustomersScreen } from "./screens/CustomersScreen.js";
 import { MastersScreen } from "./screens/MastersScreen.js";
 import { LoyaltyScreen } from "./screens/LoyaltyScreen.js";
@@ -20,6 +23,9 @@ const NAV = [
 ];
 
 export function App() {
+  const [authed, setAuthed] = useState<boolean>(() => getToken() !== null);
+  if (!authed) return <LoginScreen onLoggedIn={() => setAuthed(true)} />;
+
   return (
     <div className="flex h-full">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface-alt">
@@ -45,9 +51,20 @@ export function App() {
             </NavLink>
           ))}
         </nav>
-        <div className="mt-auto px-4 py-3 text-xs text-text-subtle">
-          <kbd className="rounded border border-border px-1">Ctrl</kbd> +{" "}
-          <kbd className="rounded border border-border px-1">K</kbd> lệnh nhanh
+        <div className="mt-auto px-3 py-3">
+          <div className="mb-2 px-1 text-xs text-text-subtle">
+            {getName() ?? "—"} · <span className="uppercase">{getRole() ?? ""}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              clearSession();
+              setAuthed(false);
+            }}
+            className="w-full rounded-md border border-border px-3 py-1.5 text-left text-text-muted hover:bg-surface"
+          >
+            Đăng xuất
+          </button>
         </div>
       </aside>
 

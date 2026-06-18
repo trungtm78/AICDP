@@ -3,3 +3,4 @@ test-results/
 playwright-report/
 *.tsbuildinfo
 shot-*.png
+e2e/.auth-state.json

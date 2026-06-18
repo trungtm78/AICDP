@@ -1,3 +1,4 @@
+import { getToken, clearSession } from "./auth.js";
 import {
   ApiError,
   type Brand,
@@ -30,22 +31,23 @@ interface Envelope<T> {
 // Rỗng (mặc định) = same-origin: dev qua Vite proxy /v1, prod cần reverse-proxy /v1 -> core-api.
 // Đặt VITE_API_BASE_URL khi admin-console và core-api khác origin.
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
-// DEV: dùng key admin seed sẵn để UI hoạt động. PROD: thay bằng login/JWT (KHÔNG nhúng
-// key admin vào bundle SPA — xem memory occ-cdp-auth-gap).
-const API_KEY = import.meta.env.VITE_API_KEY ?? "occ-dev-admin-key-2026";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // JWT từ phiên đăng nhập (không nhúng credential vào bundle). Login là public nên
+  // không cần token. 401 -> xoá phiên để App quay về màn đăng nhập.
+  const token = getToken();
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${API_KEY}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
   const body = await res.json().catch(() => null);
   if (!res.ok) {
     const err = body?.error ?? {};
+    if (res.status === 401) clearSession();
     throw new ApiError(
       err.message ?? `Lỗi ${res.status}`,
       err.code ?? "UNKNOWN",
@@ -57,6 +59,12 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  login: (username: string, password: string) =>
+    request<{ token: string; role: string; name: string }>("/v1/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ username, password }),
+    }),
+
   listBrands: () => request<Brand[]>("/v1/brands"),
 
   listStores: (brandId?: string) =>

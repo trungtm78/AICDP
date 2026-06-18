@@ -1,5 +1,18 @@
 import { test, expect } from "@playwright/test";
 
+// Luồng đăng nhập thật qua UI: bắt đầu KHÔNG có phiên -> màn login -> vào Control Tower.
+test.describe("Auth gate", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+  test("chưa đăng nhập hiện màn login; đăng nhập đúng vào hệ thống", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "Đăng nhập" })).toBeVisible();
+    await page.getByLabel("Tên đăng nhập").fill("admin");
+    await page.getByLabel("Mật khẩu").fill("admin12345");
+    await page.getByRole("button", { name: "Đăng nhập" }).click();
+    await expect(page.getByRole("heading", { name: "Control Tower" })).toBeVisible();
+  });
+});
+
 // E2E click qua UI thật. Data tạo MỚI qua chính form trên UI (không seed qua API).
 // Dùng hậu tố thời gian để mỗi lần chạy không đụng unique constraint của DB dev.
 const stamp = Date.now();
