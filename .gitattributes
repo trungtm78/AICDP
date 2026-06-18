@@ -1,0 +1,6 @@
+# Chuẩn hóa line endings: LF trong repo, tránh noise CRLF trên Windows
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.woff2 binary
+*.ico binary
