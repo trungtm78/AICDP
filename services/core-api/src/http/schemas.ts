@@ -189,6 +189,28 @@ export const aiRecQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 
+export const aiConfigSectionEnum = z.enum([
+  "rfm",
+  "reco",
+  "forecast",
+  "decisioning",
+  "features",
+  "llm",
+]);
+
+export const aiConfigUpdateSchema = z.object({
+  section: aiConfigSectionEnum,
+  value: z.record(z.unknown()),
+});
+
+export const nbaSchema = z.object({
+  occId: z.string().uuid(),
+});
+
+export const featureRecomputeSchema = z.object({
+  occId: z.string().uuid().optional(), // có occId -> 1 khách; không -> batch toàn bộ
+});
+
 export const roleEnum = z.enum([
   "admin",
   "data_steward",
