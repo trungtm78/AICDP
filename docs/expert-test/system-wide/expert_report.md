@@ -74,13 +74,14 @@ Hệ thống UI đã được quan sát thật qua UI E2E (14 test Chromium ở 
 - Các bất biến correctness rủi ro cao nhất (double-entry, deny-by-default, idempotency, resolve deterministic) được chứng minh trên MIỀN input rộng bằng property + model-based, không chỉ ví dụ.
 - Mutation 100% kill trên đúng các điểm nguy hiểm (tiền/danh-tính/consent/RBAC): bộ test KHÔNG mù ở những chỗ quan trọng nhất.
 
-**Điểm yếu / rủi ro còn lại:**
-1. **Stryker chưa chạy tự động** → chưa có kill-rate toàn cục (chỉ 5 mutant chủ đích). Cần fix tooling (pnpm hoisted node-linker hoặc chạy trên Linux/CI) để đo full.
-2. **Concurrency race thật** (đua reserve/ingest cùng key đa connection) mới test ở mức UAT API tuần tự, chưa stress song song ở tầng expert.
-3. **Fuzzing parser** (FZ) và **performance quy mô lớn** (PF) chưa thực thi.
-4. **Differential CH vs PG** chưa chạy (ClickHouse-live blocked do Docker).
+**Đã bổ sung — CONCURRENCY RACE (PF-02/03):** `src/expert/concurrency.spec.ts` **3/3 PASS** chứng minh dưới ĐỒNG THỜI thật (Promise.allSettled trên Postgres): (a) 20 ingest cùng `{brand}:{store}:{pos_txn}` → đúng 1 canonical_transaction, cùng occId, đúng 1 created (idempotent race-free); (b) earn 100 + 10 reserve(40) song song → tối đa 2 thành công, available KHÔNG âm, reserved=40×success (advisory lock chống oversell); (c) 15 earn song song keys khác → tổng đúng 150 (không lost-update).
 
-**Ưu tiên vá (xếp rủi ro):** (1) chạy Stryker full trên CI Linux để có kill-rate toàn cục; (2) test concurrency race (đua reserve/ingest); (3) fuzzing ingest payload; (4) performance ở dataset lớn.
+**Điểm yếu / rủi ro còn lại:**
+1. **Stryker chưa chạy tự động** → chưa có kill-rate toàn cục (chỉ 5 mutant chủ đích). Cần fix tooling (node-linker hoisted hoặc chạy trên Linux/CI) để đo full.
+2. **Fuzzing parser** (FZ) và **performance quy mô lớn** (PF-04/05) chưa thực thi.
+3. **Differential CH vs PG** chưa chạy (ClickHouse-live blocked do Docker).
+
+**Ưu tiên vá (xếp rủi ro):** (1) chạy Stryker full trên CI Linux để có kill-rate toàn cục; (2) fuzzing ingest payload; (3) performance ở dataset lớn; (4) differential CH vs PG khi Docker ổn.
 
 ### Bảng quyết định release
 | Tiêu chí | Ngưỡng | Thực tế | Đạt? |
@@ -88,6 +89,7 @@ Hệ thống UI đã được quan sát thật qua UI E2E (14 test Chromium ở 
 | Property mọi bất biến lõi xanh | 100% | 19/19 | ✅ |
 | Mutation kill (module lõi, tập nguy hiểm) | ≥80% | 100% (5/5) | ✅ |
 | Stateful: transition bất hợp lệ bị chặn | 100% | ✅ (SF-01/02) | ✅ |
+| Concurrency race (idempotency + no-oversell) | 0 oversell/dup | ✅ (PF-02/03, 3/3) | ✅ |
 | Mutation kill-rate TOÀN CỤC tự động | ≥80% | chưa đo (Stryker blocked) | ⚠️ |
 | Fuzz parser không crash | 0 crash | chưa chạy | ⚠️ |
 | Perf quy mô lớn | đạt | chưa chạy | ⚠️ |
