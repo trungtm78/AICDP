@@ -14,10 +14,12 @@ import { AnalyticsController } from "./analytics.controller.js";
 import { SegmentController } from "./segment.controller.js";
 import { AiController } from "./ai.controller.js";
 import { JourneyController } from "./journey.controller.js";
+import { AuthController } from "./auth.controller.js";
 
 @Module({
   controllers: [
     HealthController,
+    AuthController,
     MastersController,
     IngestController,
     CustomersController,

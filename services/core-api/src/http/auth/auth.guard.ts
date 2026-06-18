@@ -7,6 +7,8 @@ import type { Pool } from "pg";
 import { PG_POOL } from "../pg.provider.js";
 import { AppError } from "../errors.js";
 import { IS_PUBLIC_KEY, type AuthContext, type Role } from "./roles.js";
+import { verifyJwt } from "../../auth/jwt.js";
+import { getJwtSecret } from "../../auth/jwt-secret.js";
 
 /** Xác thực Bearer API key (sha256 hex) -> gắn request.auth = {role,name}. Deny-by-default. */
 @Injectable()
@@ -38,7 +40,36 @@ export class AuthGuard implements CanActivate {
       });
     }
 
-    const keyHash = createHash("sha256").update(match[1]!).digest("hex");
+    const token = match[1]!;
+
+    // 1) Thử JWT (người dùng đăng nhập qua admin-console).
+    const payload = verifyJwt(token, getJwtSecret());
+    if (payload) {
+      // Lấy role HIỆN TẠI từ DB theo sub (không tin role trong token): user bị disable
+      // hoặc đổi role có hiệu lực ngay, không chờ token hết hạn.
+      const u = await this.pool.query<{ role: Role; name: string }>(
+        "SELECT role, name FROM cdp.app_user WHERE id=$1 AND status='active'",
+        [payload.sub],
+      );
+      if (u.rows.length === 0) {
+        throw new AppError({
+          code: "UNAUTHENTICATED",
+          httpStatus: 401,
+          message: "Phiên không còn hợp lệ (user bị vô hiệu hoặc không tồn tại).",
+          why: "Không tìm thấy user active theo sub trong token.",
+          fix: "Đăng nhập lại.",
+          retryable: false,
+        });
+      }
+      (req as Request & { auth: AuthContext }).auth = {
+        role: u.rows[0]!.role,
+        name: u.rows[0]!.name,
+      };
+      return true;
+    }
+
+    // 2) Fallback API key (service-to-service: POS/connector).
+    const keyHash = createHash("sha256").update(token).digest("hex");
     const r = await this.pool.query<{ role: Role; name: string }>(
       "SELECT role, name FROM cdp.api_key WHERE key_hash=$1 AND status='active'",
       [keyHash],
@@ -47,9 +78,9 @@ export class AuthGuard implements CanActivate {
       throw new AppError({
         code: "UNAUTHENTICATED",
         httpStatus: 401,
-        message: "API key không hợp lệ hoặc đã thu hồi.",
-        why: "Không tìm thấy key active khớp.",
-        fix: "Kiểm tra lại API key.",
+        message: "Token không hợp lệ (JWT sai/hết hạn hoặc API key đã thu hồi).",
+        why: "Không xác thực được JWT và không tìm thấy API key active khớp.",
+        fix: "Đăng nhập lại để lấy JWT mới, hoặc kiểm tra API key.",
         retryable: false,
       });
     }

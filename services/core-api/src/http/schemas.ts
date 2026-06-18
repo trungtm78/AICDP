@@ -166,6 +166,29 @@ export const aiRecQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).optional(),
 });
 
+export const roleEnum = z.enum([
+  "admin",
+  "data_steward",
+  "marketer",
+  "csr",
+  "analyst",
+  "compliance",
+  "executive",
+  "connector",
+]);
+
+export const loginSchema = z.object({
+  username: z.string().min(1).max(100),
+  password: z.string().min(1).max(200),
+});
+
+export const createUserSchema = z.object({
+  username: z.string().min(3).max(100),
+  password: z.string().min(8).max(200),
+  role: roleEnum,
+  name: z.string().min(1).max(200),
+});
+
 export const lookupQuerySchema = z.object({
   type: identifierSchema.shape.type,
   value: z.string().min(1),
