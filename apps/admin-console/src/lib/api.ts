@@ -24,6 +24,14 @@ import {
   type UserSummary,
   type ApiKeySummary,
   type CreatedApiKey,
+  type AiConfig,
+  type AiConfigSection,
+  type AiConfigAuditEntry,
+  type LlmUsageEntry,
+  type CustomerFeature,
+  type RecommendationV2,
+  type NbaDecision,
+  type ForecastResult,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -200,4 +208,45 @@ export const api = {
       `/v1/auth/api-keys/${encodeURIComponent(id)}/revoke`,
       { method: "POST" },
     ),
+
+  // ── AI Phase A ──
+  getAiConfig: () => request<AiConfig>("/v1/ai/config"),
+  setAiConfig: (section: AiConfigSection, value: Record<string, unknown>) =>
+    request<AiConfig>("/v1/ai/config", { method: "POST", body: JSON.stringify({ section, value }) }),
+  listAiConfigAudit: () => request<AiConfigAuditEntry[]>("/v1/ai/config/audit"),
+  listLlmUsage: () => request<LlmUsageEntry[]>("/v1/ai/config/usage"),
+
+  getFeature: (occId: string) => request<CustomerFeature>(`/v1/ai/features/${encodeURIComponent(occId)}`),
+  recomputeFeature: (occId: string) =>
+    request<CustomerFeature>("/v1/ai/features/recompute", { method: "POST", body: JSON.stringify({ occId }) }),
+
+  getRecommendationsV2: (occId: string) =>
+    request<{ occId: string; recommendations: RecommendationV2[] }>(
+      `/v1/ai/recommendations/v2?occId=${encodeURIComponent(occId)}`,
+    ),
+  getNba: (occId: string) =>
+    request<NbaDecision>("/v1/ai/nba", { method: "POST", body: JSON.stringify({ occId }) }),
+
+  getForecast: (params: { brandId?: string; granularity?: "week" | "month"; periods?: number }) => {
+    const q = new URLSearchParams();
+    if (params.brandId) q.set("brandId", params.brandId);
+    if (params.granularity) q.set("granularity", params.granularity);
+    if (params.periods) q.set("periods", String(params.periods));
+    return request<ForecastResult>(`/v1/analytics/forecast?${q.toString()}`);
+  },
+
+  assistantAsk: (question: string) =>
+    request<{ text: string }>("/v1/ai/assistant/ask", { method: "POST", body: JSON.stringify({ question }) }),
+  assistantSegment: (description: string) =>
+    request<{ criteria: SegmentCriteria; preview: SegmentPreview }>("/v1/ai/assistant/segment", {
+      method: "POST",
+      body: JSON.stringify({ description }),
+    }),
+  assistantContent: (brief: string, brandVoice?: string, channel?: string) =>
+    request<{ text: string }>("/v1/ai/assistant/content", {
+      method: "POST",
+      body: JSON.stringify({ brief, brandVoice, channel }),
+    }),
+  assistantExplain: (occId: string) =>
+    request<{ text: string }>("/v1/ai/assistant/explain", { method: "POST", body: JSON.stringify({ occId }) }),
 };

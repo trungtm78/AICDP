@@ -4,7 +4,7 @@ import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
 import { aiConfigUpdateSchema } from "./schemas.js";
-import { getConfig, setConfig, listAudit } from "../ai-config/ai-config.service.js";
+import { getConfig, setConfig, listAudit, listUsage } from "../ai-config/ai-config.service.js";
 import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
@@ -32,5 +32,10 @@ export class AiConfigController {
   @Get("audit")
   async audit() {
     return { data: await listAudit(this.pool) };
+  }
+
+  @Get("usage")
+  async usage() {
+    return { data: await listUsage(this.pool) };
   }
 }

@@ -169,3 +169,24 @@ export async function listAudit(pool: Pool, limit = 100): Promise<AiConfigAuditE
   );
   return r.rows;
 }
+
+export interface LlmUsageEntry {
+  id: string;
+  task: string;
+  provider: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  principal_id: string | null;
+  created_at: string;
+}
+
+/** Lịch sử gọi LLM (token/cost) cho tab LLM Usage trong AI Governance. */
+export async function listUsage(pool: Pool, limit = 100): Promise<LlmUsageEntry[]> {
+  const r = await pool.query<LlmUsageEntry>(
+    `SELECT id::text, task, provider, model, input_tokens, output_tokens, principal_id, created_at
+       FROM cdp.ai_llm_usage ORDER BY created_at DESC, id DESC LIMIT $1`,
+    [limit],
+  );
+  return r.rows;
+}

@@ -174,6 +174,87 @@ export type IdentifierType =
   | "loyalty_card"
   | "pos_member_id";
 
+// ── AI Phase A ──
+export type LlmProvider = "anthropic" | "openai" | "gemini";
+export interface LlmTaskConfig {
+  provider: LlmProvider;
+  model: string;
+}
+export interface AiConfig {
+  rfm: { vipFreq: number; vipMonetary: number; atRiskGapDays: number; churnGapDays: number; dormantGapDays: number };
+  reco: { topN: number; diversityWeight: number; enableCrossBrand: boolean; enableMarketBasket: boolean; boost: string[]; bury: string[] };
+  forecast: { periods: number; window: number; granularity: "week" | "month" };
+  decisioning: { enabled: boolean };
+  features: { recoV2: boolean; nba: boolean; forecast: boolean; assistant: boolean };
+  llm: {
+    defaultProvider: LlmProvider;
+    piiPolicy: "redact" | "block" | "allow";
+    tasks: { ask: LlmTaskConfig; segment: LlmTaskConfig; content: LlmTaskConfig; explain: LlmTaskConfig };
+  };
+}
+export type AiConfigSection = keyof AiConfig;
+export interface AiConfigAuditEntry {
+  id: string;
+  key: string;
+  old_value: Record<string, unknown> | null;
+  new_value: Record<string, unknown>;
+  changed_by: string;
+  changed_at: string;
+}
+export interface LlmUsageEntry {
+  id: string;
+  task: string;
+  provider: string;
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  principal_id: string | null;
+  created_at: string;
+}
+export interface CustomerFeature {
+  occId: string;
+  recencyDays: number | null;
+  frequency: number;
+  monetary: number;
+  avgBasket: number;
+  distinctBrands: number;
+  distinctCategories: number;
+  favoriteCategory: string | null;
+  loyaltyAvailable: number;
+  lastOrderAt: string | null;
+  lifecycleStage: string | null;
+  propensityScore: number | null;
+  churnRisk: number | null;
+  featureVersion: string;
+  computedAt: string;
+}
+export interface RecommendationV2 {
+  itemKey: string;
+  productMasterId: string | null;
+  name: string | null;
+  brandId: string | null;
+  category: string | null;
+  score: number;
+  source: string;
+  reasons: string[];
+}
+export interface NbaDecision {
+  occId: string;
+  action: { type: string; points?: number; purpose?: string; channel?: string };
+  eligible: boolean;
+  reasons: string[];
+  consentChecked: { purpose: string; allowed: boolean } | null;
+  lifecycleStage: string | null;
+}
+export interface ForecastResult {
+  brandId: string | null;
+  storeId: string | null;
+  granularity: "week" | "month";
+  history: { period: string; revenue: number; transactions: number }[];
+  forecast: { period: string; revenue: number }[];
+  method: string;
+}
+
 /** Lỗi chuẩn hóa từ error envelope của core-api. */
 export class ApiError extends Error {
   readonly code: string;

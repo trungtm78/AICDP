@@ -10,8 +10,9 @@ import { AudiencesScreen } from "./screens/AudiencesScreen.js";
 import { ControlTowerScreen } from "./screens/ControlTowerScreen.js";
 import { JourneysScreen } from "./screens/JourneysScreen.js";
 import { PlatformScreen } from "./screens/PlatformScreen.js";
+import { AiGovernanceScreen } from "./screens/AiGovernanceScreen.js";
 
-// IA 8 workspace (DESIGN.md). GĐ1 hiện thực: Customers + Data Ops; còn lại placeholder.
+// IA workspace (DESIGN.md). + AI & Governance (Phase A).
 const NAV = [
   { to: "/control-tower", label: "Control Tower", ready: true },
   { to: "/customers", label: "Customers", ready: true },
@@ -21,6 +22,7 @@ const NAV = [
   { to: "/data-ops", label: "Data Ops", ready: true },
   { to: "/governance", label: "Governance", ready: true },
   { to: "/platform", label: "Platform", ready: true },
+  { to: "/ai-governance", label: "AI & Governance", ready: true },
 ];
 
 export function App() {
@@ -80,6 +82,7 @@ export function App() {
           <Route path="/data-ops" element={<MastersScreen />} />
           <Route path="/governance" element={<GovernanceScreen />} />
           <Route path="/platform" element={<PlatformScreen />} />
+          <Route path="/ai-governance" element={<AiGovernanceScreen />} />
           <Route path="*" element={<Placeholder />} />
         </Routes>
       </main>
