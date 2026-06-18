@@ -121,6 +121,12 @@ export const consentRecordSchema = z.object({
   evidence: z.string().max(2000).optional(),
 });
 
+export const segmentPreviewSchema = z.object({
+  brandId: z.string().min(1).optional(),
+  minSpend: z.number().int().nonnegative().safe().optional(),
+  minTransactions: z.number().int().positive().safe().optional(),
+});
+
 export const activationSchema = z.object({
   audienceName: z.string().min(1).max(200),
   purpose: consentPurposeEnum, // chỉ kích hoạt theo mục đích có trong danh mục consent
