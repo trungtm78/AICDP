@@ -121,10 +121,33 @@ export const consentRecordSchema = z.object({
   evidence: z.string().max(2000).optional(),
 });
 
+export const lifecycleStageEnum = z.enum([
+  "new",
+  "active",
+  "at_risk",
+  "vip",
+  "dormant",
+  "churned",
+]);
+
 export const segmentPreviewSchema = z.object({
   brandId: z.string().min(1).optional(),
   minSpend: z.number().int().nonnegative().safe().optional(),
   minTransactions: z.number().int().positive().safe().optional(),
+  // Mở rộng AI Phase A (tiêu chí từ customer_feature) — tương thích ngược (đều optional).
+  maxRecencyDays: z.number().int().nonnegative().safe().optional(),
+  lifecycleStage: lifecycleStageEnum.optional(),
+  loyaltyMin: z.number().int().nonnegative().safe().optional(),
+  categoryAffinity: z.string().min(1).optional(),
+  consentPurpose: consentPurposeEnum.optional(),
+});
+
+export const forecastQuerySchema = z.object({
+  brandId: z.string().min(1).optional(),
+  storeId: z.string().min(1).optional(),
+  granularity: z.enum(["week", "month"]).optional(),
+  periods: z.coerce.number().int().positive().max(52).optional(),
+  window: z.coerce.number().int().positive().max(52).optional(),
 });
 
 export const journeyCreateSchema = z.object({
