@@ -66,6 +66,16 @@ test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
     await expect(page.getByRole("heading", { name: "Loyalty" })).toBeVisible();
     await page.getByRole("link", { name: "Governance" }).click();
     await expect(page.getByRole("heading", { name: "Governance · Consent" })).toBeVisible();
+    await page.getByRole("link", { name: "Audiences" }).click();
+    await expect(page.getByRole("heading", { name: "Audiences · Activation" })).toBeVisible();
+  });
+
+  test("Audiences: nút kích hoạt disabled khi chưa nhập tên/occId", async ({ page }) => {
+    await page.goto("/audiences");
+    await expect(page.getByRole("button", { name: "Kích hoạt" })).toBeDisabled();
+    await page.getByLabel("Tên audience").fill("Test");
+    // vẫn disabled vì chưa có occId
+    await expect(page.getByRole("button", { name: "Kích hoạt" })).toBeDisabled();
   });
 
   test("Governance: deny-by-default — occId chưa có consent hiển thị tất cả purpose = denied", async ({

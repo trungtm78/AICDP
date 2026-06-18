@@ -63,6 +63,22 @@ export type ConsentPurpose =
   | "personalization"
   | "data_sharing";
 
+export interface ActivateResult {
+  runId: string;
+  total: number;
+  allowedCount: number;
+  suppressedCount: number;
+  allowed: string[];
+}
+
+export interface ActivateArgs {
+  audienceName: string;
+  purpose: ConsentPurpose;
+  channel: string;
+  destination: string;
+  occIds: string[];
+}
+
 export type IdentifierType =
   | "phone"
   | "email"

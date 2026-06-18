@@ -10,6 +10,8 @@ import {
   type ReserveResult,
   type ConsentState,
   type ConsentPurpose,
+  type ActivateArgs,
+  type ActivateResult,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -113,5 +115,11 @@ export const api = {
     request<ConsentState>("/v1/consent", {
       method: "POST",
       body: JSON.stringify({ occId, purpose, status, source }),
+    }),
+
+  activate: (args: ActivateArgs) =>
+    request<ActivateResult>("/v1/activation", {
+      method: "POST",
+      body: JSON.stringify(args),
     }),
 };
