@@ -16,6 +16,8 @@ export type ErrorCode =
   | "INSUFFICIENT_RESERVED"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_INVALID_STATE"
+  | "LLM_DISABLED"
+  | "LLM_NOT_CONFIGURED"
   | "INTERNAL";
 
 export interface ErrorEnvelope {

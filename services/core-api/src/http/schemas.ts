@@ -211,6 +211,15 @@ export const featureRecomputeSchema = z.object({
   occId: z.string().uuid().optional(), // có occId -> 1 khách; không -> batch toàn bộ
 });
 
+export const assistantAskSchema = z.object({ question: z.string().min(1).max(1000) });
+export const assistantSegmentSchema = z.object({ description: z.string().min(1).max(1000) });
+export const assistantContentSchema = z.object({
+  brief: z.string().min(1).max(2000),
+  brandVoice: z.string().min(1).max(200).optional(),
+  channel: z.string().min(1).max(50).optional(),
+});
+export const assistantExplainSchema = z.object({ occId: z.string().uuid() });
+
 export const roleEnum = z.enum([
   "admin",
   "data_steward",

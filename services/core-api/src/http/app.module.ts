@@ -18,6 +18,7 @@ import { SegmentController } from "./segment.controller.js";
 import { AiController } from "./ai.controller.js";
 import { AiConfigController } from "./ai-config.controller.js";
 import { FeatureController } from "./feature.controller.js";
+import { AssistantController } from "./assistant.controller.js";
 import { JourneyController } from "./journey.controller.js";
 import { AuthController } from "./auth.controller.js";
 
@@ -36,6 +37,7 @@ import { AuthController } from "./auth.controller.js";
     AiController,
     AiConfigController,
     FeatureController,
+    AssistantController,
     JourneyController,
   ],
   providers: [
