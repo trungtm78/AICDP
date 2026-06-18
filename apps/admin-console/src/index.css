@@ -1,0 +1,77 @@
+@import "tailwindcss";
+
+/*
+  Design tokens OCC-CDP (DESIGN.md). KHÔNG hardcode hex trong component — chỉ dùng
+  utility map từ @theme dưới đây (bg-surface, text-muted, text-accent, border-border...).
+  Font: Geist self-host (woff2) sẽ bổ sung sau; tạm fallback system-ui (giữ diacritics VN).
+*/
+@theme {
+  --color-bg: #fbfbfc;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f4f5f7;
+  --color-border: #e7e9ee;
+  --color-border-strong: #cbd2dc;
+  --color-text: #0b0e14;
+  --color-text-muted: #5b6573;
+  --color-text-subtle: #8a93a2;
+
+  --color-accent: #0ea5a4;
+  --color-accent-fg: #ffffff;
+  --color-secondary: #334155;
+
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  --color-error: #dc2626;
+  --color-info: #2563eb;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+
+  --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: 0.875rem; /* 14px — density mặc định */
+  line-height: 1.35;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Số liệu thẳng cột (tables, war-room numbers). */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Input chuẩn (industrial-minimal: hairline border, radius nhỏ, density). */
+.input {
+  height: 2.25rem; /* 36px */
+  min-width: 11rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  padding: 0 0.75rem;
+}
+
+/* Focus ring rõ (WCAG AA) trên mọi phần tử tương tác. */
+:where(a, button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
