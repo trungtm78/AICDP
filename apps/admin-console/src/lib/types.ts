@@ -26,6 +26,12 @@ export interface Product {
   status: string;
 }
 
+export interface Recommendation {
+  sku: string;
+  name: string | null;
+  score: number;
+}
+
 export interface Customer360 {
   occId: string;
   profile: Record<string, unknown>;

@@ -7,13 +7,16 @@ import { api } from "../lib/api.js";
 import { ApiError } from "../lib/types.js";
 
 vi.mock("../lib/api.js", () => ({
-  api: { lookupCustomer: vi.fn() },
+  api: { lookupCustomer: vi.fn(), getRecommendations: vi.fn() },
 }));
 
 const mockLookup = vi.mocked(api.lookupCustomer);
+const mockRecs = vi.mocked(api.getRecommendations);
 
 beforeEach(() => {
   mockLookup.mockReset();
+  mockRecs.mockReset();
+  mockRecs.mockResolvedValue({ occId: "occ-123", recommendations: [] });
 });
 
 describe("CustomersScreen (Customer 360 lookup)", () => {
@@ -34,6 +37,25 @@ describe("CustomersScreen (Customer 360 lookup)", () => {
     expect(screen.getByText(/Nguyễn Văn A/)).toBeInTheDocument();
     // số giao dịch hiển thị (1 giao dịch trong mock)
     expect(screen.getByTestId("txn-count")).toHaveTextContent("1");
+    // gợi ý cross-sell được nạp cho occId tìm thấy
+    expect(mockRecs).toHaveBeenCalledWith("occ-123");
+  });
+
+  it("hiển thị gợi ý cross-sell khi có", async () => {
+    mockLookup.mockResolvedValue({
+      occId: "occ-9",
+      profile: {},
+      identifiers: [{ identifier_type: "phone", value_normalized: "+84901112223" }],
+      transactions: [],
+    });
+    mockRecs.mockResolvedValue({
+      occId: "occ-9",
+      recommendations: [{ sku: "P3", name: "Bánh trung thu", score: 5 }],
+    });
+    renderWithProviders(<CustomersScreen />);
+    await userEvent.type(screen.getByLabelText(/giá trị/i), "0901112223");
+    await userEvent.click(screen.getByRole("button", { name: /tra cứu/i }));
+    await waitFor(() => expect(screen.getByText(/Bánh trung thu/)).toBeInTheDocument());
   });
 
   it("không tìm thấy -> hiển thị trạng thái empty, không crash", async () => {

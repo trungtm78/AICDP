@@ -15,6 +15,7 @@ import {
   type Overview,
   type SegmentCriteria,
   type SegmentPreview,
+  type Recommendation,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -140,4 +141,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify(criteria),
     }),
+
+  getRecommendations: (occId: string) =>
+    request<{ occId: string; recommendations: Recommendation[] }>(
+      `/v1/ai/recommendations?occId=${encodeURIComponent(occId)}`,
+    ),
 };

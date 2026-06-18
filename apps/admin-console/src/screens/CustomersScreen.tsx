@@ -1,6 +1,11 @@
 import { useRef, useState } from "react";
 import { api } from "../lib/api.js";
-import { ApiError, type Customer360, type IdentifierType } from "../lib/types.js";
+import {
+  ApiError,
+  type Customer360,
+  type IdentifierType,
+  type Recommendation,
+} from "../lib/types.js";
 
 type ViewState =
   | { kind: "idle" }
@@ -21,6 +26,7 @@ export function CustomersScreen() {
   const [type, setType] = useState<IdentifierType>("phone");
   const [value, setValue] = useState("");
   const [view, setView] = useState<ViewState>({ kind: "idle" });
+  const [recs, setRecs] = useState<Recommendation[]>([]);
   // Mỗi lần tra cứu tăng id; chỉ áp kết quả của request mới nhất (chống stale-response).
   const reqId = useRef(0);
 
@@ -29,10 +35,18 @@ export function CustomersScreen() {
     if (!value.trim()) return;
     const myReq = ++reqId.current;
     setView({ kind: "loading" });
+    setRecs([]);
     try {
       const data = await api.lookupCustomer(type, value.trim());
       if (myReq !== reqId.current) return; // đã có request mới hơn -> bỏ kết quả cũ
       setView({ kind: "success", data });
+      // Nạp gợi ý cross-sell (best-effort; lỗi/role không đủ -> bỏ qua, không chặn 360).
+      try {
+        const r = await api.getRecommendations(data.occId);
+        if (myReq === reqId.current) setRecs(r.recommendations);
+      } catch {
+        if (myReq === reqId.current) setRecs([]);
+      }
     } catch (err) {
       if (myReq !== reqId.current) return;
       if (err instanceof ApiError && err.code === "CUSTOMER_NOT_FOUND") {
@@ -108,9 +122,39 @@ export function CustomersScreen() {
             Lỗi: {view.message}
           </div>
         )}
-        {view.kind === "success" && <CustomerCard data={view.data} />}
+        {view.kind === "success" && (
+          <>
+            <CustomerCard data={view.data} />
+            {recs.length > 0 && <CrossSell recs={recs} />}
+          </>
+        )}
       </div>
     </section>
+  );
+}
+
+function CrossSell({ recs }: { recs: Recommendation[] }) {
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-surface">
+      <div className="border-b border-border px-4 py-2 text-xs uppercase tracking-wide text-text-subtle">
+        Gợi ý cross-sell (AI) — khách tương tự cũng mua
+      </div>
+      <ul className="divide-y divide-border">
+        {recs.map((r) => (
+          <li
+            key={r.sku}
+            data-testid={`rec-${r.sku}`}
+            className="flex items-center justify-between px-4 py-2"
+          >
+            <span>
+              <span className="font-mono text-xs text-text-muted">{r.sku}</span>{" "}
+              {r.name ?? "(không tên)"}
+            </span>
+            <span className="tabular text-xs text-text-muted">điểm {r.score}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
