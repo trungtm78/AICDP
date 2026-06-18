@@ -4,6 +4,7 @@ import { MastersScreen } from "./screens/MastersScreen.js";
 import { LoyaltyScreen } from "./screens/LoyaltyScreen.js";
 import { GovernanceScreen } from "./screens/GovernanceScreen.js";
 import { AudiencesScreen } from "./screens/AudiencesScreen.js";
+import { ControlTowerScreen } from "./screens/ControlTowerScreen.js";
 
 // IA 8 workspace (DESIGN.md). GĐ1 hiện thực: Customers + Data Ops; còn lại placeholder.
 const NAV = [
@@ -52,7 +53,7 @@ export function App() {
       <main className="min-w-0 flex-1 overflow-auto">
         <Routes>
           <Route path="/" element={<Navigate to="/control-tower" replace />} />
-          <Route path="/control-tower" element={<ControlTower />} />
+          <Route path="/control-tower" element={<ControlTowerScreen />} />
           <Route path="/customers" element={<CustomersScreen />} />
           <Route path="/audiences" element={<AudiencesScreen />} />
           <Route path="/loyalty" element={<LoyaltyScreen />} />
@@ -62,18 +63,6 @@ export function App() {
         </Routes>
       </main>
     </div>
-  );
-}
-
-function ControlTower() {
-  return (
-    <section className="mx-auto max-w-[1100px] p-6">
-      <h1 className="text-xl font-bold tracking-tight">Control Tower</h1>
-      <p className="text-text-muted">
-        Tổng quan realtime 5 thương hiệu (đang phát triển). Vào <strong>Customers</strong> để tra cứu
-        khách, <strong>Data Ops</strong> để quản trị master data.
-      </p>
-    </section>
   );
 }
 

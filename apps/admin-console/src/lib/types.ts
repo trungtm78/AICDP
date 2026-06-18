@@ -79,6 +79,19 @@ export interface ActivateArgs {
   occIds: string[];
 }
 
+export interface Overview {
+  customers: number;
+  transactions: number;
+  revenue: number;
+  loyaltyAvailable: number;
+  loyaltyReserved: number;
+  activationAllowed: number;
+  activationSuppressed: number;
+  brands: number;
+  stores: number;
+  products: number;
+}
+
 export type IdentifierType =
   | "phone"
   | "email"

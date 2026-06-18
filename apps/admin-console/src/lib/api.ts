@@ -12,6 +12,7 @@ import {
   type ConsentPurpose,
   type ActivateArgs,
   type ActivateResult,
+  type Overview,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -122,4 +123,6 @@ export const api = {
       method: "POST",
       body: JSON.stringify(args),
     }),
+
+  getOverview: () => request<Overview>("/v1/analytics/overview"),
 };

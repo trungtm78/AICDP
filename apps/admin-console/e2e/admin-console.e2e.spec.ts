@@ -5,6 +5,15 @@ import { test, expect } from "@playwright/test";
 const stamp = Date.now();
 
 test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
+  test("Control Tower hiển thị KPI tổng hợp thật từ analytics", async ({ page }) => {
+    await page.goto("/control-tower");
+    await expect(page.getByRole("heading", { name: "Control Tower" })).toBeVisible();
+    // KPI tiles có dữ liệu thật (brands seed = 5 -> tile master hiển thị)
+    await expect(page.getByTestId("kpi-customers")).toBeVisible();
+    await expect(page.getByTestId("kpi-revenue")).toBeVisible();
+    await expect(page.getByTestId("kpi-master")).toContainText("5");
+  });
+
   test("Data Ops hiển thị thương hiệu lấy từ API", async ({ page }) => {
     await page.goto("/data-ops");
     await expect(page.getByRole("heading", { name: "Master Data" })).toBeVisible();
