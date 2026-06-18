@@ -64,6 +64,25 @@ test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
     await expect(page.getByRole("heading", { name: "Master Data" })).toBeVisible();
     await page.getByRole("link", { name: "Loyalty" }).click();
     await expect(page.getByRole("heading", { name: "Loyalty" })).toBeVisible();
+    await page.getByRole("link", { name: "Governance" }).click();
+    await expect(page.getByRole("heading", { name: "Governance · Consent" })).toBeVisible();
+  });
+
+  test("Governance: deny-by-default — occId chưa có consent hiển thị tất cả purpose = denied", async ({
+    page,
+  }) => {
+    await page.goto("/governance");
+    const btn = page.getByRole("button", { name: "Xem consent" });
+    await expect(btn).toBeDisabled();
+
+    await page.getByLabel("OCC ID").fill("00000000-0000-0000-0000-0000000000bb");
+    await btn.click();
+    const row = page.getByTestId("consent-marketing_email");
+    await expect(row).toBeVisible();
+    await expect(row.getByText("DENIED")).toBeVisible();
+    // nút Cấp khả dụng, Thu hồi bị khóa (đang denied)
+    await expect(row.getByRole("button", { name: "Cấp" })).toBeEnabled();
+    await expect(row.getByRole("button", { name: "Thu hồi" })).toBeDisabled();
   });
 
   test("Loyalty: nút disabled khi trống; xem số dư occId chưa có điểm -> 0/0 + form thao tác", async ({

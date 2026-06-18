@@ -48,6 +48,21 @@ export interface ReserveResult extends LoyaltyResult {
   reservationId: string;
 }
 
+export type ConsentEffectiveStatus = "granted" | "withdrawn" | "denied";
+
+export interface ConsentState {
+  purpose: string;
+  status: ConsentEffectiveStatus;
+  recorded_at: string | null;
+}
+
+export type ConsentPurpose =
+  | "marketing_email"
+  | "marketing_sms"
+  | "marketing_zalo"
+  | "personalization"
+  | "data_sharing";
+
 export type IdentifierType =
   | "phone"
   | "email"

@@ -8,6 +8,8 @@ import {
   type LoyaltyBalance,
   type LoyaltyResult,
   type ReserveResult,
+  type ConsentState,
+  type ConsentPurpose,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -97,5 +99,19 @@ export const api = {
     request<LoyaltyResult>("/v1/loyalty/release", {
       method: "POST",
       body: JSON.stringify({ reservationId, idempotencyKey }),
+    }),
+
+  listConsents: (occId: string) =>
+    request<ConsentState[]>(`/v1/consent?occId=${encodeURIComponent(occId)}`),
+
+  recordConsent: (
+    occId: string,
+    purpose: ConsentPurpose,
+    status: "granted" | "withdrawn",
+    source: string,
+  ) =>
+    request<ConsentState>("/v1/consent", {
+      method: "POST",
+      body: JSON.stringify({ occId, purpose, status, source }),
     }),
 };

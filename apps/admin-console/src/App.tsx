@@ -2,6 +2,7 @@ import { NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { CustomersScreen } from "./screens/CustomersScreen.js";
 import { MastersScreen } from "./screens/MastersScreen.js";
 import { LoyaltyScreen } from "./screens/LoyaltyScreen.js";
+import { GovernanceScreen } from "./screens/GovernanceScreen.js";
 
 // IA 8 workspace (DESIGN.md). GĐ1 hiện thực: Customers + Data Ops; còn lại placeholder.
 const NAV = [
@@ -11,7 +12,7 @@ const NAV = [
   { to: "/journeys", label: "Journeys", ready: false },
   { to: "/loyalty", label: "Loyalty", ready: true },
   { to: "/data-ops", label: "Data Ops", ready: true },
-  { to: "/governance", label: "Governance", ready: false },
+  { to: "/governance", label: "Governance", ready: true },
   { to: "/platform", label: "Platform", ready: false },
 ];
 
@@ -54,6 +55,7 @@ export function App() {
           <Route path="/customers" element={<CustomersScreen />} />
           <Route path="/loyalty" element={<LoyaltyScreen />} />
           <Route path="/data-ops" element={<MastersScreen />} />
+          <Route path="/governance" element={<GovernanceScreen />} />
           <Route path="*" element={<Placeholder />} />
         </Routes>
       </main>
