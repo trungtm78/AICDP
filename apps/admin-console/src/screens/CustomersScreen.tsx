@@ -5,6 +5,8 @@ import {
   type Customer360,
   type IdentifierType,
   type Recommendation,
+  type CustomerFeature,
+  type NbaDecision,
 } from "../lib/types.js";
 
 type ViewState =
@@ -27,6 +29,10 @@ export function CustomersScreen() {
   const [value, setValue] = useState("");
   const [view, setView] = useState<ViewState>({ kind: "idle" });
   const [recs, setRecs] = useState<Recommendation[]>([]);
+  const [feature, setFeature] = useState<CustomerFeature | null>(null);
+  const [nba, setNba] = useState<NbaDecision | null>(null);
+  const [explain, setExplain] = useState<string | null>(null);
+  const [explainBusy, setExplainBusy] = useState(false);
   // Mỗi lần tra cứu tăng id; chỉ áp kết quả của request mới nhất (chống stale-response).
   const reqId = useRef(0);
 
@@ -36,6 +42,9 @@ export function CustomersScreen() {
     const myReq = ++reqId.current;
     setView({ kind: "loading" });
     setRecs([]);
+    setFeature(null);
+    setNba(null);
+    setExplain(null);
     try {
       const data = await api.lookupCustomer(type, value.trim());
       if (myReq !== reqId.current) return; // đã có request mới hơn -> bỏ kết quả cũ
@@ -47,6 +56,15 @@ export function CustomersScreen() {
       } catch {
         if (myReq === reqId.current) setRecs([]);
       }
+      // Phân tích hành vi AI + NBA (best-effort): recompute feature để luôn point-in-time.
+      try {
+        const f = await api.recomputeFeature(data.occId);
+        if (myReq === reqId.current) setFeature(f);
+      } catch { /* bỏ qua */ }
+      try {
+        const d = await api.getNba(data.occId);
+        if (myReq === reqId.current) setNba(d);
+      } catch { /* bỏ qua */ }
     } catch (err) {
       if (myReq !== reqId.current) return;
       if (err instanceof ApiError && err.code === "CUSTOMER_NOT_FOUND") {
@@ -125,11 +143,91 @@ export function CustomersScreen() {
         {view.kind === "success" && (
           <>
             <CustomerCard data={view.data} />
+            {feature && (
+              <AiBehaviorPanel
+                feature={feature}
+                nba={nba}
+                explain={explain}
+                explainBusy={explainBusy}
+                onExplain={async () => {
+                  setExplainBusy(true);
+                  try {
+                    const r = await api.assistantExplain(feature.occId);
+                    setExplain(r.text);
+                  } catch (e) {
+                    setExplain(e instanceof ApiError ? `Lỗi: ${e.message}` : "Lỗi diễn giải");
+                  } finally {
+                    setExplainBusy(false);
+                  }
+                }}
+              />
+            )}
             {recs.length > 0 && <CrossSell recs={recs} />}
           </>
         )}
       </div>
     </section>
+  );
+}
+
+const LIFECYCLE_LABEL: Record<string, string> = {
+  new: "Mới", active: "Đang hoạt động", at_risk: "Có nguy cơ", vip: "VIP", dormant: "Ngủ đông", churned: "Đã rời",
+};
+const fmtVnd = new Intl.NumberFormat("vi-VN");
+
+function AiBehaviorPanel({
+  feature, nba, explain, explainBusy, onExplain,
+}: {
+  feature: CustomerFeature;
+  nba: NbaDecision | null;
+  explain: string | null;
+  explainBusy: boolean;
+  onExplain: () => void;
+}) {
+  const pct = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)}%`);
+  return (
+    <div className="mt-4 rounded-lg border border-border bg-surface" data-testid="ai-behavior">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2">
+        <span className="text-xs uppercase tracking-wide text-text-subtle">Phân tích hành vi (AI)</span>
+        <button type="button" onClick={onExplain} disabled={explainBusy} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-surface-alt disabled:opacity-50">
+          {explainBusy ? "Đang diễn giải…" : "Diễn giải (AI)"}
+        </button>
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-2 px-4 py-3 text-sm md:grid-cols-4">
+        <Stat label="Vòng đời" value={feature.lifecycleStage ? (LIFECYCLE_LABEL[feature.lifecycleStage] ?? feature.lifecycleStage) : "—"} testid="ai-lifecycle" />
+        <Stat label="Churn risk" value={pct(feature.churnRisk)} />
+        <Stat label="Xu hướng mua" value={pct(feature.propensityScore)} />
+        <Stat label="Số brand" value={String(feature.distinctBrands)} />
+        <Stat label="Giao dịch (F)" value={String(feature.frequency)} />
+        <Stat label="Chi tiêu (M)" value={fmtVnd.format(feature.monetary)} />
+        <Stat label="Recency (ngày)" value={feature.recencyDays === null ? "—" : String(feature.recencyDays)} />
+        <Stat label="Nhóm hàng ưa thích" value={feature.favoriteCategory ?? "—"} />
+      </div>
+      {nba && (
+        <div className="border-t border-border px-4 py-3 text-sm" data-testid="ai-nba">
+          <div className="text-xs uppercase tracking-wide text-text-subtle">Next-Best-Action</div>
+          <div className="font-medium">{nba.action.type}{nba.action.points ? ` · ${nba.action.points} điểm` : ""}{nba.action.channel ? ` · ${nba.action.channel}` : ""}</div>
+          <ul className="mt-1 list-disc pl-5 text-xs text-text-muted">
+            {nba.reasons.map((r, i) => <li key={i}>{r}</li>)}
+          </ul>
+        </div>
+      )}
+      {explain && (
+        <div className="border-t border-border px-4 py-3 text-sm" data-testid="ai-explain">
+          <div className="text-xs uppercase tracking-wide text-text-subtle">Diễn giải (LLM)</div>
+          <p className="whitespace-pre-wrap">{explain}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stat({ label, value, testid }: { label: string; value: string; testid?: string }) {
+  return (
+    <div>
+      <div className="text-xs text-text-subtle">{label}</div>
+      <div data-testid={testid} className="font-medium tabular-nums">{value}</div>
+    </div>
   );
 }
 
