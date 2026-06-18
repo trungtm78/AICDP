@@ -103,6 +103,33 @@ export const loyaltyBalanceQuerySchema = z.object({
   occId: z.string().uuid(),
 });
 
+// Purpose v1 (chốt danh mục để tránh ghi consent mục đích tùy tiện).
+export const consentPurposeEnum = z.enum([
+  "marketing_email",
+  "marketing_sms",
+  "marketing_zalo",
+  "personalization",
+  "data_sharing",
+]);
+
+export const consentRecordSchema = z.object({
+  occId: z.string().uuid(),
+  purpose: consentPurposeEnum,
+  status: z.enum(["granted", "withdrawn"]),
+  source: z.enum(["pos", "web", "csr", "import", "api"]),
+  channel: z.string().max(100).optional(),
+  evidence: z.string().max(2000).optional(),
+});
+
+export const consentListQuerySchema = z.object({
+  occId: z.string().uuid(),
+});
+
+export const consentCheckQuerySchema = z.object({
+  occId: z.string().uuid(),
+  purpose: consentPurposeEnum,
+});
+
 export const lookupQuerySchema = z.object({
   type: identifierSchema.shape.type,
   value: z.string().min(1),
