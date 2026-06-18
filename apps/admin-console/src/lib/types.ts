@@ -33,6 +33,21 @@ export interface Customer360 {
   transactions: Array<Record<string, unknown>>;
 }
 
+export interface LoyaltyBalance {
+  available: number;
+  reserved: number;
+}
+
+export interface LoyaltyResult {
+  txnId: string;
+  balance: LoyaltyBalance;
+  idempotent: boolean;
+}
+
+export interface ReserveResult extends LoyaltyResult {
+  reservationId: string;
+}
+
 export type IdentifierType =
   | "phone"
   | "email"

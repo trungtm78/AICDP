@@ -5,6 +5,9 @@ import {
   type Product,
   type Customer360,
   type IdentifierType,
+  type LoyaltyBalance,
+  type LoyaltyResult,
+  type ReserveResult,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -67,4 +70,32 @@ export const api = {
     request<Customer360>(
       `/v1/customers/lookup?type=${encodeURIComponent(type)}&value=${encodeURIComponent(value)}`,
     ),
+
+  getLoyaltyBalance: (occId: string) =>
+    request<LoyaltyBalance>(`/v1/loyalty/balance?occId=${encodeURIComponent(occId)}`),
+
+  loyaltyEarn: (occId: string, points: number, idempotencyKey: string) =>
+    request<LoyaltyResult>("/v1/loyalty/earn", {
+      method: "POST",
+      body: JSON.stringify({ occId, points, idempotencyKey }),
+    }),
+
+  loyaltyReserve: (occId: string, points: number, idempotencyKey: string) =>
+    request<ReserveResult>("/v1/loyalty/reserve", {
+      method: "POST",
+      body: JSON.stringify({ occId, points, idempotencyKey }),
+    }),
+
+  // capture/release gắn vào MỘT reservation cụ thể (state machine held->captured|released).
+  loyaltyCapture: (reservationId: string, idempotencyKey: string) =>
+    request<LoyaltyResult>("/v1/loyalty/capture", {
+      method: "POST",
+      body: JSON.stringify({ reservationId, idempotencyKey }),
+    }),
+
+  loyaltyRelease: (reservationId: string, idempotencyKey: string) =>
+    request<LoyaltyResult>("/v1/loyalty/release", {
+      method: "POST",
+      body: JSON.stringify({ reservationId, idempotencyKey }),
+    }),
 };

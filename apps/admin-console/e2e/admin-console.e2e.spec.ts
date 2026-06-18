@@ -62,5 +62,25 @@ test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
     await expect(page.getByRole("heading", { name: "Customer 360" })).toBeVisible();
     await page.getByRole("link", { name: "Data Ops" }).click();
     await expect(page.getByRole("heading", { name: "Master Data" })).toBeVisible();
+    await page.getByRole("link", { name: "Loyalty" }).click();
+    await expect(page.getByRole("heading", { name: "Loyalty" })).toBeVisible();
+  });
+
+  test("Loyalty: nút disabled khi trống; xem số dư occId chưa có điểm -> 0/0 + form thao tác", async ({
+    page,
+  }) => {
+    await page.goto("/loyalty");
+    const btn = page.getByRole("button", { name: "Xem số dư" });
+    await expect(btn).toBeDisabled();
+
+    // occId hợp lệ (uuid) nhưng chưa phát sinh điểm -> projection = 0/0 (data thật từ API).
+    await page.getByLabel("OCC ID").fill("00000000-0000-0000-0000-0000000000aa");
+    await expect(btn).toBeEnabled();
+    await btn.click();
+    await expect(page.getByTestId("bal-available")).toHaveText("0");
+    await expect(page.getByTestId("bal-reserved")).toHaveText("0");
+    // form thao tác xuất hiện
+    await expect(page.getByLabel("Số điểm cộng")).toBeVisible();
+    await expect(page.getByLabel("Số điểm giữ")).toBeVisible();
   });
 });
