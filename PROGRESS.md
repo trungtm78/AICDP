@@ -34,7 +34,26 @@
 ## Task đang làm dở
 - (không) — Dark theme HOÀN TẤT & commit. **Trụ mới đã CHỐT plan (ENG CLEARED): Journey Builder.**
 
-## ▶ NEXT (bắt đầu ngay sau /clear): Journey Builder — M1 (Engine backend)
+## ✅ M1 (Journey engine backend) — XONG (commit)
+- migration `db/migrations/013_journey_engine.sql` (journey mở rộng + journey_version + journey_participant + journey_step_run + activation idempotency_key).
+- `services/core-api/src/journey/journey.types.ts` · `journey-engine.service.ts` (enroll/enrollSegment/tick/advance/validate/retry) · `journey-admin.service.ts` (draft/publish/activate/pause/participants/retry/force-exit) · `journey-engine.spec.ts`.
+- `http/journey.controller.ts` đủ endpoint + `POST /v1/journeys/tick` (dev) · `http/schemas.ts` (+journey schemas) · `http/errors.ts` (+JOURNEY_* codes) · `http/journey.e2e.spec.ts` (viết lại theo engine) · `activation.service.ts` (+idempotencyKey) · `test-helpers/db.ts` (+truncate bảng mới).
+- Codex-hardened (4 fix): tick dùng client cho READ (tránh deadlock), validate predicate + node try/catch, cardinality cạnh, publish re-read trong lock.
+- Verify: tsc sạch · **257 test pass** (16 engine + 3 e2e). Effectively-once: step_run UNIQUE(participant,node) + action idempotencyKey.
+
+## ▶ NEXT sau /clear: Journey Builder — M2 (Analytics/Report)
+> Đọc plan file + M1 code (`services/core-api/src/journey/*`) trước.
+**M2 việc cụ thể (TDD PG18 thật):**
+1. `journey-report.service.ts` + `GET /v1/journeys/:id/report` (role executive|analyst|marketer):
+   - Funnel theo node: số participant CHẠM mỗi node (từ journey_step_run, thứ tự topo entry→exit).
+   - Đếm: entered/active/completed/exited(by reason)/failed (từ journey_participant).
+   - Attribution (window mặc định 7 ngày, nhận `?windowDays=`): đơn + doanh thu từ canonical_transaction sau enrolled_at (JOIN occ_id), điểm loyalty cấp (từ step_run action loyalty result), activation gửi/suppressed (từ step_run action activation result → activation_run).
+   - Enrollment theo ngày (group by date(enrolled_at)).
+   - Giới hạn: attribution chỉ cộng order_completed (chưa refund).
+2. Tests: report số liệu đúng (dựng journey → enroll nhiều occ → tick → transaction sau enroll → assert funnel/conversion/revenue/points).
+3. Checkpoint: tsc+test → /codex → commit → PROGRESS → M3.
+
+## (cũ, tham chiếu) M1 chi tiết ban đầu:
 > Plan đầy đủ đã duyệt (qua /plan-eng-review + codex, 0 unresolved): `~/.claude/plans/h-y-ph-n-t-ch-research-delightful-spindle.md`. ĐỌC PLAN ĐÓ TRƯỚC.
 > Nghiệp vụ backend hiện có (bản kiểm kê): identity atomic · loyalty double-entry · consent append-only · segment.previewSegment · activation (consent gate) · analytics/AI Phase A. Journey hiện chỉ 1-step (migration 007).
 
