@@ -23,7 +23,7 @@ function fmtVnd(n: number): string {
 /** Phân tích chuyên sâu — vòng đời, doanh thu brand, nhóm hàng, synergy, dự báo doanh thu. */
 export function InsightsScreen() {
   const ins = useQuery({ queryKey: ["insights"], queryFn: api.getInsights });
-  const fc = useQuery({ queryKey: ["forecast"], queryFn: () => api.getForecast({ granularity: "week", periods: 4 }) });
+  const fc = useQuery({ queryKey: ["forecast"], queryFn: () => api.getForecast({ granularity: "month", periods: 3 }) });
 
   return (
     <section className="mx-auto max-w-[1120px] p-6">
@@ -138,13 +138,13 @@ function ForecastPanel({ fc, loading }: { fc?: ForecastResult | undefined; loadi
                     ...fc.forecast.map((f) => ({ period: f.period, v: f.revenue, fut: true }))] : [];
   const max = Math.max(1, ...all.map((x) => x.v));
   return (
-    <Panel title="Dự báo doanh thu (theo tuần)" testid="panel-forecast">
+    <Panel title="Dự báo doanh thu (theo tháng)" testid="panel-forecast">
       {loading && <p className="text-text-muted">Đang tải…</p>}
       {!loading && all.length === 0 && <p className="text-text-subtle">Chưa đủ dữ liệu để dự báo.</p>}
       {all.length > 0 && (
         <div className="flex h-40 items-end gap-1.5">
           {all.map((x, i) => (
-            <div key={i} className="flex flex-1 flex-col items-center justify-end" title={`${x.period}: ${fmtVnd(x.v)}`}>
+            <div key={i} className="flex h-full flex-1 flex-col items-center justify-end" title={`${x.period}: ${fmtVnd(x.v)}`}>
               <div className={`w-full rounded-t ${x.fut ? "bg-violet/60" : "bg-accent"}`} style={{ height: `${Math.max(4, (x.v / max) * 100)}%` }} />
             </div>
           ))}
