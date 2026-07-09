@@ -26,12 +26,29 @@ export interface CustomerAnalytics {
   topStores: { storeId: string; orders: number; spend: number }[];
   dow: number[]; // 7 phần tử, index 0 = Chủ nhật
   paymentMix: { method: string; count: number }[];
+  // Giỏ hàng đang mở / bỏ quên — cơ hội thúc đẩy hoàn tất đơn (abandoned cart).
+  openCarts: {
+    cartId: string;
+    brandId: string;
+    status: "active" | "abandoned";
+    channel: string | null;
+    value: number;
+    itemCount: number;
+    items: { sku: string; name: string; quantity: number; unit_price: number }[];
+    updatedAt: string;
+    ageHours: number;
+  }[];
 }
 
 const DAY_MS = 86_400_000;
 
+interface CartRow {
+  cart_id: string; brand_id: string; status: "active" | "abandoned"; channel: string | null;
+  value: string; items: { sku: string; name: string; quantity: number; unit_price: number }[]; updated_at: string;
+}
+
 export async function getCustomerAnalytics(pool: Pool, occId: string, now: Date = new Date()): Promise<CustomerAnalytics> {
-  const [summaryQ, monthlyQ, brandQ, catQ, storeQ, dowQ, payQ] = await Promise.all([
+  const [summaryQ, monthlyQ, brandQ, catQ, storeQ, dowQ, payQ, cartQ] = await Promise.all([
     pool.query<{ n: string; spend: string | null; first_at: string | null; last_at: string | null }>(
       `SELECT count(*)::text AS n, sum(total)::text AS spend,
               min(occ_timestamp) AS first_at, max(occ_timestamp) AS last_at
@@ -76,6 +93,13 @@ export async function getCustomerAnalytics(pool: Pool, occId: string, now: Date 
       `SELECT payment_method, count(*)::text AS c
          FROM cdp.canonical_transaction WHERE occ_id=$1
          GROUP BY payment_method ORDER BY count(*) DESC`,
+      [occId],
+    ),
+    pool.query<CartRow>(
+      `SELECT cart_id, brand_id, status, channel, value::text AS value, items, updated_at
+         FROM cdp.cart
+         WHERE occ_id=$1 AND status IN ('active','abandoned')
+         ORDER BY updated_at DESC`,
       [occId],
     ),
   ]);
@@ -127,5 +151,16 @@ export async function getCustomerAnalytics(pool: Pool, occId: string, now: Date 
     topStores: storeQ.rows.map((s2) => ({ storeId: s2.store_id, orders: Number(s2.orders), spend: Number(s2.spend) })),
     dow,
     paymentMix: payQ.rows.map((p) => ({ method: p.payment_method ?? "unknown", count: Number(p.c) })),
+    openCarts: cartQ.rows.map((c) => ({
+      cartId: c.cart_id,
+      brandId: c.brand_id,
+      status: c.status,
+      channel: c.channel,
+      value: Number(c.value),
+      itemCount: Array.isArray(c.items) ? c.items.reduce((a, it) => a + (it.quantity ?? 0), 0) : 0,
+      items: Array.isArray(c.items) ? c.items : [],
+      updatedAt: c.updated_at,
+      ageHours: Math.max(0, Math.round((now.getTime() - new Date(c.updated_at).getTime()) / 3_600_000)),
+    })),
   };
 }

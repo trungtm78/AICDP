@@ -284,7 +284,7 @@ async function resetAll(): Promise<void> {
   await pool.query(
     `TRUNCATE cdp.ai_llm_usage, cdp.ai_config_audit, cdp.ai_config, cdp.customer_feature,
               cdp.journey_step_run, cdp.journey_participant, cdp.journey_version,
-              cdp.journey_run, cdp.journey,
+              cdp.journey_run, cdp.journey, cdp.cart,
               cdp.activation_member, cdp.activation_run, cdp.consent_record,
               cdp.loyalty_entry, cdp.loyalty_reservation, cdp.loyalty_txn,
               cdp.canonical_transaction, cdp.ingest_event, cdp.identity_edge,
@@ -410,6 +410,29 @@ async function main(): Promise<void> {
     } catch { /* số dư không đủ → bỏ qua */ }
   }
 
+  // Giỏ hàng đang mở / BỎ QUÊN (~24% khách) — cơ hội thúc đẩy hoàn tất đơn.
+  let carts = 0;
+  for (let i = 0; i < customers.length; i++) {
+    const occId = occByCustomer.get(i);
+    if (!occId) continue;
+    const roll = r();
+    if (roll > 0.24) continue;
+    const c = customers[i]!;
+    const brand = pick(c.brands);
+    const oi = orderItems(brand);
+    const abandoned = roll > 0.07; // đa số là giỏ bỏ quên (abandoned), số ít đang mở
+    const hoursAgo = abandoned ? rint(4, 260) : rint(0, 6);
+    const store = pick(STORES_BY_BRAND[brand]!);
+    const updatedAt = new Date(NOW - hoursAgo * 3_600_000).toISOString();
+    await pool.query(
+      `INSERT INTO cdp.cart (occ_id, brand_id, store_id, channel, status, items, value, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$8)`,
+      [occId, brand, store.id, pick(["web", "app", "pos"]), abandoned ? "abandoned" : "active",
+       JSON.stringify(oi.items), oi.total, updatedAt],
+    );
+    carts++;
+  }
+
   // Recompute feature TRƯỚC khi chạy journey theo segment (segment đọc customer_feature)
   await recomputeAllFeatures(pool);
 
@@ -515,7 +538,7 @@ async function main(): Promise<void> {
     `\n✅ Demo OCH seed xong:\n` +
     `   • ${s.brands} thương hiệu · ${s.stores} cửa hàng\n` +
     `   • ${s.khach} khách · ${s.gd} giao dịch (mục tiêu ~${txnCount}) · ${merges.rows[0]!.c} lần hợp nhất định danh (${mergeCount} ca)\n` +
-    `   • Journeys: ${s.journeys} (welcome ${r1.enrolled} · VIP ${r2.enrolled} · winback ${r3.enrolled} · hotel ${r4.enrolled}) · ${s.runs} activation run · ${redeemed} lượt đổi điểm\n` +
+    `   • Journeys: ${s.journeys} (welcome ${r1.enrolled} · VIP ${r2.enrolled} · winback ${r3.enrolled} · hotel ${r4.enrolled}) · ${s.runs} activation run · ${redeemed} lượt đổi điểm · ${carts} giỏ hàng mở/bỏ quên\n` +
     `   • ${s.users} user · ${s.keys} api-key\n` +
     `   Đăng nhập: admin / Och@2026\n`,
   );

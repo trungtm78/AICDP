@@ -1,5 +1,5 @@
 import {
-  TrendingUp, CalendarClock, Wallet, Store as StoreIcon, Layers, Sparkles, Lightbulb, AlertTriangle, Gift,
+  TrendingUp, CalendarClock, Wallet, Store as StoreIcon, Layers, Sparkles, Lightbulb, AlertTriangle, Gift, ShoppingCart,
 } from "lucide-react";
 import type { CustomerAnalytics, CustomerFeature } from "../lib/types.js";
 import { fmtInt, fmtVnd, fmtVndFull, BRAND_LABEL, CAT_LABEL, customerTier, nextTier } from "../lib/format.js";
@@ -18,12 +18,32 @@ function fmtDate(iso: string | null): string {
 }
 
 // ── Rule engine: hành động kinh doanh đề xuất từ hành vi + AI ──
-interface BizAction { title: string; detail: string; tone: "urgent" | "opportunity" | "nurture"; icon: "alert" | "bulb" | "gift" }
+interface BizAction { title: string; detail: string; tone: "urgent" | "opportunity" | "nurture"; icon: "alert" | "bulb" | "gift" | "cart" }
 
 function recommendActions(a: CustomerAnalytics, feature: CustomerFeature, totalSpend: number): BizAction[] {
   const out: BizAction[] = [];
   const tier = customerTier(totalSpend);
   const brands = new Set(a.brandBreakdown.map((b) => b.brandId));
+
+  // 0) GIỎ HÀNG bỏ quên / đang mở — cơ hội bán TỨC THÌ, ưu tiên cao nhất (không bỏ lỡ).
+  const cart = a.openCarts[0];
+  if (cart) {
+    const brandLabel = BRAND_LABEL[cart.brandId] ?? cart.brandId;
+    if (cart.status === "abandoned") {
+      out.push({
+        tone: "urgent", icon: "cart",
+        title: `Giỏ hàng bỏ quên ${fmtVnd(cart.value)} tại ${brandLabel}`,
+        detail: `${cart.itemCount} món (${cart.items.slice(0, 3).map((it) => it.name).join(", ")}${cart.items.length > 3 ? "…" : ""}) bỏ quên ${cart.ageHours}h trên ${cart.channel ?? "web"}. Gửi nhắc hoàn tất đơn kèm ưu đãi/free-ship NGAY để cứu doanh thu.`,
+      });
+    } else {
+      out.push({
+        tone: "opportunity", icon: "cart",
+        title: `Đang có giỏ mở ${fmtVnd(cart.value)} tại ${brandLabel}`,
+        detail: `${cart.itemCount} món đang trong giỏ — hỗ trợ chốt đơn (gợi ý sản phẩm kèm, nhắc ưu đãi) để tăng tỉ lệ chuyển đổi.`,
+      });
+    }
+  }
+
   const usesHotel = [...brands].some((b) => HOTELS.has(b));
   const usesFnb = [...brands].some((b) => FNB.has(b));
   const churn = feature.churnRisk ?? 0;
@@ -124,7 +144,7 @@ export function CustomerDeepAnalytics({ analytics, feature, totalSpend }: { anal
           <div className="grid gap-3 sm:grid-cols-2">
             {actions.map((ac, i) => {
               const st = ACTION_STYLE[ac.tone];
-              const Icon = ac.icon === "alert" ? AlertTriangle : ac.icon === "gift" ? Gift : Sparkles;
+              const Icon = ac.icon === "alert" ? AlertTriangle : ac.icon === "gift" ? Gift : ac.icon === "cart" ? ShoppingCart : Sparkles;
               return (
                 <div key={i} className={`rounded-lg border ${st.border} ${st.bg} p-3.5`}>
                   <div className="mb-1 flex items-center gap-2">
@@ -136,6 +156,35 @@ export function CustomerDeepAnalytics({ analytics, feature, totalSpend }: { anal
                 </div>
               );
             })}
+          </div>
+        </Panel>
+      )}
+
+      {/* Giỏ hàng đang mở / bỏ quên — cơ hội bán tức thì */}
+      {a.openCarts.length > 0 && (
+        <Panel icon={<ShoppingCart className="size-4" />} title="Giỏ hàng đang mở / bỏ quên"
+          subtitle="Cơ hội thúc đẩy hoàn tất đơn — không bỏ lỡ doanh thu">
+          <div className="space-y-3">
+            {a.openCarts.map((cart) => (
+              <div key={cart.cartId} className="rounded-lg border border-border bg-surface p-3.5">
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  {cart.status === "abandoned"
+                    ? <Badge tone="error">Bỏ quên {cart.ageHours}h</Badge>
+                    : <Badge tone="warning">Đang mở</Badge>}
+                  <span className="text-sm font-semibold text-text">{BRAND_LABEL[cart.brandId] ?? cart.brandId}</span>
+                  <span className="text-xs text-text-subtle">· {cart.channel ?? "web"} · {cart.itemCount} món</span>
+                  <span className="ml-auto text-base font-bold" style={{ color: "#b3372f" }}>{fmtVndFull(cart.value)}</span>
+                </div>
+                <ul className="space-y-0.5">
+                  {cart.items.map((it, i) => (
+                    <li key={i} className="flex items-center justify-between text-xs text-text-muted">
+                      <span>{it.name} <span className="text-text-subtle">× {it.quantity}</span></span>
+                      <span className="tabular">{fmtVnd(it.unit_price * it.quantity)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         </Panel>
       )}

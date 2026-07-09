@@ -52,6 +52,17 @@ export interface CustomerAnalytics {
   topStores: { storeId: string; orders: number; spend: number }[];
   dow: number[];
   paymentMix: { method: string; count: number }[];
+  openCarts: {
+    cartId: string;
+    brandId: string;
+    status: "active" | "abandoned";
+    channel: string | null;
+    value: number;
+    itemCount: number;
+    items: { sku: string; name: string; quantity: number; unit_price: number }[];
+    updatedAt: string;
+    ageHours: number;
+  }[];
 }
 
 /** Một dòng trong danh sách khách hàng (Customer Directory). */
