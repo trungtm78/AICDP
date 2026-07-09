@@ -9,8 +9,6 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from ..db import query_df
-
 FEATURE_COLS = [
     "recency_days", "frequency", "monetary", "avg_basket", "tenure_days",
     "ipt_mean", "ipt_std", "spend_slope", "distinct_brands", "distinct_categories",
@@ -20,6 +18,7 @@ FEATURE_COLS = [
 
 def load_transactions() -> pd.DataFrame:
     """Tải toàn bộ giao dịch canonical (occ_id, thời gian, tiền, brand) + loyalty available."""
+    from ..db import query_df
     tx = query_df(
         """
         SELECT occ_id::text AS occ_id, occ_timestamp, total::float8 AS total,
@@ -35,6 +34,7 @@ def load_transactions() -> pd.DataFrame:
 
 def load_categories() -> pd.DataFrame:
     """(occ_id, message_id, category_id) từ view enrich — cho distinct_categories."""
+    from ..db import query_df
     df = query_df(
         """
         SELECT occ_id::text AS occ_id, category_id
@@ -47,6 +47,7 @@ def load_categories() -> pd.DataFrame:
 
 def load_loyalty() -> pd.DataFrame:
     """Số dư điểm available per occ (projection từ ledger)."""
+    from ..db import query_df
     df = query_df(
         """
         SELECT split_part(account, ':', 2) AS occ_id,
