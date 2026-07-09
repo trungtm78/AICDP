@@ -25,7 +25,12 @@ export function JourneysScreen() {
   const [trigger, setTrigger] = useState<JTrigger>("manual");
 
   const createMut = useMutation({
-    mutationFn: () => api.jCreateJourney({ name: name.trim(), triggerType: trigger, triggerConfig: {}, definition: emptyDefinition() }),
+    mutationFn: () => api.jCreateJourney({
+      name: name.trim(),
+      triggerType: trigger,
+      triggerConfig: trigger === "event" ? { eventName: "order_completed" } : {},
+      definition: emptyDefinition(trigger),
+    }),
     onSuccess: (j) => {
       setOpen(false);
       setName("");
@@ -90,10 +95,14 @@ export function JourneysScreen() {
   );
 }
 
-function emptyDefinition() {
+function emptyDefinition(trigger: JTrigger) {
+  const entryConfig =
+    trigger === "event" ? { trigger: "event", eventName: "order_completed" }
+    : trigger === "segment" ? { trigger: "segment", segment: { minSpend: 100000 } }
+    : { trigger: "manual" };
   return {
     nodes: [
-      { id: "entry", type: "entry" as const, config: { trigger: "manual" }, pos: { x: 80, y: 160 } },
+      { id: "entry", type: "entry" as const, config: entryConfig, pos: { x: 80, y: 160 } },
       { id: "exit", type: "exit" as const, pos: { x: 520, y: 160 } },
     ],
     edges: [{ from: "entry", to: "exit" }],

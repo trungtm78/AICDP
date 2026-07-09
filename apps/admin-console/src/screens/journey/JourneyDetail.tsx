@@ -77,7 +77,7 @@ export function JourneyDetail() {
       />
 
       <div className="min-h-0 flex-1">
-        {tab === "build" && <JourneyCanvas journey={j} onSaved={invalidate} />}
+        {tab === "build" && <JourneyCanvas key={j.journey_id} journey={j} onSaved={invalidate} />}
         {tab === "participants" && <JourneyParticipants journeyId={id} />}
         {tab === "report" && <JourneyReportView journeyId={id} />}
       </div>

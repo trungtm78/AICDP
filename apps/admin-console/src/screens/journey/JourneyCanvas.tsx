@@ -8,7 +8,7 @@ import "@xyflow/react/dist/style.css";
 import { useMutation } from "@tanstack/react-query";
 import { LogIn, Clock, GitBranch, Zap, Flag, Save, Plus } from "lucide-react";
 import { api } from "../../lib/api.js";
-import { ApiError, type JourneyRow, type JNodeType, type JNode, type JEdge } from "../../lib/types.js";
+import { ApiError, type JourneyRow, type JNodeType, type JNode, type JEdge, type JTrigger } from "../../lib/types.js";
 import { Button, Drawer, Field, Input, Select, Badge, useToast } from "../../ui/index.js";
 
 type NData = { jtype: JNodeType; config: Record<string, unknown>; label: string };
@@ -99,7 +99,15 @@ function Inner({ journey, onSaved }: { journey: JourneyRow; onSaved: () => void 
   }, [selId, setNodes]);
 
   const saveMut = useMutation({
-    mutationFn: () => api.jSaveJourney(journey.journey_id, { definition: toDefinition(nodes, edges) }),
+    mutationFn: () => {
+      // Definition là NGUỒN SỰ THẬT: đồng bộ trigger_type/trigger_config từ entry node
+      // để backend trigger-scan (event/segment) nhận đúng journey.
+      const entry = nodes.find((n) => (n.data as NData).jtype === "entry");
+      const ec = ((entry?.data as NData | undefined)?.config ?? {}) as { trigger?: JTrigger; eventName?: string };
+      const triggerType = ec.trigger ?? "manual";
+      const triggerConfig = triggerType === "event" && ec.eventName ? { eventName: ec.eventName } : {};
+      return api.jSaveJourney(journey.journey_id, { definition: toDefinition(nodes, edges), triggerType, triggerConfig });
+    },
     onSuccess: () => { toast.push("Đã lưu luồng", "success"); onSaved(); },
     onError: (e) => toast.push(e instanceof ApiError ? e.message : "Lỗi lưu", "error"),
   });
