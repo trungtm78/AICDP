@@ -186,6 +186,13 @@ export async function getCustomer360(
   );
   const occId = edge.rows[0]?.occ_id;
   if (!occId) return null;
+  return getCustomer360ByOccId(pool, occId);
+}
+
+/** Customer 360 theo occId trực tiếp (dùng khi click dòng trong danh sách khách). */
+export async function getCustomer360ByOccId(pool: Pool, occId: string): Promise<Customer360 | null> {
+  const exists = await pool.query(`SELECT 1 FROM cdp.occ_identity WHERE occ_id=$1`, [occId]);
+  if (exists.rowCount === 0) return null;
 
   const [profile, identifiers, transactions] = await Promise.all([
     pool.query(

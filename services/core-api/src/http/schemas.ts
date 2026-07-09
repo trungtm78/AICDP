@@ -258,6 +258,61 @@ export const lookupQuerySchema = z.object({
   brand_id: z.string().optional(),
 });
 
+// Query cho Customer Directory (list). Query param là chuỗi -> coerce số cho limit/offset.
+export const customerListQuerySchema = z.object({
+  search: z.string().optional(),
+  lifecycle: lifecycleStageEnum.optional(),
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  offset: z.coerce.number().int().min(0).optional(),
+});
+
+// Ít nhất một trường phải có mặt khi cập nhật (tránh UPDATE rỗng).
+const hasAtLeastOneField = (o: Record<string, unknown>): boolean =>
+  Object.values(o).some((v) => v !== undefined);
+
+export const storeUpdateSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    brand_id: z.string().min(1).optional(),
+    region: z.string().optional(),
+    city: z.string().optional(),
+    address: z.string().optional(),
+  })
+  .refine(hasAtLeastOneField, { message: "Cần ít nhất một trường để cập nhật" });
+
+export const productUpdateSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    category_id: z.string().optional(),
+    unit: z.string().optional(),
+  })
+  .refine(hasAtLeastOneField, { message: "Cần ít nhất một trường để cập nhật" });
+
+export const brandCreateSchema = z.object({
+  brand_id: z.string().min(1),
+  name: z.string().min(1),
+  industry: z.string().optional(),
+  brand_accent: z.string().optional(),
+});
+
+export const brandUpdateSchema = z
+  .object({
+    name: z.string().min(1).optional(),
+    industry: z.string().optional(),
+    brand_accent: z.string().optional(),
+  })
+  .refine(hasAtLeastOneField, { message: "Cần ít nhất một trường để cập nhật" });
+
+export const userUpdateSchema = z
+  .object({
+    name: z.string().min(1).max(200).optional(),
+    role: roleEnum.optional(),
+    password: z.string().min(8).max(200).optional(),
+  })
+  .refine(hasAtLeastOneField, {
+    message: "Cần ít nhất một trường (name/role/password)",
+  });
+
 // ── Journey engine (M1) ──
 const journeyNodeSchema = z.object({
   id: z.string().min(1),

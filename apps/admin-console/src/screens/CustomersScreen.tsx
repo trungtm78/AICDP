@@ -1,19 +1,27 @@
 import { useRef, useState } from "react";
-import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag, ArrowLeft } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   ApiError,
   type Customer360,
+  type CustomerListItem,
   type IdentifierType,
   type Recommendation,
   type CustomerFeature,
   type NbaDecision,
+  type LifecycleStage,
 } from "../lib/types.js";
 import { fmtInt, fmtVndFull, LIFECYCLE_LABEL } from "../lib/format.js";
 import {
   PageHeader, Toolbar, Panel, Button, Field, Select, Input, Badge, StatusPill,
   EmptyState, Table, type Column, Skeleton,
 } from "../ui/index.js";
+
+const LIFECYCLE_TONE: Record<LifecycleStage, "success" | "warning" | "error" | "accent" | "neutral"> = {
+  vip: "success", active: "accent", new: "neutral", at_risk: "warning", dormant: "warning", churned: "error",
+};
+const PAGE_SIZE = 12;
 
 type ViewState =
   | { kind: "idle" }
@@ -41,9 +49,7 @@ export function CustomersScreen() {
   const [explainBusy, setExplainBusy] = useState(false);
   const reqId = useRef(0);
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!value.trim()) return;
+  async function load(fetcher: () => Promise<Customer360>) {
     const myReq = ++reqId.current;
     setView({ kind: "loading" });
     setRecs([]);
@@ -51,7 +57,7 @@ export function CustomersScreen() {
     setNba(null);
     setExplain(null);
     try {
-      const data = await api.lookupCustomer(type, value.trim());
+      const data = await fetcher();
       if (myReq !== reqId.current) return;
       setView({ kind: "success", data });
       try {
@@ -78,12 +84,20 @@ export function CustomersScreen() {
     }
   }
 
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!value.trim()) return;
+    void load(() => api.lookupCustomer(type, value.trim()));
+  }
+
+  const showDetail = view.kind !== "idle";
+
   return (
     <div className="mx-auto max-w-[1120px] p-6">
       <PageHeader
-        title="Customer 360"
-        description="Tra cứu một khách hàng theo định danh, hợp nhất xuyên thương hiệu."
-        breadcrumb={["Vận hành", "Customer 360"]}
+        title="Khách hàng — Customer 360"
+        description="Duyệt danh bạ khách hàng hợp nhất hoặc tra cứu theo định danh (xuyên thương hiệu)."
+        breadcrumb={["Vận hành", "Customers"]}
       />
 
       <form onSubmit={onSubmit}>
@@ -103,10 +117,12 @@ export function CustomersScreen() {
         </Toolbar>
       </form>
 
+      {/* Danh bạ khách hàng — hiển thị khi chưa tra cứu chi tiết */}
+      {!showDetail && (
+        <CustomerDirectory onOpen={(occId) => void load(() => api.getCustomerByOcc(occId))} />
+      )}
+
       <div className="mt-2">
-        {view.kind === "idle" && (
-          <EmptyState icon={<UserRound className="size-6" />} title="Tra cứu hồ sơ khách hàng" description="Nhập định danh (SĐT, email, thẻ loyalty…) để xem Customer 360 hợp nhất." />
-        )}
         {view.kind === "loading" && <Skeleton className="h-48 w-full" />}
         {view.kind === "notfound" && (
           <EmptyState icon={<UserX className="size-6" />} title="Không tìm thấy khách hàng" description="Định danh chưa gắn với OCH ID nào — khách có thể chưa phát sinh giao dịch." />
@@ -116,6 +132,10 @@ export function CustomersScreen() {
         )}
         {view.kind === "success" && (
           <div className="space-y-5">
+            <button type="button" onClick={() => setView({ kind: "idle" })}
+              className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-accent">
+              <ArrowLeft className="size-4" /> Về danh bạ khách hàng
+            </button>
             <CustomerCard data={view.data} />
             {feature && (
               <AiBehaviorPanel
@@ -141,6 +161,111 @@ export function CustomersScreen() {
         )}
       </div>
     </div>
+  );
+}
+
+const LIFECYCLE_FILTER: { value: string; label: string }[] = [
+  { value: "", label: "Tất cả vòng đời" },
+  { value: "vip", label: "VIP" },
+  { value: "active", label: "Đang hoạt động" },
+  { value: "new", label: "Mới" },
+  { value: "at_risk", label: "Có nguy cơ" },
+  { value: "dormant", label: "Ngủ đông" },
+  { value: "churned", label: "Đã rời" },
+];
+
+/** Danh bạ khách hàng — duyệt + lọc + phân trang; click 1 dòng để mở Customer 360. */
+function CustomerDirectory({ onOpen }: { onOpen: (occId: string) => void }) {
+  const [search, setSearch] = useState("");
+  const [debounced, setDebounced] = useState("");
+  const [lifecycle, setLifecycle] = useState("");
+  const [page, setPage] = useState(0);
+  const timer = useRef<number | undefined>(undefined);
+
+  // debounce ô tìm kiếm (350ms)
+  function onSearchChange(v: string) {
+    setSearch(v);
+    setPage(0);
+    window.clearTimeout(timer.current);
+    timer.current = window.setTimeout(() => setDebounced(v.trim()), 350);
+  }
+
+  const q = useQuery({
+    queryKey: ["customers", debounced, lifecycle, page],
+    queryFn: () =>
+      api.listCustomers({
+        ...(debounced ? { search: debounced } : {}),
+        ...(lifecycle ? { lifecycle } : {}),
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      }),
+  });
+  const rows = q.data?.data ?? [];
+  const total = q.data?.meta.total ?? 0;
+  const maxPage = Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+
+  const columns: Column<CustomerListItem>[] = [
+    {
+      key: "name", header: "Khách hàng",
+      cell: (c) => (
+        <div className="flex items-center gap-2.5">
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg brand-gradient text-xs font-bold text-white">
+            {(c.fullName ?? "?").trim().slice(0, 1).toUpperCase()}
+          </span>
+          <div className="min-w-0">
+            <div className="truncate font-medium text-text">{c.fullName ?? "(chưa có tên)"}</div>
+            <div className="truncate font-mono text-[11px] text-text-subtle">{c.occId}</div>
+          </div>
+        </div>
+      ),
+    },
+    { key: "city", header: "Thành phố", cell: (c) => c.city ?? "—", width: "130px" },
+    {
+      key: "lifecycle", header: "Vòng đời", width: "130px",
+      cell: (c) => c.lifecycleStage
+        ? <Badge tone={LIFECYCLE_TONE[c.lifecycleStage]}>{LIFECYCLE_LABEL[c.lifecycleStage] ?? c.lifecycleStage}</Badge>
+        : <span className="text-text-subtle">—</span>,
+    },
+    { key: "brands", header: "TH", numeric: true, cell: (c) => fmtInt(c.distinctBrands), width: "70px" },
+    { key: "freq", header: "Đơn", numeric: true, cell: (c) => fmtInt(c.frequency), width: "80px" },
+    { key: "monetary", header: "Chi tiêu", numeric: true, cell: (c) => <span className="font-semibold">{fmtVndFull(c.monetary)}</span>, width: "140px" },
+    { key: "loyalty", header: "Điểm", numeric: true, cell: (c) => fmtInt(c.loyaltyAvailable), width: "90px" },
+  ];
+
+  return (
+    <Panel className="mt-2" title="Danh bạ khách hàng" icon={<UserRound className="size-4" />}
+      subtitle={`${fmtInt(total)} khách hàng hợp nhất`} bodyClassName="p-0">
+      <div className="flex flex-wrap items-end gap-3 border-b border-border p-4">
+        <Field className="min-w-[260px] flex-1" label="Tìm theo tên / SĐT / email">
+          <Input aria-label="Tìm khách hàng" value={search} onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="Nguyễn Văn A / 09… / @gmail…" icon={<Search className="size-4" />} />
+        </Field>
+        <Field className="w-48" label="Vòng đời">
+          <Select aria-label="Lọc vòng đời" value={lifecycle} onChange={(e) => { setLifecycle(e.target.value); setPage(0); }}>
+            {LIFECYCLE_FILTER.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
+          </Select>
+        </Field>
+      </div>
+      {q.isError && <p className="p-4 text-sm text-error">Lỗi tải danh sách khách hàng.</p>}
+      <Table
+        columns={columns}
+        rows={rows}
+        rowKey={(c) => c.occId}
+        loading={q.isLoading}
+        onRowClick={(c) => onOpen(c.occId)}
+        empty={{ title: "Không có khách hàng", description: "Thử đổi bộ lọc hoặc từ khoá tìm kiếm." }}
+        density="compact"
+      />
+      {total > PAGE_SIZE && (
+        <div className="flex items-center justify-between border-t border-border px-4 py-3 text-sm">
+          <span className="text-text-muted">Trang {page + 1}/{maxPage + 1}</span>
+          <div className="flex gap-2">
+            <Button size="sm" variant="secondary" disabled={page === 0} onClick={() => setPage((p) => Math.max(0, p - 1))}>Trước</Button>
+            <Button size="sm" variant="secondary" disabled={page >= maxPage} onClick={() => setPage((p) => Math.min(maxPage, p + 1))}>Sau</Button>
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 }
 

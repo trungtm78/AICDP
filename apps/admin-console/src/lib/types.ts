@@ -39,6 +39,21 @@ export interface Customer360 {
   transactions: Array<Record<string, unknown>>;
 }
 
+export type LifecycleStage = "new" | "active" | "at_risk" | "vip" | "dormant" | "churned";
+
+/** Một dòng trong danh sách khách hàng (Customer Directory). */
+export interface CustomerListItem {
+  occId: string;
+  fullName: string | null;
+  city: string | null;
+  lifecycleStage: LifecycleStage | null;
+  monetary: number;
+  frequency: number;
+  distinctBrands: number;
+  lastOrderAt: string | null;
+  loyaltyAvailable: number;
+}
+
 export interface LoyaltyBalance {
   available: number;
   reserved: number;

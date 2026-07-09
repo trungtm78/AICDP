@@ -57,6 +57,41 @@ export async function setUserStatus(
   await pool.query("UPDATE cdp.app_user SET status=$2 WHERE id=$1", [id, status]);
 }
 
+/** Cập nhật user (name/role/password). Có password -> hash lại. Trả false nếu không tồn tại. */
+export async function updateUser(
+  pool: Pool,
+  id: string,
+  patch: { name?: string | undefined; role?: Role | undefined; password?: string | undefined },
+): Promise<boolean> {
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  if (patch.name !== undefined) {
+    params.push(patch.name);
+    sets.push(`name=$${params.length}`);
+  }
+  if (patch.role !== undefined) {
+    params.push(patch.role);
+    sets.push(`role=$${params.length}`);
+  }
+  if (patch.password !== undefined) {
+    params.push(hashPassword(patch.password));
+    sets.push(`password_hash=$${params.length}`);
+  }
+  if (sets.length === 0) return false;
+  params.push(id);
+  const r = await pool.query(
+    `UPDATE cdp.app_user SET ${sets.join(", ")} WHERE id=$${params.length}`,
+    params,
+  );
+  return (r.rowCount ?? 0) > 0;
+}
+
+/** Xoá cứng user. Trả false nếu không tồn tại. */
+export async function deleteUser(pool: Pool, id: string): Promise<boolean> {
+  const r = await pool.query("DELETE FROM cdp.app_user WHERE id=$1", [id]);
+  return (r.rowCount ?? 0) > 0;
+}
+
 /** Xác thực username/password -> JWT. Trả null nếu sai (controller map 401). */
 export async function login(
   pool: Pool,

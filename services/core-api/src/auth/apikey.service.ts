@@ -36,3 +36,9 @@ export async function createApiKey(
 export async function revokeApiKey(pool: Pool, id: string): Promise<void> {
   await pool.query("UPDATE cdp.api_key SET status='revoked' WHERE id=$1", [Number(id)]);
 }
+
+/** Xoá cứng API key (id là bigint IDENTITY). Trả false nếu không tồn tại. */
+export async function deleteApiKey(pool: Pool, id: string): Promise<boolean> {
+  const r = await pool.query("DELETE FROM cdp.api_key WHERE id=$1", [Number(id)]);
+  return (r.rowCount ?? 0) > 0;
+}

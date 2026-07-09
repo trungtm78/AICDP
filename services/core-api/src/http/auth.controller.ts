@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, Param, Inject, HttpCode } from "@nestjs/common";
+import { Controller, Post, Get, Put, Delete, Body, Param, Inject, HttpCode } from "@nestjs/common";
 import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
@@ -6,12 +6,32 @@ import {
   loginSchema,
   createUserSchema,
   userStatusSchema,
+  userUpdateSchema,
   apiKeyCreateSchema,
 } from "./schemas.js";
 import { AppError } from "./errors.js";
 import { Public, Roles } from "./auth/roles.js";
-import { login, createUser, listUsers, setUserStatus } from "../auth/user.service.js";
-import { listApiKeys, createApiKey, revokeApiKey } from "../auth/apikey.service.js";
+import {
+  login,
+  createUser,
+  listUsers,
+  setUserStatus,
+  updateUser,
+  deleteUser,
+} from "../auth/user.service.js";
+import { listApiKeys, createApiKey, revokeApiKey, deleteApiKey } from "../auth/apikey.service.js";
+
+// Lỗi 404 khi không tìm thấy bản ghi cần cập nhật/xoá.
+function notFoundError(entity: string, id: string): AppError {
+  return new AppError({
+    code: "NOT_FOUND",
+    httpStatus: 404,
+    message: `Không tìm thấy ${entity} với id đã cho.`,
+    why: `Không có bản ghi ${entity} khớp id=${id}.`,
+    fix: "Kiểm tra lại id.",
+    retryable: false,
+  });
+}
 
 /** Đăng nhập (public) + tạo user (admin). Trả JWT mang role cho admin-console. */
 @Controller("v1/auth")
@@ -61,6 +81,23 @@ export class AuthController {
   }
 
   @Roles("admin")
+  @Put("users/:id")
+  async updateUserRoute(@Param("id") id: string, @Body() body: unknown) {
+    const dto = validate(userUpdateSchema, body, "user_update");
+    const ok = await updateUser(this.pool, id, dto);
+    if (!ok) throw notFoundError("user", id);
+    return { data: { id } };
+  }
+
+  @Roles("admin")
+  @Delete("users/:id")
+  async deleteUserRoute(@Param("id") id: string) {
+    const ok = await deleteUser(this.pool, id);
+    if (!ok) throw notFoundError("user", id);
+    return { data: { deleted: true } };
+  }
+
+  @Roles("admin")
   @Get("api-keys")
   async apiKeys() {
     return { data: await listApiKeys(this.pool) };
@@ -81,6 +118,14 @@ export class AuthController {
   async revokeKey(@Param("id") id: string) {
     await revokeApiKey(this.pool, id);
     return { data: { id, status: "revoked" } };
+  }
+
+  @Roles("admin")
+  @Delete("api-keys/:id")
+  async deleteKey(@Param("id") id: string) {
+    const ok = await deleteApiKey(this.pool, id);
+    if (!ok) throw notFoundError("api_key", id);
+    return { data: { deleted: true } };
   }
 }
 

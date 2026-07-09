@@ -5,6 +5,7 @@ import {
   type Store,
   type Product,
   type Customer360,
+  type CustomerListItem,
   type IdentifierType,
   type LoyaltyBalance,
   type LoyaltyResult,
@@ -122,10 +123,40 @@ export const api = {
       body: JSON.stringify(dto),
     }),
 
+  updateStore: (id: string, patch: { name?: string; brand_id?: string; region?: string; city?: string; address?: string }) =>
+    request<{ store_id: string }>(`/v1/stores/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(patch) }),
+  deleteStore: (id: string) =>
+    request<{ deleted: true }>(`/v1/stores/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  updateProduct: (id: string, patch: { name?: string; category_id?: string; unit?: string }) =>
+    request<{ product_master_id: string }>(`/v1/products/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(patch) }),
+  deleteProduct: (id: string) =>
+    request<{ deleted: true }>(`/v1/products/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  createBrand: (dto: { brand_id: string; name: string; industry?: string; brand_accent?: string }) =>
+    request<{ brand_id: string }>("/v1/brands", { method: "POST", body: JSON.stringify(dto) }),
+  updateBrand: (id: string, patch: { name?: string; industry?: string; brand_accent?: string }) =>
+    request<{ brand_id: string }>(`/v1/brands/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(patch) }),
+  deleteBrand: (id: string) =>
+    request<{ deleted: true }>(`/v1/brands/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  /** Danh sách khách hàng (directory) — trả kèm total để phân trang. */
+  listCustomers: (params: { search?: string; lifecycle?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.search) qs.set("search", params.search);
+    if (params.lifecycle) qs.set("lifecycle", params.lifecycle);
+    qs.set("limit", String(params.limit ?? 25));
+    qs.set("offset", String(params.offset ?? 0));
+    return requestFull<CustomerListItem[]>(`/v1/customers?${qs.toString()}`);
+  },
+
   lookupCustomer: (type: IdentifierType, value: string) =>
     request<Customer360>(
       `/v1/customers/lookup?type=${encodeURIComponent(type)}&value=${encodeURIComponent(value)}`,
     ),
+
+  getCustomerByOcc: (occId: string) =>
+    request<Customer360>(`/v1/customers/by-id/${encodeURIComponent(occId)}`),
 
   getLoyaltyBalance: (occId: string) =>
     request<LoyaltyBalance>(`/v1/loyalty/balance?occId=${encodeURIComponent(occId)}`),
@@ -238,6 +269,15 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
 
+  updateUser: (id: string, patch: { name?: string; role?: Role; password?: string }) =>
+    request<{ id: string }>(`/v1/auth/users/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(patch),
+    }),
+
+  deleteUser: (id: string) =>
+    request<{ deleted: true }>(`/v1/auth/users/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
   listApiKeys: () => request<ApiKeySummary[]>("/v1/auth/api-keys"),
 
   createApiKey: (name: string, role: Role) =>
@@ -251,6 +291,9 @@ export const api = {
       `/v1/auth/api-keys/${encodeURIComponent(id)}/revoke`,
       { method: "POST" },
     ),
+
+  deleteApiKey: (id: string) =>
+    request<{ deleted: true }>(`/v1/auth/api-keys/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   // ── AI Phase A ──
   getAiConfig: () => request<AiConfig>("/v1/ai/config"),
