@@ -8,7 +8,7 @@ import {
   loyaltyReservationOpSchema,
   loyaltyBalanceQuerySchema,
 } from "./schemas.js";
-import { earn, reserve, capture, release, getBalance, listMembers } from "../loyalty/loyalty.service.js";
+import { earn, reserve, capture, release, getBalance, listMembers, listLedger } from "../loyalty/loyalty.service.js";
 import { Roles } from "./auth/roles.js";
 
 /** Loyalty double-entry: earn + reserve/capture/release (theo reservationId) + balance. */
@@ -62,5 +62,12 @@ export class LoyaltyController {
   async members() {
     const res = await listMembers(this.pool);
     return { data: res.members, meta: { total: res.totalMembers, totalPoints: res.totalPoints } };
+  }
+
+  /** Drill-down: lịch sử điểm của một thành viên (dòng ledger + số dư luỹ kế). */
+  @Get("ledger")
+  async ledger(@Query() query: Record<string, string>) {
+    const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_ledger");
+    return { data: await listLedger(this.pool, occId) };
   }
 }

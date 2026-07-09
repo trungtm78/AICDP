@@ -2,9 +2,9 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Users, CircleCheck, ShoppingBag, Coins } from "lucide-react";
 import { api } from "../../lib/api.js";
-import { type JourneyReport } from "../../lib/types.js";
-import { fmtInt, fmtVnd } from "../../lib/format.js";
-import { Panel, StatTile, Funnel, BarChart, Table, type Column, SegmentedControl, Skeleton, EmptyState, Badge } from "../../ui/index.js";
+import { type JourneyReport, type JourneyParticipant } from "../../lib/types.js";
+import { fmtInt, fmtVnd, fmtDateTime } from "../../lib/format.js";
+import { Panel, StatTile, Funnel, BarChart, Table, type Column, SegmentedControl, Skeleton, EmptyState, Badge, Drawer, StatusPill } from "../../ui/index.js";
 
 const NODE_LABEL: Record<string, string> = { entry: "Vào", wait: "Chờ", condition: "Điều kiện", action: "Hành động", exit: "Hoàn thành" };
 const WINDOWS = [
@@ -15,6 +15,7 @@ const WINDOWS = [
 
 export function JourneyReportView({ journeyId }: { journeyId: string }) {
   const [win, setWin] = useState("7");
+  const [drillNode, setDrillNode] = useState<{ nodeId: string; label: string } | null>(null);
   const q = useQuery({ queryKey: ["journey-report", journeyId, win], queryFn: () => api.jReport(journeyId, Number(win)) });
 
   if (q.isLoading) return <Skeleton className="h-[60vh] w-full" />;
@@ -55,8 +56,9 @@ export function JourneyReportView({ journeyId }: { journeyId: string }) {
         </Panel>
       </div>
 
-      <Panel title="Chuyển đổi từng bước" bodyClassName="p-0">
-        <Table columns={funnelCols} rows={r.funnel} rowKey={(f) => f.nodeId} className="rounded-none border-0 shadow-none" density="compact" />
+      <Panel title="Chuyển đổi từng bước" subtitle="Bấm một bước để xem khách đang ở đó" bodyClassName="p-0">
+        <Table columns={funnelCols} rows={r.funnel} rowKey={(f) => f.nodeId} className="rounded-none border-0 shadow-none" density="compact"
+          onRowClick={(f) => setDrillNode({ nodeId: f.nodeId, label: `${NODE_LABEL[f.nodeType] ?? f.nodeType}: ${f.nodeId}` })} />
       </Panel>
 
       {r.exitReasons.length > 0 && (
@@ -68,6 +70,38 @@ export function JourneyReportView({ journeyId }: { journeyId: string }) {
           </div>
         </Panel>
       )}
+
+      {drillNode && <NodeParticipantsDrawer journeyId={journeyId} nodeId={drillNode.nodeId} label={drillNode.label} onClose={() => setDrillNode(null)} />}
     </div>
+  );
+}
+
+const P_STATUS_TONE: Record<string, "success" | "warning" | "neutral" | "error"> = {
+  active: "warning", completed: "success", exited: "neutral", failed: "error",
+};
+const P_STATUS_LABEL: Record<string, string> = {
+  active: "đang chạy", completed: "hoàn thành", exited: "đã rời", failed: "lỗi",
+};
+
+/** Drill-down funnel: khách đang ở một bước (node) của journey. */
+function NodeParticipantsDrawer({ journeyId, nodeId, label, onClose }: { journeyId: string; nodeId: string; label: string; onClose: () => void }) {
+  const pq = useQuery({
+    queryKey: ["journey-node-participants", journeyId, nodeId],
+    queryFn: () => api.jParticipants(journeyId, { nodeId, limit: 200 }),
+  });
+  const cols: Column<JourneyParticipant>[] = [
+    { key: "occ", header: "OCH ID", cell: (p) => <span className="font-mono text-xs text-text-muted">{p.occ_id}</span> },
+    { key: "status", header: "Trạng thái", width: "120px", cell: (p) => <StatusPill tone={P_STATUS_TONE[p.status] ?? "neutral"}>{P_STATUS_LABEL[p.status] ?? p.status}</StatusPill> },
+    { key: "enrolled", header: "Vào lúc", width: "110px", cell: (p) => <span className="tabular text-xs text-text-subtle">{fmtDateTime(p.enrolled_at)}</span> },
+  ];
+  return (
+    <Drawer open onClose={onClose} title={`Khách đang ở bước — ${label}`} description={`${fmtInt(pq.data?.data?.length ?? 0)} người đang ở node này`}>
+      {pq.isLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : (
+        <Table columns={cols} rows={pq.data?.data ?? []} rowKey={(p) => p.id}
+          empty={{ title: "Không có khách đang ở bước này" }} density="compact" />
+      )}
+    </Drawer>
   );
 }

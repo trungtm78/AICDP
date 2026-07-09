@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
 import { activationSchema } from "./schemas.js";
-import { activate, getRun, listRuns } from "../activation/activation.service.js";
+import { activate, getRun, listRuns, listRunMembers } from "../activation/activation.service.js";
 import { Roles } from "./auth/roles.js";
 
 /** Activation — kích hoạt audience tới destination, GATE bằng consent (deny-by-default). */
@@ -29,5 +29,11 @@ export class ActivationController {
     const run = await getRun(this.pool, runId);
     if (!run) throw new NotFoundException("activation run không tồn tại");
     return { data: run };
+  }
+
+  /** Drill-down: khách của một lần kích hoạt (allowed / suppressed). */
+  @Get(":runId/members")
+  async members(@Param("runId") runId: string) {
+    return { data: await listRunMembers(this.pool, runId) };
   }
 }

@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import {
   Users, Receipt, Wallet, Coins, Send, ShieldAlert, Boxes, RefreshCw,
 } from "lucide-react";
@@ -11,6 +12,7 @@ import {
 
 /** Control Tower — tổng quan realtime toàn cục 5 thương hiệu. Refresh mỗi 10s. */
 export function ControlTowerScreen() {
+  const navigate = useNavigate();
   const ov = useQuery({ queryKey: ["overview"], queryFn: api.getOverview, refetchInterval: 10_000 });
   const ins = useQuery({ queryKey: ["insights"], queryFn: api.getInsights });
   const fc = useQuery({ queryKey: ["forecast", "month"], queryFn: () => api.getForecast({ granularity: "month", periods: 3 }) });
@@ -39,13 +41,17 @@ export function ControlTowerScreen() {
           {fc.isLoading && <Skeleton className="h-56 w-full" />}
           {fc.data && <ForecastPanel fc={fc.data} />}
         </Panel>
-        <Panel title="Phân bố vòng đời" subtitle="Khách đã phân tích" testid="ct-lifecycle">
+        <Panel title="Phân bố vòng đời" subtitle="Khách đã phân tích — bấm để lọc danh bạ" testid="ct-lifecycle">
           {ins.isLoading && <Skeleton className="h-56 w-full" />}
           {ins.data && ins.data.lifecycle.length > 0 ? (
             <Donut
               height={230}
               data={ins.data.lifecycle.map((x) => ({ name: LIFECYCLE_LABEL[x.stage] ?? x.stage, value: x.count }))}
               valueFormatter={(n) => `${fmtInt(n)} khách`}
+              onSliceClick={(_, i) => {
+                const stage = ins.data?.lifecycle[i]?.stage;
+                if (stage) navigate(`/customers?lifecycle=${encodeURIComponent(stage)}`);
+              }}
             />
           ) : (
             !ins.isLoading && <EmptyState title="Chưa có dữ liệu vòng đời" />
@@ -54,13 +60,17 @@ export function ControlTowerScreen() {
       </div>
 
       <div className="mt-5">
-        <Panel title="Doanh thu theo thương hiệu" subtitle="Tổng hợp toàn hệ thống" testid="ct-revenue">
+        <Panel title="Doanh thu theo thương hiệu" subtitle="Tổng hợp toàn hệ thống — bấm để lọc danh bạ" testid="ct-revenue">
           {ins.isLoading && <Skeleton className="h-52 w-full" />}
           {ins.data && ins.data.revenueByBrand.length > 0 ? (
             <BarChart
               height={Math.max(180, ins.data.revenueByBrand.length * 46)}
               data={ins.data.revenueByBrand.map((x) => ({ label: BRAND_LABEL[x.brandId] ?? x.brandId, value: x.revenue }))}
               valueFormatter={fmtVnd}
+              onBarClick={(_, i) => {
+                const brandId = ins.data?.revenueByBrand[i]?.brandId;
+                if (brandId) navigate(`/customers?brand=${encodeURIComponent(brandId)}`);
+              }}
             />
           ) : (
             !ins.isLoading && <EmptyState title="Chưa có doanh thu" />

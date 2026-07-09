@@ -44,6 +44,7 @@ export async function listCustomers(
   opts: {
     search?: string | undefined;
     lifecycle?: string | undefined;
+    brand?: string | undefined;
     limit?: number | undefined;
     offset?: number | undefined;
   },
@@ -63,6 +64,14 @@ export async function listCustomers(
   if (opts.lifecycle !== undefined) {
     params.push(opts.lifecycle);
     conds.push(`cf.lifecycle_stage = $${params.length}`);
+  }
+  if (opts.brand !== undefined && opts.brand !== "") {
+    // Lọc khách có ít nhất 1 giao dịch thuộc thương hiệu — drill-down từ chart doanh thu.
+    params.push(opts.brand);
+    conds.push(
+      `EXISTS(SELECT 1 FROM cdp.canonical_transaction ct ` +
+        `WHERE ct.occ_id = o.occ_id AND ct.brand_id = $${params.length})`,
+    );
   }
 
   const fromWhere =

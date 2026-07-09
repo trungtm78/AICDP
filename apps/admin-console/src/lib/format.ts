@@ -22,6 +22,14 @@ export function fmtPct(n: number, digits = 0): string {
   return `${(n * 100).toFixed(digits)}%`;
 }
 
+/** Ngày giờ rút gọn dd/MM HH:mm (vi-VN). */
+export function fmtDateTime(iso: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export const LIFECYCLE_LABEL: Record<string, string> = {
   new: "Mới", active: "Đang hoạt động", at_risk: "Có nguy cơ", vip: "VIP",
   dormant: "Ngủ đông", churned: "Đã rời", unknown: "Chưa rõ",

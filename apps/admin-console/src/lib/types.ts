@@ -129,6 +129,37 @@ export interface LoyaltyMember {
   totalEarned: number;
 }
 
+/** Một dòng lịch sử điểm (drill-down Loyalty). */
+export interface LoyaltyLedgerEntry {
+  txnId: string;
+  type: string;
+  reason: string | null;
+  pointsDelta: number;
+  availableAfter: number;
+  createdAt: string;
+}
+
+/** Khách trong một lần kích hoạt (drill-down Audiences). */
+export interface ActivationMember {
+  occId: string;
+  fullName: string | null;
+  decision: "allowed" | "suppressed_no_consent";
+}
+
+/** Chi tiết một giao dịch (drill-down Customer 360). */
+export interface TransactionDetail {
+  messageId: string;
+  brandId: string | null;
+  storeId: string | null;
+  posTransactionId: string | null;
+  total: number;
+  currency: string | null;
+  paymentMethod: string | null;
+  businessDate: string | null;
+  occTimestamp: string | null;
+  items: Array<Record<string, unknown>>;
+}
+
 export interface LoyaltyResult {
   txnId: string;
   balance: LoyaltyBalance;

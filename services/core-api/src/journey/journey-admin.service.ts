@@ -162,7 +162,7 @@ export interface ParticipantView {
 export async function listParticipants(
   pool: Pool,
   journeyId: string,
-  opts: { status?: string; limit?: number; offset?: number } = {},
+  opts: { status?: string; nodeId?: string; limit?: number; offset?: number } = {},
 ): Promise<{ rows: ParticipantView[]; total: number }> {
   const limit = Math.min(opts.limit ?? 50, 200);
   const offset = opts.offset ?? 0;
@@ -171,6 +171,11 @@ export async function listParticipants(
   if (opts.status) {
     params.push(opts.status);
     where += ` AND status=$${params.length}`;
+  }
+  if (opts.nodeId) {
+    // Drill-down từ funnel: khách đang ở bước (node) này.
+    params.push(opts.nodeId);
+    where += ` AND current_node_id=$${params.length}`;
   }
   const totalR = await pool.query<{ n: string }>(`SELECT count(*) AS n FROM cdp.journey_participant WHERE ${where}`, params);
   params.push(limit, offset);

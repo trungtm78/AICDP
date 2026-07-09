@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { pool } from "../db/pool.js";
 import { setupTestDb, truncateAll } from "../test-helpers/db.js";
 import { recordConsent } from "../consent/consent.service.js";
-import { activate, getRun } from "./activation.service.js";
+import { activate, getRun, listRunMembers } from "./activation.service.js";
 
 async function newOcc(): Promise<string> {
   const r = await pool.query<{ occ_id: string }>(
@@ -81,6 +81,21 @@ describe("activation — consent gate (deny-by-default)", () => {
     const byOcc = Object.fromEntries(members.rows.map((m) => [m.occ_id, m.decision]));
     expect(byOcc[a]).toBe("allowed");
     expect(byOcc[b]).toBe("suppressed_no_consent");
+  });
+
+  it("listRunMembers (drill-down): trả khách kèm quyết định, allowed lên trước", async () => {
+    const a = await newOcc();
+    await recordConsent(pool, { occId: a, purpose: "marketing_sms", status: "granted", source: "web" });
+    const b = await newOcc();
+    const res = await activate(pool, {
+      audienceName: "SMS test", purpose: "marketing_sms", channel: "sms",
+      destination: "rudderstack", occIds: [a, b],
+    });
+    const members = await listRunMembers(pool, res.runId);
+    expect(members.length).toBe(2);
+    expect(members[0]!.decision).toBe("allowed");
+    expect(members[0]!.occId).toBe(a);
+    expect(members[1]!.decision).toBe("suppressed_no_consent");
   });
 
   it("danh sách rỗng -> run 0/0", async () => {

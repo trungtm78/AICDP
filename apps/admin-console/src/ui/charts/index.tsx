@@ -19,12 +19,15 @@ export function BarChart({
   horizontal = true,
   valueFormatter = idFmt,
   color,
+  onBarClick,
 }: {
   data: BarDatum[];
   height?: number;
   horizontal?: boolean;
   valueFormatter?: Fmt;
   color?: string;
+  /** Drill-down: bấm 1 cột → nhận label + chỉ số. */
+  onBarClick?: (label: string, index: number) => void;
 }) {
   useTheme();
   const T = chartTokens();
@@ -56,7 +59,7 @@ export function BarChart({
       },
     ],
   };
-  return <EChart option={option} height={height} />;
+  return <EChart option={option} height={height} {...(onBarClick ? { onClick: (p) => onBarClick(String(p.name), p.dataIndex) } : {})} />;
 }
 
 export interface DonutSlice {
@@ -71,11 +74,14 @@ export function Donut({
   height = 260,
   valueFormatter = idFmt,
   centerLabel,
+  onSliceClick,
 }: {
   data: DonutSlice[];
   height?: number;
   valueFormatter?: Fmt;
   centerLabel?: string;
+  /** Drill-down: bấm 1 phần → nhận tên slice + chỉ số. */
+  onSliceClick?: (name: string, index: number) => void;
 }) {
   useTheme();
   const T = chartTokens();
@@ -106,7 +112,7 @@ export function Donut({
       },
     ],
   };
-  return <EChart option={option} height={height} />;
+  return <EChart option={option} height={height} {...(onSliceClick ? { onClick: (p) => onSliceClick(String(p.name), p.dataIndex) } : {})} />;
 }
 
 /** Line + Area cho forecast: phần lịch sử (liền) + dự báo (đứt). */

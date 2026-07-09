@@ -219,3 +219,50 @@ export async function getCustomer360ByOccId(pool: Pool, occId: string): Promise<
     transactions: transactions.rows,
   };
 }
+
+export interface TransactionDetail {
+  messageId: string;
+  brandId: string | null;
+  storeId: string | null;
+  posTransactionId: string | null;
+  total: number;
+  currency: string | null;
+  paymentMethod: string | null;
+  businessDate: string | null;
+  occTimestamp: string | null;
+  items: Array<Record<string, unknown>>;
+}
+
+/** Drill-down giao dịch: chi tiết món hàng của một giao dịch (theo occId + messageId). */
+export async function getTransactionDetail(
+  pool: Pool,
+  occId: string,
+  messageId: string,
+): Promise<TransactionDetail | null> {
+  const r = await pool.query<{
+    message_id: string; brand_id: string | null; store_id: string | null;
+    pos_transaction_id: string | null; total: string; currency: string | null;
+    payment_method: string | null; business_date: string | null;
+    occ_timestamp: string | null; items: unknown;
+  }>(
+    `SELECT message_id, brand_id, store_id, pos_transaction_id, total, currency,
+            payment_method, business_date, occ_timestamp, items
+       FROM cdp.canonical_transaction
+      WHERE occ_id=$1 AND message_id=$2`,
+    [occId, messageId],
+  );
+  const row = r.rows[0];
+  if (!row) return null;
+  return {
+    messageId: row.message_id,
+    brandId: row.brand_id,
+    storeId: row.store_id,
+    posTransactionId: row.pos_transaction_id,
+    total: Number(row.total),
+    currency: row.currency,
+    paymentMethod: row.payment_method,
+    businessDate: row.business_date,
+    occTimestamp: row.occ_timestamp,
+    items: Array.isArray(row.items) ? (row.items as Array<Record<string, unknown>>) : [],
+  };
+}

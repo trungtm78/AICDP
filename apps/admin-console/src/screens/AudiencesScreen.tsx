@@ -1,15 +1,16 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, ShieldX, SlidersHorizontal, History } from "lucide-react";
+import { Send, Users, ShieldX, SlidersHorizontal, History, CheckCircle2 } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   type ActivateResult,
   type ActivationRun,
+  type ActivationMember,
   type ConsentPurpose,
   type SegmentCriteria,
 } from "../lib/types.js";
 import { fmtInt } from "../lib/format.js";
-import { PageHeader, Panel, Field, Select, Input, Textarea, Button, Badge, StatTile, EmptyState, Table, type Column } from "../ui/index.js";
+import { PageHeader, Panel, Field, Select, Input, Textarea, Button, Badge, StatTile, EmptyState, Table, Drawer, Skeleton, type Column } from "../ui/index.js";
 
 const PURPOSE_LABEL: Record<string, string> = {
   marketing_email: "Email", marketing_sms: "SMS", marketing_zalo: "Zalo",
@@ -158,8 +159,9 @@ export function AudiencesScreen() {
   );
 }
 
-/** Lịch sử kích hoạt audience gần đây. */
+/** Lịch sử kích hoạt audience gần đây — bấm để xem danh sách khách của lần kích hoạt. */
 function ActivationHistory({ runs, loading }: { runs: ActivationRun[]; loading: boolean }) {
+  const [drill, setDrill] = useState<ActivationRun | null>(null);
   const columns: Column<ActivationRun>[] = [
     { key: "name", header: "Audience", cell: (r) => <span className="font-medium">{r.audience_name}</span> },
     { key: "purpose", header: "Mục đích", cell: (r) => <Badge tone="neutral">{PURPOSE_LABEL[r.purpose] ?? r.purpose}</Badge>, width: "120px" },
@@ -170,9 +172,54 @@ function ActivationHistory({ runs, loading }: { runs: ActivationRun[]; loading: 
     { key: "date", header: "Thời gian", cell: (r) => <span className="tabular text-xs text-text-subtle">{fmtDateTime(r.created_at)}</span>, width: "110px" },
   ];
   return (
-    <Panel title="Lịch sử kích hoạt" icon={<History className="size-4" />} subtitle={`${fmtInt(runs.length)} lần gần đây`} bodyClassName="p-0">
-      <Table columns={columns} rows={runs} rowKey={(r) => r.run_id} loading={loading}
-        empty={{ title: "Chưa có lần kích hoạt nào" }} density="compact" />
-    </Panel>
+    <>
+      <Panel title="Lịch sử kích hoạt" icon={<History className="size-4" />} subtitle={`${fmtInt(runs.length)} lần gần đây — bấm để xem khách của lần kích hoạt`} bodyClassName="p-0">
+        <Table columns={columns} rows={runs} rowKey={(r) => r.run_id} loading={loading}
+          onRowClick={setDrill} empty={{ title: "Chưa có lần kích hoạt nào" }} density="compact" />
+      </Panel>
+      {drill && <RunMembersDrawer run={drill} onClose={() => setDrill(null)} />}
+    </>
+  );
+}
+
+/** Drill-down: danh sách khách trong một lần kích hoạt (allowed / bị chặn). */
+function RunMembersDrawer({ run, onClose }: { run: ActivationRun; onClose: () => void }) {
+  const membersQ = useQuery({ queryKey: ["activation-members", run.run_id], queryFn: () => api.getActivationMembers(run.run_id) });
+  const columns: Column<ActivationMember>[] = [
+    {
+      key: "name", header: "Khách hàng",
+      cell: (m) => (
+        <div>
+          <div className="font-medium text-text">{m.fullName ?? "(chưa có tên)"}</div>
+          <div className="font-mono text-[11px] text-text-subtle">{m.occId}</div>
+        </div>
+      ),
+    },
+    {
+      key: "decision", header: "Kết quả", width: "150px",
+      cell: (m) => m.decision === "allowed"
+        ? <Badge tone="success" icon={<CheckCircle2 className="size-3" />}>Đã gửi</Badge>
+        : <Badge tone="warning" icon={<ShieldX className="size-3" />}>Chưa cấp consent</Badge>,
+    },
+  ];
+  return (
+    <Drawer open onClose={onClose} title={`Kết quả — ${run.audience_name}`}
+      description={`${PURPOSE_LABEL[run.purpose] ?? run.purpose} · ${run.channel} → ${run.destination}`}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-3 gap-3">
+          <StatTile label="Tổng" value={fmtInt(run.total)} icon={<Users className="size-4" />} />
+          <StatTile label="Đã gửi" value={fmtInt(run.allowed_count)} icon={<Send className="size-4" />} />
+          <StatTile label="Bị chặn" value={fmtInt(run.suppressed_count)} icon={<ShieldX className="size-4" />} deltaTone="down" />
+        </div>
+        <Panel title="Danh sách khách" icon={<Users className="size-4" />} bodyClassName="p-0">
+          {membersQ.isLoading ? (
+            <div className="p-4"><Skeleton className="h-40 w-full" /></div>
+          ) : (
+            <Table columns={columns} rows={membersQ.data ?? []} rowKey={(m) => m.occId}
+              empty={{ title: "Không có khách trong lần kích hoạt này" }} density="compact" />
+          )}
+        </Panel>
+      </div>
+    </Drawer>
   );
 }

@@ -125,6 +125,25 @@ export async function getRun(pool: Pool, runId: string): Promise<ActivationRun |
   return r.rows[0] ?? null;
 }
 
+export interface ActivationMember {
+  occId: string;
+  fullName: string | null;
+  decision: "allowed" | "suppressed_no_consent";
+}
+
+/** Drill-down: danh sách khách trong một lần kích hoạt (kèm quyết định consent). */
+export async function listRunMembers(pool: Pool, runId: string): Promise<ActivationMember[]> {
+  const r = await pool.query<{ occ_id: string; full_name: string | null; decision: ActivationMember["decision"] }>(
+    `SELECT m.occ_id, p.full_name, m.decision
+       FROM cdp.activation_member m
+       LEFT JOIN cdp.profile p ON p.occ_id = m.occ_id
+      WHERE m.run_id = $1
+      ORDER BY (m.decision = 'allowed') DESC, p.full_name NULLS LAST`,
+    [runId],
+  );
+  return r.rows.map((row) => ({ occId: row.occ_id, fullName: row.full_name, decision: row.decision }));
+}
+
 /** Lịch sử kích hoạt gần đây (Audiences). */
 export async function listRuns(pool: Pool, limit = 50): Promise<ActivationRun[]> {
   const r = await pool.query<ActivationRun>(

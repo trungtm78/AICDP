@@ -114,11 +114,13 @@ export class JourneyController {
   async participants(
     @Param("id") id: string,
     @Query("status") status?: string,
+    @Query("nodeId") nodeId?: string,
     @Query("limit") limit?: string,
     @Query("offset") offset?: string,
   ) {
     const r = await listParticipants(this.pool, id, {
       ...(status ? { status } : {}),
+      ...(nodeId ? { nodeId } : {}),
       ...(limit ? { limit: Number(limit) } : {}),
       ...(offset ? { offset: Number(offset) } : {}),
     });

@@ -4,7 +4,7 @@ import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
 import { lookupQuerySchema, customerListQuerySchema } from "./schemas.js";
 import { AppError } from "./errors.js";
-import { getCustomer360, getCustomer360ByOccId } from "../ingestion/ingestion.service.js";
+import { getCustomer360, getCustomer360ByOccId, getTransactionDetail } from "../ingestion/ingestion.service.js";
 import { listCustomers } from "../customers/customers.repo.js";
 import { getCustomerAnalytics } from "../customers/customer-analytics.js";
 import { Roles } from "./auth/roles.js";
@@ -64,5 +64,23 @@ export class CustomersController {
   @Get("by-id/:occId/analytics")
   async analytics(@Param("occId") occId: string) {
     return { data: await getCustomerAnalytics(this.pool, occId) };
+  }
+
+  /** Drill-down: chi tiết một giao dịch (món hàng, phương thức thanh toán…). */
+  @Get("by-id/:occId/transactions/:messageId")
+  async transactionDetail(@Param("occId") occId: string, @Param("messageId") messageId: string) {
+    const detail = await getTransactionDetail(this.pool, occId, messageId);
+    if (!detail) {
+      throw new AppError({
+        code: "CUSTOMER_NOT_FOUND",
+        httpStatus: 404,
+        message: "Không tìm thấy giao dịch.",
+        why: "messageId không thuộc occId này (hoặc không tồn tại).",
+        fix: "Kiểm tra lại messageId.",
+        fieldPath: "messageId",
+        retryable: false,
+      });
+    }
+    return { data: detail };
   }
 }

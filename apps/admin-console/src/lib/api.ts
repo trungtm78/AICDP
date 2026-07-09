@@ -13,6 +13,9 @@ import {
   type IdentifierType,
   type LoyaltyBalance,
   type LoyaltyMember,
+  type LoyaltyLedgerEntry,
+  type ActivationMember,
+  type TransactionDetail,
   type LoyaltyResult,
   type ReserveResult,
   type ConsentState,
@@ -166,10 +169,11 @@ export const api = {
     request<{ deleted: true }>(`/v1/brands/${encodeURIComponent(id)}`, { method: "DELETE" }),
 
   /** Danh sách khách hàng (directory) — trả kèm total để phân trang. */
-  listCustomers: (params: { search?: string; lifecycle?: string; limit?: number; offset?: number } = {}) => {
+  listCustomers: (params: { search?: string; lifecycle?: string; brand?: string; limit?: number; offset?: number } = {}) => {
     const qs = new URLSearchParams();
     if (params.search) qs.set("search", params.search);
     if (params.lifecycle) qs.set("lifecycle", params.lifecycle);
+    if (params.brand) qs.set("brand", params.brand);
     qs.set("limit", String(params.limit ?? 25));
     qs.set("offset", String(params.offset ?? 0));
     return requestFull<CustomerListItem[]>(`/v1/customers?${qs.toString()}`);
@@ -190,6 +194,9 @@ export const api = {
     request<LoyaltyBalance>(`/v1/loyalty/balance?occId=${encodeURIComponent(occId)}`),
 
   listLoyaltyMembers: () => requestEnvelope<LoyaltyMember[]>("/v1/loyalty/members"),
+
+  getLoyaltyLedger: (occId: string) =>
+    request<LoyaltyLedgerEntry[]>(`/v1/loyalty/ledger?occId=${encodeURIComponent(occId)}`),
 
   loyaltyEarn: (occId: string, points: number, idempotencyKey: string) =>
     request<LoyaltyResult>("/v1/loyalty/earn", {
@@ -238,6 +245,14 @@ export const api = {
 
   listActivationRuns: () => request<ActivationRun[]>("/v1/activation"),
 
+  getActivationMembers: (runId: string) =>
+    request<ActivationMember[]>(`/v1/activation/${encodeURIComponent(runId)}/members`),
+
+  getTransactionDetail: (occId: string, messageId: string) =>
+    request<TransactionDetail>(
+      `/v1/customers/by-id/${encodeURIComponent(occId)}/transactions/${encodeURIComponent(messageId)}`,
+    ),
+
   getOverview: () => request<Overview>("/v1/analytics/overview"),
 
   previewSegment: (criteria: SegmentCriteria) =>
@@ -274,9 +289,10 @@ export const api = {
   jArchive: (id: string) => request<JourneyRow>(`/v1/journeys/${encodeURIComponent(id)}/archive`, { method: "POST" }),
   jEnroll: (id: string, body: { occIds?: string[]; useSegment?: boolean }) =>
     request<{ enrolled: number }>(`/v1/journeys/${encodeURIComponent(id)}/enroll`, { method: "POST", body: JSON.stringify(body) }),
-  jParticipants: (id: string, q: { status?: string; limit?: number; offset?: number } = {}) => {
+  jParticipants: (id: string, q: { status?: string; nodeId?: string; limit?: number; offset?: number } = {}) => {
     const p = new URLSearchParams();
     if (q.status) p.set("status", q.status);
+    if (q.nodeId) p.set("nodeId", q.nodeId);
     if (q.limit) p.set("limit", String(q.limit));
     if (q.offset) p.set("offset", String(q.offset));
     return requestFull<JourneyParticipant[]>(`/v1/journeys/${encodeURIComponent(id)}/participants?${p.toString()}`);

@@ -7,6 +7,7 @@ import {
   capture,
   release,
   getBalance,
+  listLedger,
   LoyaltyError,
 } from "./loyalty.service.js";
 
@@ -129,6 +130,30 @@ describe("loyalty — reserve/capture/release", () => {
     await expect(
       earn(pool, { occId, points: 999, idempotencyKey: "dup-key" }),
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+  });
+});
+
+describe("loyalty — listLedger (drill-down lịch sử điểm)", () => {
+  it("trả dòng ledger mới→cũ với số dư luỹ kế đúng", async () => {
+    await earn(pool, { occId, points: 100, idempotencyKey: "led-earn", reason: "Đăng ký" });
+    const r = await reserve(pool, { occId, points: 30, idempotencyKey: "led-res" });
+    await capture(pool, { reservationId: r.reservationId, idempotencyKey: "led-cap" });
+
+    const ledger = await listLedger(pool, occId);
+    // available account: +100 (earn), -30 (reserve). capture đụng reserved, không đụng available.
+    expect(ledger.length).toBe(2);
+    // mới nhất trước: reserve -30, số dư sau = 70
+    expect(ledger[0]!.pointsDelta).toBe(-30);
+    expect(ledger[0]!.availableAfter).toBe(70);
+    expect(ledger[0]!.type).toBe("reserve");
+    // cũ nhất: earn +100, số dư sau = 100
+    expect(ledger[1]!.pointsDelta).toBe(100);
+    expect(ledger[1]!.availableAfter).toBe(100);
+    expect(ledger[1]!.reason).toBe("Đăng ký");
+  });
+
+  it("thành viên chưa có giao dịch -> ledger rỗng", async () => {
+    expect(await listLedger(pool, occId)).toEqual([]);
   });
 });
 

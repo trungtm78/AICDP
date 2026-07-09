@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag, ArrowLeft, Gem, Crown, Medal, Award } from "lucide-react";
+import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag, ArrowLeft, Gem, Crown, Medal, Award, Receipt, CreditCard } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   ApiError,
@@ -14,10 +15,10 @@ import {
   type LifecycleStage,
 } from "../lib/types.js";
 import { CustomerDeepAnalytics } from "./CustomerAnalyticsPanels.js";
-import { fmtInt, fmtVndFull, LIFECYCLE_LABEL, customerTier } from "../lib/format.js";
+import { fmtInt, fmtVndFull, fmtDateTime, LIFECYCLE_LABEL, BRAND_LABEL, customerTier } from "../lib/format.js";
 import {
   PageHeader, Toolbar, Panel, Button, Field, Select, Input, Badge, StatusPill,
-  EmptyState, Table, type Column, Skeleton,
+  EmptyState, Table, Drawer, type Column, Skeleton,
 } from "../ui/index.js";
 
 const LIFECYCLE_TONE: Record<LifecycleStage, "success" | "warning" | "error" | "accent" | "neutral"> = {
@@ -145,6 +146,7 @@ export function CustomersScreen() {
               <ArrowLeft className="size-4" /> Về danh bạ khách hàng
             </button>
             <CustomerCard data={view.data} />
+            <TransactionsPanel occId={view.data.occId} transactions={view.data.transactions} />
             {feature && (
               <AiBehaviorPanel
                 feature={feature}
@@ -206,11 +208,27 @@ function TierBadge({ spend, size = "sm" }: { spend: number; size?: "sm" | "lg" }
 
 /** Danh bạ khách hàng — duyệt + lọc + phân trang; click 1 dòng để mở Customer 360. */
 function CustomerDirectory({ onOpen }: { onOpen: (occId: string) => void }) {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
-  const [lifecycle, setLifecycle] = useState("");
+  const [lifecycle, setLifecycle] = useState(searchParams.get("lifecycle") ?? "");
+  const [brand, setBrand] = useState(searchParams.get("brand") ?? "");
   const [page, setPage] = useState(0);
   const timer = useRef<number | undefined>(undefined);
+
+  // Đồng bộ khi điều hướng từ biểu đồ (Control Tower) mang theo ?lifecycle=/?brand=.
+  useEffect(() => {
+    setLifecycle(searchParams.get("lifecycle") ?? "");
+    setBrand(searchParams.get("brand") ?? "");
+    setPage(0);
+  }, [searchParams]);
+
+  function clearBrand() {
+    setBrand("");
+    const next = new URLSearchParams(searchParams);
+    next.delete("brand");
+    setSearchParams(next, { replace: true });
+  }
 
   // debounce ô tìm kiếm (350ms)
   function onSearchChange(v: string) {
@@ -221,11 +239,12 @@ function CustomerDirectory({ onOpen }: { onOpen: (occId: string) => void }) {
   }
 
   const q = useQuery({
-    queryKey: ["customers", debounced, lifecycle, page],
+    queryKey: ["customers", debounced, lifecycle, brand, page],
     queryFn: () =>
       api.listCustomers({
         ...(debounced ? { search: debounced } : {}),
         ...(lifecycle ? { lifecycle } : {}),
+        ...(brand ? { brand } : {}),
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       }),
@@ -276,6 +295,12 @@ function CustomerDirectory({ onOpen }: { onOpen: (occId: string) => void }) {
             {LIFECYCLE_FILTER.map((l) => <option key={l.value} value={l.value}>{l.label}</option>)}
           </Select>
         </Field>
+        {brand && (
+          <Badge tone="accent" className="mb-[6px]">
+            Thương hiệu: {BRAND_LABEL[brand] ?? brand}
+            <button type="button" onClick={clearBrand} className="ml-1 rounded hover:text-error" aria-label="Bỏ lọc thương hiệu">✕</button>
+          </Badge>
+        )}
       </div>
       {q.isError && <p className="p-4 text-sm text-error">Lỗi tải danh sách khách hàng.</p>}
       <Table
@@ -340,6 +365,74 @@ function CustomerCard({ data }: { data: Customer360 }) {
         </div>
       </div>
     </Panel>
+  );
+}
+
+/** Danh sách giao dịch gần đây — bấm để xem chi tiết món hàng (drill-down). */
+function TransactionsPanel({ occId, transactions }: { occId: string; transactions: Array<Record<string, unknown>> }) {
+  const [drill, setDrill] = useState<Record<string, unknown> | null>(null);
+  const columns: Column<Record<string, unknown>>[] = [
+    { key: "time", header: "Thời gian", cell: (t) => <span className="tabular text-xs text-text-subtle">{fmtDateTime(t.occ_timestamp as string | null)}</span>, width: "104px" },
+    { key: "brand", header: "Thương hiệu", cell: (t) => <span className="text-text-muted">{BRAND_LABEL[t.brand_id as string] ?? (t.brand_id as string) ?? "—"}</span> },
+    { key: "store", header: "Cửa hàng", cell: (t) => <span className="font-mono text-xs text-text-subtle">{(t.store_id as string) ?? "—"}</span>, width: "130px" },
+    { key: "total", header: "Giá trị", numeric: true, cell: (t) => <span className="font-semibold text-text">{fmtVndFull(Number(t.total ?? 0))}</span>, width: "130px" },
+  ];
+  return (
+    <>
+      <Panel title="Giao dịch gần đây" icon={<Receipt className="size-4" />} subtitle={`${fmtInt(transactions.length)} giao dịch — bấm để xem chi tiết món hàng`} bodyClassName="p-0">
+        <Table columns={columns} rows={transactions} rowKey={(t, i) => (t.message_id as string) ?? String(i)}
+          onRowClick={setDrill} empty={{ title: "Chưa có giao dịch" }} density="compact" />
+      </Panel>
+      {drill && <TransactionDrawer occId={occId} messageId={drill.message_id as string} onClose={() => setDrill(null)} />}
+    </>
+  );
+}
+
+/** Drill-down: chi tiết một giao dịch (món hàng, thanh toán). */
+function TransactionDrawer({ occId, messageId, onClose }: { occId: string; messageId: string; onClose: () => void }) {
+  const detailQ = useQuery({ queryKey: ["txn-detail", occId, messageId], queryFn: () => api.getTransactionDetail(occId, messageId) });
+  const d = detailQ.data;
+  const itemCols: Column<Record<string, unknown>>[] = [
+    { key: "name", header: "Món hàng", cell: (it) => <div><div className="font-medium text-text">{(it.name as string) ?? (it.sku as string) ?? "—"}</div>{it.sku ? <div className="font-mono text-[11px] text-text-subtle">{it.sku as string}</div> : null}</div> },
+    { key: "qty", header: "SL", numeric: true, width: "56px", cell: (it) => fmtInt(Number(it.quantity ?? it.qty ?? 1)) },
+    { key: "price", header: "Đơn giá", numeric: true, width: "120px", cell: (it) => fmtVndFull(Number(it.unit_price ?? it.price ?? 0)) },
+    { key: "line", header: "Thành tiền", numeric: true, width: "130px", cell: (it) => <span className="font-semibold text-text">{fmtVndFull(Number(it.quantity ?? it.qty ?? 1) * Number(it.unit_price ?? it.price ?? 0))}</span> },
+  ];
+  return (
+    <Drawer open onClose={onClose} title="Chi tiết giao dịch"
+      description={d?.posTransactionId ? `Mã POS: ${d.posTransactionId}` : messageId}>
+      {detailQ.isLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : !d ? (
+        <EmptyState icon={<Receipt className="size-6" />} title="Không tìm thấy giao dịch" />
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <MetaItem label="Thương hiệu" value={BRAND_LABEL[d.brandId ?? ""] ?? d.brandId ?? "—"} />
+            <MetaItem label="Cửa hàng" value={d.storeId ?? "—"} />
+            <MetaItem label="Thời gian" value={fmtDateTime(d.occTimestamp)} />
+            <MetaItem label="Thanh toán" value={d.paymentMethod ?? "—"} />
+          </div>
+          <Panel title={`Món hàng (${d.items.length})`} icon={<ShoppingBag className="size-4" />} bodyClassName="p-0">
+            <Table columns={itemCols} rows={d.items} rowKey={(it, i) => (it.sku as string) ?? String(i)}
+              empty={{ title: "Giao dịch không có chi tiết món hàng" }} density="compact" />
+          </Panel>
+          <div className="flex items-center justify-between rounded-lg border border-border bg-surface-alt px-4 py-3">
+            <span className="inline-flex items-center gap-1.5 text-sm text-text-muted"><CreditCard className="size-4" /> Tổng giá trị</span>
+            <span className="text-lg font-bold text-accent">{fmtVndFull(d.total)}</span>
+          </div>
+        </div>
+      )}
+    </Drawer>
+  );
+}
+
+function MetaItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-surface px-3 py-2">
+      <div className="text-xs text-text-subtle">{label}</div>
+      <div className="mt-0.5 text-sm font-medium text-text">{value}</div>
+    </div>
   );
 }
 

@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Coins, Gift, Lock, Check, X, Search, Users, Trophy } from "lucide-react";
+import { Coins, Gift, Lock, Check, X, Search, Users, Trophy, History } from "lucide-react";
 import { api } from "../lib/api.js";
-import { ApiError, type LoyaltyBalance, type LoyaltyMember } from "../lib/types.js";
-import { fmtInt } from "../lib/format.js";
-import { PageHeader, Panel, Field, Input, Button, StatTile, StatusPill, EmptyState, Table, type Column } from "../ui/index.js";
+import { ApiError, type LoyaltyBalance, type LoyaltyMember, type LoyaltyLedgerEntry } from "../lib/types.js";
+import { fmtInt, fmtDateTime } from "../lib/format.js";
+import { PageHeader, Panel, Field, Input, Button, StatTile, StatusPill, EmptyState, Table, Drawer, Badge, Skeleton, type Column } from "../ui/index.js";
+
+const TXN_LABEL: Record<string, string> = {
+  earn: "Cộng điểm", reserve: "Giữ điểm", capture: "Chốt tiêu", release: "Hoàn giữ", adjust: "Điều chỉnh",
+};
+const TXN_TONE: Record<string, "success" | "warning" | "neutral"> = {
+  earn: "success", reserve: "warning", capture: "neutral", release: "neutral", adjust: "neutral",
+};
 
 interface ReservationRow {
   reservationId: string;
@@ -23,6 +30,7 @@ export function LoyaltyScreen() {
   const [reservations, setReservations] = useState<ReservationRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [drill, setDrill] = useState<LoyaltyMember | null>(null);
 
   function errMsg(err: unknown): string {
     if (err instanceof ApiError) return err.message;
@@ -47,6 +55,7 @@ export function LoyaltyScreen() {
   function openMember(m: LoyaltyMember) {
     setOccId(m.occId);
     setReservations([]);
+    setDrill(m);
     void loadBalance(m.occId);
   }
 
@@ -166,11 +175,52 @@ export function LoyaltyScreen() {
         </div>
       )}
 
-      {/* Danh sách thành viên tích điểm — luôn hiển thị (click để xem số dư) */}
+      {/* Danh sách thành viên tích điểm — luôn hiển thị (click để xem lịch sử điểm) */}
       <div className="mt-6">
         <LoyaltyMembers members={members.data?.data ?? []} loading={members.isLoading} onOpen={openMember} />
       </div>
+
+      {drill && <LedgerDrawer member={drill} balance={balance} onClose={() => setDrill(null)} />}
     </div>
+  );
+}
+
+/** Drill-down: lịch sử điểm của một thành viên (số dư + dòng ledger luỹ kế). */
+function LedgerDrawer({ member, balance, onClose }: { member: LoyaltyMember; balance: LoyaltyBalance | null; onClose: () => void }) {
+  const ledger = useQuery({
+    queryKey: ["loyalty-ledger", member.occId],
+    queryFn: () => api.getLoyaltyLedger(member.occId),
+  });
+  const columns: Column<LoyaltyLedgerEntry>[] = [
+    {
+      key: "type", header: "Loại", width: "104px",
+      cell: (r) => <Badge tone={TXN_TONE[r.type] ?? "neutral"}>{TXN_LABEL[r.type] ?? r.type}</Badge>,
+    },
+    {
+      key: "delta", header: "Điểm", numeric: true, width: "96px",
+      cell: (r) => <span className={`font-semibold tabular ${r.pointsDelta >= 0 ? "text-accent" : "text-error"}`}>{r.pointsDelta >= 0 ? "+" : ""}{fmtInt(r.pointsDelta)}</span>,
+    },
+    { key: "after", header: "Số dư sau", numeric: true, width: "104px", cell: (r) => <span className="tabular text-text-muted">{fmtInt(r.availableAfter)}</span> },
+    { key: "at", header: "Thời gian", cell: (r) => <span className="tabular text-xs text-text-subtle">{fmtDateTime(r.createdAt)}</span>, width: "104px" },
+  ];
+  return (
+    <Drawer open onClose={onClose} title={`Lịch sử điểm — ${member.fullName ?? "(chưa có tên)"}`}
+      description={member.occId}>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-3">
+          <StatTile label="Điểm khả dụng" value={fmtInt(balance?.available ?? member.available)} icon={<Coins className="size-4" />} />
+          <StatTile label="Tổng đã tích" value={fmtInt(member.totalEarned)} icon={<Trophy className="size-4" />} />
+        </div>
+        <Panel title="Dòng sổ điểm" icon={<History className="size-4" />} subtitle="Mới nhất trước, kèm số dư khả dụng sau mỗi giao dịch" bodyClassName="p-0">
+          {ledger.isLoading ? (
+            <div className="p-4"><Skeleton className="h-40 w-full" /></div>
+          ) : (
+            <Table columns={columns} rows={ledger.data ?? []} rowKey={(r, i) => `${r.txnId}-${i}`}
+              empty={{ title: "Chưa có giao dịch điểm" }} density="compact" />
+          )}
+        </Panel>
+      </div>
+    </Drawer>
   );
 }
 

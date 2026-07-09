@@ -317,6 +317,47 @@ export interface LoyaltyMember {
   totalEarned: number;
 }
 
+export interface LoyaltyLedgerEntry {
+  txnId: string;
+  type: string;
+  reason: string | null;
+  pointsDelta: number;
+  availableAfter: number;
+  createdAt: string;
+}
+
+/**
+ * Lịch sử điểm (drill-down) của MỘT thành viên: các dòng ledger trên tài khoản
+ * `member:{occId}:available`, kèm số dư khả dụng luỹ kế (running-sum theo thứ tự entry).
+ * Trả về mới→cũ để hiển thị; số dư sau mỗi giao dịch tính theo thứ tự thời gian tăng dần.
+ */
+export async function listLedger(pool: Pool, occId: string, limit = 100): Promise<LoyaltyLedgerEntry[]> {
+  const account = acc.available(occId);
+  const r = await pool.query<{
+    txn_id: string; type: string; reason: string | null;
+    points_delta: string; available_after: string; created_at: string;
+  }>(
+    `SELECT t.txn_id, t.type, t.reason,
+            e.delta::text AS points_delta,
+            SUM(e.delta) OVER (ORDER BY e.entry_id)::text AS available_after,
+            e.created_at
+       FROM cdp.loyalty_entry e
+       JOIN cdp.loyalty_txn t ON t.txn_id = e.txn_id
+      WHERE e.account = $1
+      ORDER BY e.entry_id DESC
+      LIMIT $2`,
+    [account, Math.min(limit, 500)],
+  );
+  return r.rows.map((row) => ({
+    txnId: row.txn_id,
+    type: row.type,
+    reason: row.reason,
+    pointsDelta: Number(row.points_delta),
+    availableAfter: Number(row.available_after),
+    createdAt: row.created_at,
+  }));
+}
+
 /** Danh sách thành viên tích điểm (leaderboard) + tổng quan — cho màn Loyalty. */
 export async function listMembers(pool: Pool, limit = 30): Promise<{ members: LoyaltyMember[]; totalMembers: number; totalPoints: number }> {
   const rows = await pool.query<{ occ_id: string; full_name: string | null; available: string; earned: string | null }>(
