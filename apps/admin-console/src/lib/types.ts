@@ -152,6 +152,38 @@ export interface ModelCard {
 
 export interface PredictionBucket { bucket: string; count: number }
 
+/** Cảnh báo bất thường (Analytics Intelligence). */
+export interface AnalyticsAlert {
+  id?: string;
+  metric: string;
+  period: string;
+  value: number;
+  expected: number;
+  zscore: number;
+  severity: "info" | "warning" | "critical";
+  direction: "up" | "down";
+  acknowledged?: boolean;
+  createdAt?: string;
+}
+export interface MetricSeries {
+  points: { period: string; value: number }[];
+  anomalies: AnalyticsAlert[];
+}
+export interface AnalyticsNarrative {
+  text: string;
+  source: "llm" | "fallback";
+  facts: Record<string, unknown>;
+}
+/** Kết quả NL Analytics "hỏi dữ liệu". */
+export interface NlqResult {
+  plan: Record<string, unknown>;
+  columns: string[];
+  rows: { label: string; value: number }[];
+  chartType: "bar" | "line" | "single";
+  sql: string;
+  answered: string;
+}
+
 /** Thành viên tích điểm (leaderboard màn Loyalty). */
 export interface LoyaltyMember {
   occId: string;

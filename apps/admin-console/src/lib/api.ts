@@ -15,6 +15,10 @@ import {
   type CustomerPrediction,
   type ModelCard,
   type PredictionBucket,
+  type AnalyticsAlert,
+  type MetricSeries,
+  type AnalyticsNarrative,
+  type NlqResult,
   type LoyaltyBalance,
   type LoyaltyMember,
   type LoyaltyLedgerEntry,
@@ -285,6 +289,14 @@ export const api = {
     ),
 
   getOverview: () => request<Overview>("/v1/analytics/overview"),
+
+  // ── Analytics Intelligence (anomaly + narrative + NL analytics) ──
+  getAnomalies: () => request<AnalyticsAlert[]>("/v1/analytics/anomalies"),
+  getAlerts: () => request<AnalyticsAlert[]>("/v1/analytics/alerts"),
+  getMetricSeries: (metric: string) => request<MetricSeries>(`/v1/analytics/series?metric=${encodeURIComponent(metric)}`),
+  ackAlert: (id: string) => request<{ ok: boolean }>(`/v1/analytics/alerts/${encodeURIComponent(id)}/ack`, { method: "POST" }),
+  getNarrative: () => request<AnalyticsNarrative>("/v1/analytics/narrative"),
+  askData: (question: string) => request<NlqResult>("/v1/ai/assistant/query", { method: "POST", body: JSON.stringify({ question }) }),
 
   previewSegment: (criteria: SegmentCriteria) =>
     request<SegmentPreview>("/v1/segments/preview", {

@@ -45,18 +45,25 @@ const anthropicProvider: ProviderFn = async (opts) => {
 const openaiProvider: ProviderFn = async (opts) => {
   const key = process.env.OPENAI_API_KEY;
   if (!key) throw new AppError({ code: "LLM_NOT_CONFIGURED", httpStatus: 503, message: "Thiếu OPENAI_API_KEY", why: "Provider openai chưa cấu hình key.", fix: "Đặt ENV OPENAI_API_KEY." });
-  const res = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-    body: JSON.stringify({
-      model: opts.model,
-      max_completion_tokens: opts.maxTokens,
-      messages: [
-        { role: "system", content: opts.system },
-        { role: "user", content: opts.user },
-      ],
-    }),
-  });
+  let res: Response;
+  try {
+    res = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model: opts.model,
+        max_completion_tokens: opts.maxTokens,
+        messages: [
+          { role: "system", content: opts.system },
+          { role: "user", content: opts.user },
+        ],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (err) {
+    // Lỗi mạng/timeout (không ra được api.openai.com) -> AppError sạch (không để thành 500).
+    throw new AppError({ code: "LLM_NOT_CONFIGURED", httpStatus: 503, message: "Không gọi được OpenAI", why: (err as Error).message, fix: "Kiểm tra kết nối mạng ra api.openai.com hoặc chọn provider khác." });
+  }
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new AppError({ code: "LLM_NOT_CONFIGURED", httpStatus: 502, message: `OpenAI lỗi ${res.status}`, why: detail.slice(0, 300), fix: "Kiểm tra OPENAI_API_KEY / model trong AI Settings." });

@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, UserRound, Gift, Database, ChartColumnBig, Target, Waypoints,
   Sparkles, BrainCircuit, ShieldCheck, Server, Search, Bell, LogOut, Command as CommandIcon,
-  Sun, Moon, Plug, Gauge, type LucideIcon,
+  Sun, Moon, Plug, Gauge, TriangleAlert, type LucideIcon,
 } from "lucide-react";
 import { getToken, getName, getRole, clearSession } from "./lib/auth.js";
 import { LoginScreen } from "./screens/LoginScreen.js";
@@ -22,6 +22,7 @@ import { AssistantScreen } from "./screens/AssistantScreen.js";
 import { ConnectorsScreen } from "./screens/ConnectorsScreen.js";
 import { PipelineCanvas } from "./screens/connector/PipelineCanvas.js";
 import { PredictionsScreen } from "./screens/PredictionsScreen.js";
+import { AlertsScreen } from "./screens/AlertsScreen.js";
 import { Logo, Kbd, CommandPalette, useTheme, type CommandItem } from "./ui/index.js";
 import { cn } from "./ui/cn.js";
 
@@ -33,6 +34,7 @@ const GROUPS: NavGroup[] = [
     label: "Vận hành",
     items: [
       { to: "/control-tower", label: "Control Tower", icon: LayoutDashboard, kw: "tổng quan dashboard home" },
+      { to: "/alerts", label: "Cảnh báo", icon: TriangleAlert, kw: "anomaly bất thường z-score cảnh báo doanh thu" },
       { to: "/customers", label: "Customers", icon: UserRound, kw: "khách hàng 360 hồ sơ hành vi" },
       { to: "/loyalty", label: "Loyalty", icon: Gift, kw: "điểm thưởng tích điểm" },
       { to: "/data-ops", label: "Data Ops", icon: Database, kw: "master data brand store product" },
@@ -97,6 +99,7 @@ export function App() {
           <Routes>
             <Route path="/" element={<Navigate to="/control-tower" replace />} />
             <Route path="/control-tower" element={<ControlTowerScreen />} />
+            <Route path="/alerts" element={<AlertsScreen />} />
             <Route path="/insights" element={<InsightsScreen />} />
             <Route path="/predictions" element={<PredictionsScreen />} />
             <Route path="/customers" element={<CustomersScreen />} />

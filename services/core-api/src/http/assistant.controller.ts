@@ -10,6 +10,7 @@ import {
   assistantExplainSchema,
 } from "./schemas.js";
 import { askAssistant, nlToSegment, generateContent, explainCustomer } from "../llm/assistant.service.js";
+import { askData } from "../llm/nlq.service.js";
 import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
@@ -55,5 +56,13 @@ export class AssistantController {
   async explain(@Body() body: unknown, @Req() req: Request) {
     const q = validate(assistantExplainSchema, body, "ai_assistant_explain");
     return { data: await explainCustomer(this.pool, q.occId, this.pid(req)) };
+  }
+
+  /** NL Analytics: hỏi dữ liệu bằng ngôn ngữ tự nhiên → bảng/chart (text-to-metric an toàn). */
+  @Post("query")
+  @HttpCode(200)
+  async query(@Body() body: unknown, @Req() req: Request) {
+    const q = validate(assistantAskSchema, body, "ai_assistant_query");
+    return { data: await askData(this.pool, q.question, this.pid(req)) };
   }
 }

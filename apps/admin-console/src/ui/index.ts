@@ -31,5 +31,5 @@ export { CommandPalette } from "./CommandPalette.js";
 export type { CommandItem, CommandPaletteProps } from "./CommandPalette.js";
 // Charts
 export { EChart } from "./charts/EChart.js";
-export { BarChart, Donut, ForecastLine, Funnel, Heatmap, Sankey, Sparkline } from "./charts/index.js";
+export { BarChart, Donut, ForecastLine, Funnel, Heatmap, Sankey, Sparkline, AnomalyLine } from "./charts/index.js";
 export type { BarDatum, DonutSlice, FunnelStage, SankeyNode, SankeyLink } from "./charts/index.js";

@@ -177,6 +177,48 @@ export function ForecastLine({
   return <EChart option={option} height={height} />;
 }
 
+/** Line theo thời gian có ĐÁNH DẤU điểm bất thường (markPoint) — cho trang Cảnh báo. */
+export function AnomalyLine({
+  data,
+  anomalyPeriods = [],
+  height = 260,
+  valueFormatter = idFmt,
+}: {
+  data: { period: string; value: number }[];
+  anomalyPeriods?: string[];
+  height?: number;
+  valueFormatter?: Fmt;
+}) {
+  useTheme();
+  const T = chartTokens();
+  const anomSet = new Set(anomalyPeriods);
+  const markData = data
+    .filter((d) => anomSet.has(d.period))
+    .map((d) => ({ name: "bất thường", xAxis: d.period, yAxis: d.value, value: valueFormatter(d.value) }));
+  const option: EChartsOption = {
+    grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
+    tooltip: { trigger: "axis", ...tooltip(), valueFormatter: (v) => valueFormatter(Number(v)) },
+    xAxis: { type: "category", boundaryGap: false, data: data.map((d) => d.period), ...axisStyle() },
+    yAxis: { type: "value", ...axisStyle({ numeric: true }), axisLabel: { ...axisStyle().axisLabel, formatter: (v: number) => valueFormatter(v) } },
+    series: [
+      {
+        type: "line", smooth: true, symbol: "circle", symbolSize: 5,
+        data: data.map((d) => d.value),
+        lineStyle: { width: 2.5, color: T.accent },
+        itemStyle: { color: T.accent },
+        areaStyle: { color: areaColor("accent") },
+        markPoint: {
+          symbol: "pin", symbolSize: 46,
+          itemStyle: { color: "#ef4444" },
+          label: { color: "#fff", fontSize: 10, fontFamily: FONT },
+          data: markData,
+        },
+      },
+    ],
+  };
+  return <EChart option={option} height={height} />;
+}
+
 export interface FunnelStage {
   name: string;
   value: number;

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
-  Users, Receipt, Wallet, Coins, Send, ShieldAlert, Boxes, RefreshCw,
+  Users, Receipt, Wallet, Coins, Send, ShieldAlert, Boxes, RefreshCw, Sparkles, AlertTriangle,
 } from "lucide-react";
 import { api } from "../lib/api.js";
 import type { Overview, ForecastResult } from "../lib/types.js";
@@ -35,6 +35,8 @@ export function ControlTowerScreen() {
         <EmptyState tone="error" icon={<ShieldAlert className="size-6" />} title="Không tải được tổng quan" description="Kiểm tra core-api (:8071) và quyền truy cập." />
       )}
       {ov.data && <Kpis data={ov.data} forecast={fc.data} />}
+
+      <NarrativePanel />
 
       <div className="mt-6 grid gap-5 lg:grid-cols-3">
         <Panel title="Dự báo doanh thu" subtitle="Theo tháng — 3 kỳ tới" className="lg:col-span-2" testid="ct-forecast">
@@ -78,6 +80,31 @@ export function ControlTowerScreen() {
         </Panel>
       </div>
     </div>
+  );
+}
+
+/** Auto-narrative (AI/thống kê) + cảnh báo bất thường — tóm tắt tình hình. */
+function NarrativePanel() {
+  const nav = useNavigate();
+  const nq = useQuery({ queryKey: ["narrative"], queryFn: api.getNarrative });
+  const aq = useQuery({ queryKey: ["anomalies-ct"], queryFn: api.getAnomalies });
+  if (nq.isError) return null;
+  const anomalies = aq.data ?? [];
+  return (
+    <Panel className="mt-6" title="Tóm tắt tình hình (AI)" icon={<Sparkles className="size-4" />}
+      actions={nq.data ? <Badge tone={nq.data.source === "llm" ? "accent" : "neutral"}>{nq.data.source === "llm" ? "diễn giải bằng AI" : "tóm tắt tự động"}</Badge> : undefined}>
+      {nq.isLoading ? <Skeleton className="h-12 w-full" /> : (
+        <div className="space-y-3">
+          <p className="text-sm leading-relaxed text-text">{nq.data?.text}</p>
+          {anomalies.length > 0 && (
+            <button type="button" onClick={() => nav("/alerts")}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-warning/40 bg-warning-subtle/50 px-3 py-1.5 text-xs text-warning hover:border-warning">
+              <AlertTriangle className="size-3.5" /> {anomalies.length} bất thường thống kê — xem chi tiết
+            </button>
+          )}
+        </div>
+      )}
+    </Panel>
   );
 }
 
