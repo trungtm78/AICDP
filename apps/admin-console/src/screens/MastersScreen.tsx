@@ -1,63 +1,38 @@
 import { useState, type FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Building2, Store, Package, Plus } from "lucide-react";
 import { api } from "../lib/api.js";
-import { ApiError } from "../lib/types.js";
+import { ApiError, type Brand, type Store as StoreT, type Product } from "../lib/types.js";
+import { PageHeader, Panel, Field, Input, Select, Button, Badge, Table, type Column } from "../ui/index.js";
 
 /** Data Ops · Master Data — Brands / Stores / Products. Data 100% từ core-api. */
 export function MastersScreen() {
   return (
-    <section className="mx-auto max-w-[1200px] space-y-8 p-6">
-      <header>
-        <h1 className="text-xl font-bold tracking-tight">Master Data</h1>
-        <p className="text-text-muted">Thương hiệu, cửa hàng, sản phẩm chuẩn OCC (xuyên thương hiệu).</p>
-      </header>
+    <div className="mx-auto max-w-[1200px] space-y-6 p-6">
+      <PageHeader
+        title="Master Data"
+        description="Thương hiệu, cửa hàng, sản phẩm chuẩn OCC (xuyên thương hiệu)."
+        breadcrumb={["Vận hành", "Data Ops"]}
+      />
       <BrandsPanel />
       <StoresPanel />
       <ProductsPanel />
-    </section>
-  );
-}
-
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-border bg-surface">
-      <div className="border-b border-border px-4 py-3">
-        <h2 className="font-semibold">{title}</h2>
-      </div>
-      <div className="p-4">{children}</div>
     </div>
   );
 }
 
 function BrandsPanel() {
   const q = useQuery({ queryKey: ["brands"], queryFn: api.listBrands });
+  const columns: Column<Brand>[] = [
+    { key: "id", header: "Mã", cell: (b) => <span className="font-mono text-xs text-text-muted">{b.brand_id}</span>, width: "180px" },
+    { key: "name", header: "Tên", cell: (b) => <span className="font-medium">{b.name}</span> },
+    { key: "industry", header: "Ngành", cell: (b) => b.industry ?? "—" },
+    { key: "status", header: "Trạng thái", cell: (b) => <Badge tone={b.status === "active" ? "success" : "neutral"}>{b.status}</Badge>, width: "140px" },
+  ];
   return (
-    <Panel title="Thương hiệu">
-      {q.isLoading && <p className="text-text-muted">Đang tải…</p>}
-      {q.isError && <p className="text-error">Lỗi tải thương hiệu.</p>}
-      {q.data && q.data.length === 0 && <p className="text-text-subtle">Chưa có thương hiệu.</p>}
-      {q.data && q.data.length > 0 && (
-        <table className="w-full text-left">
-          <thead>
-            <tr className="text-xs uppercase tracking-wide text-text-subtle">
-              <th className="py-1">Mã</th>
-              <th className="py-1">Tên</th>
-              <th className="py-1">Ngành</th>
-              <th className="py-1">Trạng thái</th>
-            </tr>
-          </thead>
-          <tbody>
-            {q.data.map((b) => (
-              <tr key={b.brand_id} className="border-t border-border">
-                <td className="py-1.5 font-mono text-xs">{b.brand_id}</td>
-                <td className="py-1.5">{b.name}</td>
-                <td className="py-1.5 text-text-muted">{b.industry ?? "—"}</td>
-                <td className="py-1.5">{b.status}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+    <Panel title="Thương hiệu" icon={<Building2 className="size-4" />} bodyClassName="p-0">
+      <Table columns={columns} rows={q.data ?? []} rowKey={(b) => b.brand_id} loading={q.isLoading}
+        empty={{ title: "Chưa có thương hiệu" }} className="rounded-none border-0 shadow-none" density="compact" />
     </Panel>
   );
 }
@@ -91,75 +66,34 @@ function StoresPanel() {
     mut.mutate();
   }
 
+  const brandName = (id: string) => brands.data?.find((b) => b.brand_id === id)?.name ?? id;
+  const columns: Column<StoreT>[] = [
+    { key: "id", header: "Mã", cell: (s) => <span className="font-mono text-xs text-text-muted">{s.store_id}</span>, width: "160px" },
+    { key: "name", header: "Tên", cell: (s) => <span className="font-medium">{s.name}</span> },
+    { key: "brand", header: "Thương hiệu", cell: (s) => brandName(s.brand_id) },
+    { key: "city", header: "Thành phố", cell: (s) => s.city ?? "—", width: "160px" },
+  ];
+
   return (
-    <Panel title="Cửa hàng">
-      <form onSubmit={submit} className="mb-4 flex flex-wrap items-end gap-3">
-        <fieldset disabled={mut.isPending} className="contents">
-        <Field label="Mã cửa hàng">
-          <input
-            aria-label="Mã cửa hàng"
-            value={form.store_id}
-            onChange={(e) => setForm({ ...form, store_id: e.target.value })}
-            className="input"
-          />
-        </Field>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-text-muted">Thương hiệu</span>
-          <select
-            aria-label="Thương hiệu của cửa hàng"
-            value={form.brand_id}
-            onChange={(e) => setForm({ ...form, brand_id: e.target.value })}
-            className="h-9 rounded-md border border-border bg-surface px-2"
-          >
-            <option value="">— chọn —</option>
-            {brands.data?.map((b) => (
-              <option key={b.brand_id} value={b.brand_id}>
-                {b.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <Field label="Tên cửa hàng">
-          <input
-            aria-label="Tên cửa hàng"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="input"
-          />
-        </Field>
-        <Field label="Thành phố">
-          <input
-            aria-label="Thành phố"
-            value={form.city}
-            onChange={(e) => setForm({ ...form, city: e.target.value })}
-            className="input"
-          />
-        </Field>
-        <button
-          type="submit"
-          className="h-9 rounded-md bg-accent px-4 font-medium text-accent-fg disabled:opacity-40"
-        >
-          Thêm cửa hàng
-        </button>
+    <Panel title="Cửa hàng" icon={<Store className="size-4" />}>
+      <form onSubmit={submit} className="mb-4">
+        <fieldset disabled={mut.isPending} className="flex flex-wrap items-end gap-3">
+          <Field className="w-36" label="Mã cửa hàng"><Input aria-label="Mã cửa hàng" value={form.store_id} onChange={(e) => setForm({ ...form, store_id: e.target.value })} /></Field>
+          <Field className="w-44" label="Thương hiệu">
+            <Select aria-label="Thương hiệu của cửa hàng" value={form.brand_id} onChange={(e) => setForm({ ...form, brand_id: e.target.value })}>
+              <option value="">— chọn —</option>
+              {brands.data?.map((b) => <option key={b.brand_id} value={b.brand_id}>{b.name}</option>)}
+            </Select>
+          </Field>
+          <Field className="w-44" label="Tên cửa hàng"><Input aria-label="Tên cửa hàng" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field className="w-36" label="Thành phố"><Input aria-label="Thành phố" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} /></Field>
+          <Button type="submit" variant="primary" icon={<Plus className="size-4" />} className="mb-[1px]">Thêm cửa hàng</Button>
         </fieldset>
       </form>
-      {err && <p className="mb-2 text-error">Lỗi: {err}</p>}
-      {stores.isLoading && <p className="text-text-muted">Đang tải…</p>}
-      {stores.isError && <p className="text-error">Lỗi tải cửa hàng.</p>}
-      {stores.data && stores.data.length === 0 ? (
-        <p className="text-text-subtle">Chưa có cửa hàng.</p>
-      ) : (
-        <ul className="divide-y divide-border">
-          {stores.data?.map((s) => (
-            <li key={s.store_id} className="flex justify-between py-1.5">
-              <span>
-                <span className="font-mono text-xs text-text-muted">{s.store_id}</span> · {s.name}
-              </span>
-              <span className="text-text-muted">{s.city ?? "—"}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {err && <p className="mb-2 text-sm text-error">Lỗi: {err}</p>}
+      {stores.isError && <p className="mb-2 text-sm text-error">Lỗi tải cửa hàng.</p>}
+      <Table columns={columns} rows={stores.data ?? []} rowKey={(s) => s.store_id} loading={stores.isLoading}
+        empty={{ title: "Chưa có cửa hàng" }} density="compact" />
     </Panel>
   );
 }
@@ -191,69 +125,26 @@ function ProductsPanel() {
     mut.mutate();
   }
 
+  const columns: Column<Product>[] = [
+    { key: "id", header: "Mã", cell: (p) => <span className="font-mono text-xs text-text-muted">{p.product_master_id}</span>, width: "200px" },
+    { key: "name", header: "Tên", cell: (p) => <span className="font-medium">{p.name}</span> },
+    { key: "unit", header: "Đơn vị", cell: (p) => p.unit ?? "—", width: "140px" },
+  ];
+
   return (
-    <Panel title="Sản phẩm">
-      <form onSubmit={submit} className="mb-4 flex flex-wrap items-end gap-3">
-        <fieldset disabled={mut.isPending} className="contents">
-        <Field label="Mã sản phẩm">
-          <input
-            aria-label="Mã sản phẩm"
-            value={form.product_master_id}
-            onChange={(e) => setForm({ ...form, product_master_id: e.target.value })}
-            className="input"
-          />
-        </Field>
-        <Field label="Tên sản phẩm">
-          <input
-            aria-label="Tên sản phẩm"
-            value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
-            className="input"
-          />
-        </Field>
-        <Field label="Đơn vị">
-          <input
-            aria-label="Đơn vị sản phẩm"
-            value={form.unit}
-            onChange={(e) => setForm({ ...form, unit: e.target.value })}
-            className="input"
-          />
-        </Field>
-        <button
-          type="submit"
-          className="h-9 rounded-md bg-accent px-4 font-medium text-accent-fg disabled:opacity-40"
-        >
-          Thêm sản phẩm
-        </button>
+    <Panel title="Sản phẩm" icon={<Package className="size-4" />}>
+      <form onSubmit={submit} className="mb-4">
+        <fieldset disabled={mut.isPending} className="flex flex-wrap items-end gap-3">
+          <Field className="w-44" label="Mã sản phẩm"><Input aria-label="Mã sản phẩm" value={form.product_master_id} onChange={(e) => setForm({ ...form, product_master_id: e.target.value })} /></Field>
+          <Field className="w-44" label="Tên sản phẩm"><Input aria-label="Tên sản phẩm" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
+          <Field className="w-32" label="Đơn vị"><Input aria-label="Đơn vị sản phẩm" value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} /></Field>
+          <Button type="submit" variant="primary" icon={<Plus className="size-4" />} className="mb-[1px]">Thêm sản phẩm</Button>
         </fieldset>
       </form>
-      {err && <p className="mb-2 text-error">Lỗi: {err}</p>}
-      {products.isLoading && <p className="text-text-muted">Đang tải…</p>}
-      {products.isError && <p className="text-error">Lỗi tải sản phẩm.</p>}
-      {products.data && products.data.length === 0 ? (
-        <p className="text-text-subtle">Chưa có sản phẩm.</p>
-      ) : (
-        <ul className="divide-y divide-border">
-          {products.data?.map((p) => (
-            <li key={p.product_master_id} className="flex justify-between py-1.5">
-              <span>
-                <span className="font-mono text-xs text-text-muted">{p.product_master_id}</span> ·{" "}
-                {p.name}
-              </span>
-              <span className="text-text-muted">{p.unit ?? "—"}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {err && <p className="mb-2 text-sm text-error">Lỗi: {err}</p>}
+      {products.isError && <p className="mb-2 text-sm text-error">Lỗi tải sản phẩm.</p>}
+      <Table columns={columns} rows={products.data ?? []} rowKey={(p) => p.product_master_id} loading={products.isLoading}
+        empty={{ title: "Chưa có sản phẩm" }} density="compact" />
     </Panel>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs text-text-muted">{label}</span>
-      {children}
-    </label>
   );
 }

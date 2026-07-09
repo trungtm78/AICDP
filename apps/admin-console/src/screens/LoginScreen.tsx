@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../lib/api.js";
 import { setSession } from "../lib/auth.js";
 import { ApiError } from "../lib/types.js";
+import { LogoMark, Field, Input, Button } from "../ui/index.js";
 
 /** Đăng nhập admin-console -> nhận JWT, lưu phiên, vào hệ thống. */
 export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
@@ -33,49 +34,31 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
   }
 
   return (
-    <div className="flex h-full items-center justify-center">
-      <form
-        onSubmit={submit}
-        className="w-[360px] rounded-lg border border-border bg-surface p-6 shadow-sm"
-      >
-        <div className="mb-1 flex items-center gap-2">
-          <span className="inline-block h-3 w-3 rounded-sm bg-accent" aria-hidden />
-          <span className="font-bold tracking-tight">OCC-CDP</span>
+    <div className="flex h-full items-center justify-center bg-bg p-4">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <LogoMark size={52} className="mb-3" />
+          <h1 className="text-lg font-bold tracking-tight text-text">
+            OCC<span className="font-medium text-text-muted"> CDP</span>
+          </h1>
+          <p className="mt-0.5 text-sm text-text-muted">Customer Data Platform · OCC Group</p>
         </div>
-        <h1 className="mb-4 text-lg font-bold">Đăng nhập</h1>
 
-        <label className="mb-3 flex flex-col gap-1">
-          <span className="text-xs text-text-muted">Tên đăng nhập</span>
-          <input
-            aria-label="Tên đăng nhập"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            className="input w-full"
-            autoComplete="username"
-          />
-        </label>
-        <label className="mb-4 flex flex-col gap-1">
-          <span className="text-xs text-text-muted">Mật khẩu</span>
-          <input
-            aria-label="Mật khẩu"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            className="input w-full"
-            autoComplete="current-password"
-          />
-        </label>
+        <form onSubmit={submit} className="space-y-4 rounded-xl border border-border bg-surface p-6 shadow-sm">
+          <Field label="Tên đăng nhập">
+            <Input aria-label="Tên đăng nhập" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+          </Field>
+          <Field label="Mật khẩu">
+            <Input aria-label="Mật khẩu" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          </Field>
 
-        {error && <p className="mb-3 text-sm text-error">{error}</p>}
+          {error && <p className="text-sm text-error">{error}</p>}
 
-        <button
-          type="submit"
-          disabled={busy || !username.trim() || !password}
-          className="h-9 w-full rounded-md bg-accent font-medium text-accent-fg disabled:opacity-40"
-        >
-          {busy ? "Đang đăng nhập…" : "Đăng nhập"}
-        </button>
-      </form>
+          <Button type="submit" variant="primary" size="lg" className="w-full" disabled={busy || !username.trim() || !password} loading={busy}>
+            {busy ? "Đang đăng nhập…" : "Đăng nhập"}
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

@@ -1,12 +1,15 @@
 import { useState } from "react";
+import { MessageSquare, Target, PenLine, Sparkles, ShieldAlert } from "lucide-react";
 import { api } from "../lib/api.js";
 import { ApiError, type SegmentPreview } from "../lib/types.js";
+import { fmtInt } from "../lib/format.js";
+import { PageHeader, Panel, SegmentedControl, Textarea, Button, EmptyState, Badge } from "../ui/index.js";
 
 type Mode = "ask" | "segment" | "content";
-const MODES: { id: Mode; label: string; ph: string }[] = [
-  { id: "ask", label: "Hỏi dữ liệu", ph: "vd: Hệ thống có bao nhiêu khách VIP?" },
-  { id: "segment", label: "Tạo segment", ph: "vd: khách VIP chi tiêu trên 5 triệu, đã đồng ý email" },
-  { id: "content", label: "Sinh nội dung", ph: "vd: viết tin nhắn khuyến mãi bánh trung thu cho khách thân thiết" },
+const MODES: { value: Mode; label: string; icon: React.ReactNode; ph: string }[] = [
+  { value: "ask", label: "Hỏi dữ liệu", icon: <MessageSquare className="size-3.5" />, ph: "vd: Hệ thống có bao nhiêu khách VIP?" },
+  { value: "segment", label: "Tạo segment", icon: <Target className="size-3.5" />, ph: "vd: khách VIP chi tiêu trên 5 triệu, đã đồng ý email" },
+  { value: "content", label: "Sinh nội dung", icon: <PenLine className="size-3.5" />, ph: "vd: viết tin nhắn khuyến mãi bánh trung thu cho khách thân thiết" },
 ];
 
 /** Trợ lý AI (generative, LLM). Gọi /v1/ai/assistant/*. Cần ANTHROPIC_API_KEY (ENV) để dùng thật. */
@@ -35,64 +38,61 @@ export function AssistantScreen() {
     }
   }
 
-  const cur = MODES.find((m) => m.id === mode)!;
+  const cur = MODES.find((m) => m.value === mode)!;
   return (
-    <section className="mx-auto max-w-[900px] p-6">
-      <header className="mb-5">
-        <h1 className="text-xl font-bold tracking-tight">Trợ lý AI</h1>
-        <p className="text-text-muted">Hỏi dữ liệu bằng ngôn ngữ tự nhiên, tạo segment từ mô tả, hoặc sinh nội dung marketing.</p>
-      </header>
+    <div className="mx-auto max-w-[900px] p-6">
+      <PageHeader
+        title="Trợ lý AI"
+        description="Hỏi dữ liệu bằng ngôn ngữ tự nhiên, tạo segment từ mô tả, hoặc sinh nội dung marketing."
+        breadcrumb={["AI", "Trợ lý AI"]}
+        badge={<Badge tone="violet" icon={<Sparkles className="size-3" />}>Generative</Badge>}
+      />
 
-      <div className="mb-3 inline-flex rounded-lg border border-border bg-surface p-1">
-        {MODES.map((m) => (
-          <button key={m.id} type="button" onClick={() => { setMode(m.id); setText(null); setSeg(null); setError(null); }}
-            className={`rounded-md px-3 py-1.5 text-sm ${mode === m.id ? "bg-accent text-white" : "text-text-muted hover:bg-surface-alt"}`}>
-            {m.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <textarea
+      <Panel bodyClassName="p-4">
+        <SegmentedControl
+          className="mb-3"
+          items={MODES.map((m) => ({ value: m.value, label: m.label, icon: m.icon }))}
+          value={mode}
+          onChange={(v) => { setMode(v as Mode); setText(null); setSeg(null); setError(null); }}
+        />
+        <Textarea
           aria-label="Nội dung yêu cầu"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={cur.ph}
           rows={3}
-          className="w-full resize-y rounded-md border border-border bg-surface-alt px-3 py-2 text-sm"
         />
         <div className="mt-3 flex items-center gap-3">
-          <button type="button" onClick={run} disabled={busy || !input.trim()}
-            className="rounded-md bg-accent px-4 py-2 text-sm text-white disabled:opacity-50">
+          <Button variant="primary" onClick={run} disabled={busy || !input.trim()} loading={busy} icon={<Sparkles className="size-4" />}>
             {busy ? "Đang xử lý…" : "Gửi"}
-          </button>
+          </Button>
           <span className="text-xs text-text-subtle">Guardrail PII: chỉ dữ liệu phi-PII được gửi tới LLM.</span>
         </div>
-      </div>
+      </Panel>
 
       {error && (
-        <div className="mt-4 rounded-lg border border-error/40 bg-error/10 p-4 text-sm text-error">
-          {error}
-          {error.includes("LLM_NOT_CONFIGURED") && (
-            <p className="mt-1 text-text-muted">Đặt ANTHROPIC_API_KEY trong ENV của core-api để dùng tính năng generative.</p>
-          )}
+        <div className="mt-4">
+          <EmptyState
+            tone="error"
+            icon={<ShieldAlert className="size-6" />}
+            title={error}
+            description={error.includes("LLM_NOT_CONFIGURED") ? "Đặt ANTHROPIC_API_KEY trong ENV của core-api để dùng tính năng generative." : undefined}
+          />
         </div>
       )}
 
       {text && (
-        <div data-testid="assistant-result" className="mt-4 rounded-lg border border-border bg-surface p-4">
-          <div className="mb-2 text-xs uppercase tracking-wide text-text-subtle">Kết quả</div>
-          <p className="whitespace-pre-wrap text-sm">{text}</p>
-        </div>
+        <Panel className="mt-4" title="Kết quả" icon={<Sparkles className="size-4" />} testid="assistant-result">
+          <p className="whitespace-pre-wrap text-sm text-text">{text}</p>
+        </Panel>
       )}
 
       {seg && (
-        <div data-testid="assistant-segment" className="mt-4 rounded-lg border border-border bg-surface p-4">
-          <div className="mb-2 text-xs uppercase tracking-wide text-text-subtle">Segment sinh ra</div>
-          <p className="text-sm">Khớp <span className="font-bold text-accent">{seg.preview.count}</span> khách.</p>
-          <pre className="mt-2 overflow-x-auto rounded-md bg-surface-alt p-2 font-mono text-xs">{JSON.stringify(seg.criteria, null, 2)}</pre>
-        </div>
+        <Panel className="mt-4" title="Segment sinh ra" icon={<Target className="size-4" />} testid="assistant-segment">
+          <p className="text-sm text-text">Khớp <span className="font-bold text-accent">{fmtInt(seg.preview.count)}</span> khách.</p>
+          <pre className="mt-2 overflow-x-auto rounded-md bg-surface-alt p-3 font-mono text-xs text-text">{JSON.stringify(seg.criteria, null, 2)}</pre>
+        </Panel>
       )}
-    </section>
+    </div>
   );
 }

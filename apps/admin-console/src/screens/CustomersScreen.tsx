@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   ApiError,
@@ -8,6 +9,11 @@ import {
   type CustomerFeature,
   type NbaDecision,
 } from "../lib/types.js";
+import { fmtInt, fmtVndFull, LIFECYCLE_LABEL } from "../lib/format.js";
+import {
+  PageHeader, Toolbar, Panel, Button, Field, Select, Input, Badge, StatusPill,
+  EmptyState, Table, type Column, Skeleton,
+} from "../ui/index.js";
 
 type ViewState =
   | { kind: "idle" }
@@ -33,7 +39,6 @@ export function CustomersScreen() {
   const [nba, setNba] = useState<NbaDecision | null>(null);
   const [explain, setExplain] = useState<string | null>(null);
   const [explainBusy, setExplainBusy] = useState(false);
-  // Mỗi lần tra cứu tăng id; chỉ áp kết quả của request mới nhất (chống stale-response).
   const reqId = useRef(0);
 
   async function onSubmit(e: React.FormEvent) {
@@ -47,16 +52,14 @@ export function CustomersScreen() {
     setExplain(null);
     try {
       const data = await api.lookupCustomer(type, value.trim());
-      if (myReq !== reqId.current) return; // đã có request mới hơn -> bỏ kết quả cũ
+      if (myReq !== reqId.current) return;
       setView({ kind: "success", data });
-      // Nạp gợi ý cross-sell (best-effort; lỗi/role không đủ -> bỏ qua, không chặn 360).
       try {
         const r = await api.getRecommendations(data.occId);
         if (myReq === reqId.current) setRecs(r.recommendations);
       } catch {
         if (myReq === reqId.current) setRecs([]);
       }
-      // Phân tích hành vi AI + NBA (best-effort): recompute feature để luôn point-in-time.
       try {
         const f = await api.recomputeFeature(data.occId);
         if (myReq === reqId.current) setFeature(f);
@@ -70,78 +73,49 @@ export function CustomersScreen() {
       if (err instanceof ApiError && err.code === "CUSTOMER_NOT_FOUND") {
         setView({ kind: "notfound" });
       } else {
-        setView({
-          kind: "error",
-          message: err instanceof Error ? err.message : "Lỗi không xác định",
-        });
+        setView({ kind: "error", message: err instanceof Error ? err.message : "Lỗi không xác định" });
       }
     }
   }
 
   return (
-    <section className="mx-auto max-w-[1100px] p-6">
-      <header className="mb-5">
-        <h1 className="text-xl font-bold tracking-tight">Customer 360</h1>
-        <p className="text-text-muted">Tra cứu một khách hàng theo định danh, hợp nhất xuyên thương hiệu.</p>
-      </header>
+    <div className="mx-auto max-w-[1120px] p-6">
+      <PageHeader
+        title="Customer 360"
+        description="Tra cứu một khách hàng theo định danh, hợp nhất xuyên thương hiệu."
+        breadcrumb={["Vận hành", "Customer 360"]}
+      />
 
-      <form onSubmit={onSubmit} className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-text-muted">Loại định danh</span>
-          <select
-            aria-label="Loại định danh"
-            value={type}
-            onChange={(e) => setType(e.target.value as IdentifierType)}
-            className="h-9 rounded-md border border-border bg-surface px-2"
-          >
-            {TYPES.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex flex-1 flex-col gap-1">
-          <span className="text-xs text-text-muted">Giá trị</span>
-          <input
-            aria-label="Giá trị định danh"
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder="vd 0901234567"
-            className="h-9 min-w-[220px] rounded-md border border-border bg-surface px-3 font-mono"
-          />
-        </label>
-
-        <button
-          type="submit"
-          disabled={!value.trim() || view.kind === "loading"}
-          className="h-9 rounded-md bg-accent px-4 font-medium text-accent-fg disabled:opacity-40"
-        >
-          {view.kind === "loading" ? "Đang tra cứu…" : "Tra cứu"}
-        </button>
+      <form onSubmit={onSubmit}>
+        <Toolbar>
+          <Field className="w-44" label="Loại định danh">
+            <Select aria-label="Loại định danh" value={type} onChange={(e) => setType(e.target.value as IdentifierType)}>
+              {TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </Select>
+          </Field>
+          <Field className="min-w-[240px] flex-1" label="Giá trị định danh">
+            <Input aria-label="Giá trị định danh" value={value} onChange={(e) => setValue(e.target.value)}
+              placeholder="vd 0901234567" className="font-mono" icon={<Search className="size-4" />} />
+          </Field>
+          <Button type="submit" variant="primary" disabled={!value.trim() || view.kind === "loading"} loading={view.kind === "loading"} className="mb-[1px]">
+            Tra cứu
+          </Button>
+        </Toolbar>
       </form>
 
-      <div className="mt-6">
+      <div className="mt-2">
         {view.kind === "idle" && (
-          <p className="text-text-subtle">Nhập định danh để tra cứu hồ sơ khách hàng.</p>
+          <EmptyState icon={<UserRound className="size-6" />} title="Tra cứu hồ sơ khách hàng" description="Nhập định danh (SĐT, email, thẻ loyalty…) để xem Customer 360 hợp nhất." />
         )}
-        {view.kind === "loading" && <p className="text-text-muted">Đang tải…</p>}
+        {view.kind === "loading" && <Skeleton className="h-48 w-full" />}
         {view.kind === "notfound" && (
-          <div className="rounded-md border border-border bg-surface-alt p-4">
-            <p className="font-medium">Không tìm thấy khách hàng</p>
-            <p className="text-text-muted">
-              Định danh chưa gắn với OCC ID nào — khách có thể chưa phát sinh giao dịch.
-            </p>
-          </div>
+          <EmptyState icon={<UserX className="size-6" />} title="Không tìm thấy khách hàng" description="Định danh chưa gắn với OCC ID nào — khách có thể chưa phát sinh giao dịch." />
         )}
         {view.kind === "error" && (
-          <div className="rounded-md border border-error/40 bg-surface p-4 text-error">
-            Lỗi: {view.message}
-          </div>
+          <EmptyState tone="error" icon={<ShieldAlert className="size-6" />} title="Lỗi tra cứu" description={view.message} />
         )}
         {view.kind === "success" && (
-          <>
+          <div className="space-y-5">
             <CustomerCard data={view.data} />
             {feature && (
               <AiBehaviorPanel
@@ -163,17 +137,67 @@ export function CustomersScreen() {
               />
             )}
             {recs.length > 0 && <CrossSell recs={recs} />}
-          </>
+          </div>
         )}
       </div>
-    </section>
+    </div>
   );
 }
 
-const LIFECYCLE_LABEL: Record<string, string> = {
-  new: "Mới", active: "Đang hoạt động", at_risk: "Có nguy cơ", vip: "VIP", dormant: "Ngủ đông", churned: "Đã rời",
-};
-const fmtVnd = new Intl.NumberFormat("vi-VN");
+function CustomerCard({ data }: { data: Customer360 }) {
+  const fullName = (data.profile.full_name as string | undefined) ?? "(chưa có tên)";
+  const initials = fullName.trim().slice(0, 1).toUpperCase();
+  return (
+    <Panel bodyClassName="p-0">
+      <div className="flex flex-wrap items-center justify-between gap-4 p-5">
+        <div className="flex items-center gap-3.5">
+          <span className="grid size-12 shrink-0 place-items-center rounded-xl brand-gradient text-lg font-bold text-white">{initials}</span>
+          <div>
+            <p className="text-base font-semibold text-text">{fullName}</p>
+            <p className="font-mono text-xs text-text-muted">{data.occId}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="text-right">
+            <div className="text-xs text-text-subtle">Giao dịch</div>
+            <div data-testid="txn-count" className="tabular text-xl font-bold text-text">{data.transactions.length}</div>
+          </div>
+          <div className="text-right">
+            <div className="text-xs text-text-subtle">Số định danh</div>
+            <div className="tabular text-xl font-bold text-text">{data.identifiers.length}</div>
+          </div>
+        </div>
+      </div>
+      <div className="border-t border-border px-5 py-3.5">
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-subtle">Định danh hợp nhất</div>
+        <div className="flex flex-wrap gap-2">
+          {data.identifiers.map((id) => (
+            <Badge key={`${id.identifier_type}:${id.value_normalized}`} tone="neutral">
+              <span className="text-text-subtle">{id.identifier_type}</span>
+              <span className="font-mono">{id.value_normalized}</span>
+            </Badge>
+          ))}
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function Gauge({ label, value, tone }: { label: string; value: number | null; tone: "up" | "down" }) {
+  const pct = value === null ? 0 : Math.round(value * 100);
+  const color = tone === "down" ? "bg-error" : "bg-accent";
+  return (
+    <div className="rounded-lg border border-border bg-surface p-3">
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-text-muted">{label}</span>
+        <span className="tabular font-semibold text-text">{value === null ? "—" : `${pct}%`}</span>
+      </div>
+      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-surface-alt">
+        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
 
 function AiBehaviorPanel({
   feature, nba, explain, explainBusy, onExplain,
@@ -184,117 +208,89 @@ function AiBehaviorPanel({
   explainBusy: boolean;
   onExplain: () => void;
 }) {
-  const pct = (x: number | null) => (x === null ? "—" : `${Math.round(x * 100)}%`);
   return (
-    <div className="mt-4 rounded-lg border border-border bg-surface" data-testid="ai-behavior">
-      <div className="flex items-center justify-between border-b border-border px-4 py-2">
-        <span className="text-xs uppercase tracking-wide text-text-subtle">Phân tích hành vi (AI)</span>
-        <button type="button" onClick={onExplain} disabled={explainBusy} className="rounded-md border border-border px-2 py-1 text-xs hover:bg-surface-alt disabled:opacity-50">
+    <Panel
+      testid="ai-behavior"
+      icon={<Sparkles className="size-4" />}
+      title="Phân tích hành vi (AI)"
+      subtitle="Điểm số RFM · vòng đời · xu hướng"
+      actions={
+        <Button size="sm" variant="secondary" onClick={onExplain} loading={explainBusy}>
           {explainBusy ? "Đang diễn giải…" : "Diễn giải (AI)"}
-        </button>
+        </Button>
+      }
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-xs text-text-muted">Vòng đời:</span>
+        <span data-testid="ai-lifecycle">
+          <Badge tone="accent">
+            {feature.lifecycleStage ? (LIFECYCLE_LABEL[feature.lifecycleStage] ?? feature.lifecycleStage) : "—"}
+          </Badge>
+        </span>
       </div>
-      <div className="grid grid-cols-2 gap-x-6 gap-y-2 px-4 py-3 text-sm md:grid-cols-4">
-        <Stat label="Vòng đời" value={feature.lifecycleStage ? (LIFECYCLE_LABEL[feature.lifecycleStage] ?? feature.lifecycleStage) : "—"} testid="ai-lifecycle" />
-        <Stat label="Churn risk" value={pct(feature.churnRisk)} />
-        <Stat label="Xu hướng mua" value={pct(feature.propensityScore)} />
-        <Stat label="Số brand" value={String(feature.distinctBrands)} />
-        <Stat label="Giao dịch (F)" value={String(feature.frequency)} />
-        <Stat label="Chi tiêu (M)" value={fmtVnd.format(feature.monetary)} />
-        <Stat label="Recency (ngày)" value={feature.recencyDays === null ? "—" : String(feature.recencyDays)} />
-        <Stat label="Nhóm hàng ưa thích" value={feature.favoriteCategory ?? "—"} />
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Gauge label="Churn risk" value={feature.churnRisk} tone="down" />
+        <Gauge label="Xu hướng mua" value={feature.propensityScore} tone="up" />
+        <MiniStat label="Chi tiêu (M)" value={fmtVndFull(feature.monetary)} />
+        <MiniStat label="Giao dịch (F)" value={fmtInt(feature.frequency)} />
+        <MiniStat label="Recency (ngày)" value={feature.recencyDays === null ? "—" : fmtInt(feature.recencyDays)} />
+        <MiniStat label="Số thương hiệu" value={fmtInt(feature.distinctBrands)} />
+        <MiniStat label="Giỏ TB" value={fmtVndFull(feature.avgBasket)} />
+        <MiniStat label="Nhóm hàng ưa thích" value={feature.favoriteCategory ?? "—"} />
       </div>
+
       {nba && (
-        <div className="border-t border-border px-4 py-3 text-sm" data-testid="ai-nba">
-          <div className="text-xs uppercase tracking-wide text-text-subtle">Next-Best-Action</div>
-          <div className="font-medium">{nba.action.type}{nba.action.points ? ` · ${nba.action.points} điểm` : ""}{nba.action.channel ? ` · ${nba.action.channel}` : ""}</div>
-          <ul className="mt-1 list-disc pl-5 text-xs text-text-muted">
+        <div className="mt-4 rounded-lg border border-accent-subtle bg-accent-subtle/40 p-4" data-testid="ai-nba">
+          <div className="mb-1 flex items-center gap-2">
+            <Target className="size-4 text-accent" />
+            <span className="text-xs font-semibold uppercase tracking-wide text-accent">Next-Best-Action</span>
+            <StatusPill tone={nba.eligible ? "success" : "warning"}>{nba.eligible ? "Đủ điều kiện" : "Chưa đủ"}</StatusPill>
+          </div>
+          <p className="text-sm font-medium text-text">
+            {nba.action.type}
+            {nba.action.points ? ` · ${nba.action.points} điểm` : ""}
+            {nba.action.channel ? ` · ${nba.action.channel}` : ""}
+          </p>
+          <ul className="mt-1.5 list-disc pl-5 text-xs text-text-muted">
             {nba.reasons.map((r, i) => <li key={i}>{r}</li>)}
           </ul>
         </div>
       )}
+
       {explain && (
-        <div className="border-t border-border px-4 py-3 text-sm" data-testid="ai-explain">
-          <div className="text-xs uppercase tracking-wide text-text-subtle">Diễn giải (LLM)</div>
-          <p className="whitespace-pre-wrap">{explain}</p>
+        <div className="mt-4 rounded-lg border border-border bg-surface-alt p-4" data-testid="ai-explain">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-subtle">Diễn giải (LLM)</div>
+          <p className="whitespace-pre-wrap text-sm text-text">{explain}</p>
         </div>
       )}
-    </div>
+    </Panel>
   );
 }
 
-function Stat({ label, value, testid }: { label: string; value: string; testid?: string }) {
+function MiniStat({ label, value }: { label: string; value: string }) {
   return (
-    <div>
+    <div className="rounded-lg border border-border bg-surface p-3">
       <div className="text-xs text-text-subtle">{label}</div>
-      <div data-testid={testid} className="font-medium tabular-nums">{value}</div>
+      <div className="tabular mt-0.5 text-sm font-semibold text-text">{value}</div>
     </div>
   );
 }
 
 function CrossSell({ recs }: { recs: Recommendation[] }) {
+  const columns: Column<Recommendation>[] = [
+    { key: "sku", header: "SKU", cell: (r) => <span className="font-mono text-xs text-text-muted">{r.sku}</span>, width: "120px" },
+    { key: "name", header: "Sản phẩm", cell: (r) => r.name ?? "(không tên)" },
+    { key: "score", header: "Điểm", numeric: true, cell: (r) => <span className="font-semibold text-accent">{r.score}</span>, width: "100px" },
+  ];
   return (
-    <div className="mt-4 rounded-lg border border-border bg-surface">
-      <div className="border-b border-border px-4 py-2 text-xs uppercase tracking-wide text-text-subtle">
-        Gợi ý cross-sell (AI) — khách tương tự cũng mua
-      </div>
-      <ul className="divide-y divide-border">
-        {recs.map((r) => (
-          <li
-            key={r.sku}
-            data-testid={`rec-${r.sku}`}
-            className="flex items-center justify-between px-4 py-2"
-          >
-            <span>
-              <span className="font-mono text-xs text-text-muted">{r.sku}</span>{" "}
-              {r.name ?? "(không tên)"}
-            </span>
-            <span className="tabular text-xs text-text-muted">điểm {r.score}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function CustomerCard({ data }: { data: Customer360 }) {
-  const fullName = (data.profile.full_name as string | undefined) ?? "(chưa có tên)";
-  return (
-    <div className="rounded-lg border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div>
-          <div className="text-xs uppercase tracking-wide text-text-subtle">OCC ID</div>
-          <div className="font-mono">{data.occId}</div>
-        </div>
-        <div className="text-right">
-          <div className="text-xs uppercase tracking-wide text-text-subtle">Giao dịch</div>
-          <div data-testid="txn-count" className="tabular text-lg font-bold">
-            {data.transactions.length}
-          </div>
-        </div>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-2 px-4 py-3">
-        <div>
-          <dt className="text-xs text-text-subtle">Họ tên</dt>
-          <dd>{fullName}</dd>
-        </div>
-        <div>
-          <dt className="text-xs text-text-subtle">Số định danh</dt>
-          <dd className="tabular">{data.identifiers.length}</dd>
-        </div>
-      </dl>
-      <div className="border-t border-border px-4 py-3">
-        <div className="mb-2 text-xs uppercase tracking-wide text-text-subtle">Định danh</div>
-        <ul className="flex flex-wrap gap-2">
-          {data.identifiers.map((id) => (
-            <li
-              key={`${id.identifier_type}:${id.value_normalized}`}
-              className="rounded-md border border-border bg-surface-alt px-2 py-1 font-mono text-xs"
-            >
-              <span className="text-text-muted">{id.identifier_type}</span> {id.value_normalized}
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
+    <Panel icon={<ShoppingBag className="size-4" />} title="Gợi ý cross-sell (AI)" subtitle="Khách tương tự cũng mua" bodyClassName="p-0">
+      <Table
+        columns={columns}
+        rows={recs}
+        rowKey={(r) => r.sku}
+        density="compact"
+        className="rounded-none border-0 shadow-none"
+      />
+    </Panel>
   );
 }

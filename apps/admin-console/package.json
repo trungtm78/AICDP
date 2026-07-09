@@ -12,7 +12,12 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
+    "@fontsource-variable/geist": "^5.2.9",
+    "@fontsource/geist-mono": "^5.2.8",
     "@tanstack/react-query": "^5.62.7",
+    "echarts": "^6.1.0",
+    "echarts-for-react": "^3.0.6",
+    "lucide-react": "^1.23.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"

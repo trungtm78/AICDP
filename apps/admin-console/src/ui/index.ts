@@ -1,0 +1,32 @@
+// Hệ component OCC-CDP (custom primitives — Tailwind thuần). Xem DESIGN.md.
+export { cn } from "./cn.js";
+export { Button, IconButton } from "./Button.js";
+export type { ButtonProps, IconButtonProps } from "./Button.js";
+export { Card, StatTile } from "./Card.js";
+export type { CardProps, StatTileProps } from "./Card.js";
+export { Badge, StatusPill } from "./Badge.js";
+export type { BadgeProps } from "./Badge.js";
+export { Table } from "./Table.js";
+export type { Column, TableProps } from "./Table.js";
+export { Field, Input, Select, Textarea, Switch, Checkbox } from "./Form.js";
+export { Tabs, SegmentedControl } from "./Tabs.js";
+export type { TabItem, TabsProps } from "./Tabs.js";
+export { PageHeader, Toolbar } from "./PageHeader.js";
+export type { PageHeaderProps } from "./PageHeader.js";
+export { Panel, Section } from "./Panel.js";
+export type { PanelProps } from "./Panel.js";
+export { EmptyState } from "./EmptyState.js";
+export type { EmptyStateProps } from "./EmptyState.js";
+export { Skeleton, SkeletonRows, Spinner } from "./Skeleton.js";
+export { ToastProvider, useToast } from "./Toast.js";
+export { Modal, Drawer } from "./Modal.js";
+export type { OverlayProps } from "./Modal.js";
+export { Tooltip } from "./Tooltip.js";
+export { Kbd } from "./Kbd.js";
+export { Logo, LogoMark } from "./Brand.js";
+export { CommandPalette } from "./CommandPalette.js";
+export type { CommandItem, CommandPaletteProps } from "./CommandPalette.js";
+// Charts
+export { EChart } from "./charts/EChart.js";
+export { BarChart, Donut, ForecastLine, Funnel, Heatmap, Sankey, Sparkline } from "./charts/index.js";
+export type { BarDatum, DonutSlice, FunnelStage, SankeyNode, SankeyLink } from "./charts/index.js";

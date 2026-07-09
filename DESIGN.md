@@ -8,6 +8,8 @@
 - **Memorable thing:** "Kiểm soát toàn cục, tức thì" — control tower: mọi số liệu 5 brand realtime, đáng tin, tra cứu 1 khách trong 2 giây.
 
 ## Aesthetic Direction
+> **Cập nhật triển khai (2026-07-09):** hướng thực thi dịch sang **"Airy modern SaaS + thương hiệu AIPOWER"** (khớp aipower.vn, kiểu Segment/Hightouch) — nhiều khoảng thở, card bo góc + shadow nhẹ, nền sáng; vẫn giữ độ chính xác (số căn phải `tabular-nums`, bảng hairline gọn) ở khu dữ liệu. Accent = **AIPOWER blue `#2563EB`**; gradient blue→cyan→violet chỉ ở **điểm nhấn** (logo, hero KPI, nút primary, header, active nav). Component = **custom primitives (Tailwind thuần)**; chart = **ECharts**; icon = **lucide**. Xem "Color", "Stack", "Logo" bên dưới.
+
 - **Direction:** Industrial/Utilitarian × Minimal (instrument-panel precision).
 - **Decoration level:** minimal — typography + token + hairline borders; KHÔNG bubble/gradient/blob.
 - **Mood:** Bình tĩnh, dày đặc, chính xác. Như bảng điều khiển khí cụ: cấu trúc rõ, số thẳng hàng, accent chỉ hút mắt vào thứ quan trọng.
@@ -23,8 +25,10 @@
 - **Lý do single-family:** coherence khí cụ + đảm bảo diacritics tiếng Việt + perf; rủi ro đã chấp nhận.
 
 ## Color
-- **Approach:** restrained — neutral foundation + 1 accent "Signal Teal" + semantic.
-- **Primary (accent):** `#0EA5A4` — data/precision; dùng cho action chính, focus, selection, link. (dark: `#2DD4BF`)
+> **Cập nhật 2026-07-09:** accent hệ thống đổi **Signal Teal → AIPOWER blue `#2563EB`** (khớp aipower.vn). Nền sáng `#f4f8fd`. Gradient blue→cyan→violet (`.brand-gradient`/`.brand-text`) chỉ dùng ở điểm nhấn. Hue biểu đồ (data-viz) CVD-safe: blue `#2a78d6` · aqua `#1baf7a` · amber `#eda100` · green `#008300` · violet `#4a3aa7`. Token thực tế xem `apps/admin-console/src/index.css`.
+
+- **Approach:** restrained — neutral foundation + 1 accent + semantic; gradient chỉ cho brand/điểm nhấn.
+- **Primary (accent):** `#2563EB` (AIPOWER blue) — action chính, focus, selection, link. (Signal Teal `#0EA5A4` là bản gốc, đã thay.)
 - **Secondary:** neutral đậm `#334155` cho action phụ; KHÔNG thêm accent thứ 2 (giữ "tín hiệu" hiếm & có nghĩa).
 - **Neutrals (cool slate):** bg `#FBFBFC` · surface `#FFFFFF` · surface-alt `#F4F5F7` · border `#E7E9EE` · border-strong `#CBD2DC` · text `#0B0E14` · text-muted `#5B6573` · text-subtle `#8A93A2`.
 - **Semantic:** success `#16A34A` · warning `#D97706` · error `#DC2626` · info `#2563EB`.
@@ -59,7 +63,12 @@
 - **A11y:** WCAG AA — contrast ≥4.5:1 mọi text (kể cả muted), focus ring rõ trên mọi cell tương tác, keyboard-nav đầy đủ cho data grid (mũi tên di chuyển cell), screen-reader header association + announce sort/filter, status không chỉ bằng màu (icon/label kèm).
 
 ## Stack
-React + TypeScript · Tailwind v4 (OKLCH tokens) · shadcn/ui + Radix · TanStack Table (virtualized) · Recharts/visx (+ ECharts cho Sankey/heatmap synergy) · WebSocket/SSE cho realtime.
+> **Triển khai thực tế (2026-07-09):** React + TypeScript · Tailwind v4 · **custom primitives (`src/ui/*`, ~18 component — KHÔNG shadcn/Radix)** · **ECharts** (`echarts` + `echarts-for-react`) cho mọi biểu đồ (bar/donut/line-forecast/funnel/heatmap/sankey/sparkline) · **lucide-react** (icon) · **Geist + Geist Mono** (@fontsource, self-host). TanStack Table (virtualized) + WebSocket/SSE = đợt sau. (Bản gốc dự kiến shadcn/Radix + Recharts/visx — đã thay bằng custom + ECharts.)
+
+## Logo
+- **Tên hiển thị:** **OCC CDP** (OCC đậm · CDP nhạt), Geist tracking chặt.
+- **Mark "Convergence Node":** 5 điểm (thương hiệu) hội tụ về 1 node trung tâm (OCC ID hợp nhất) — đúng bản chất CDP identity resolution. Tile bo góc gradient blue→cyan→violet; dùng được 16px (favicon) → lớn.
+- **File:** `apps/admin-console/public/logo.svg` (lockup), `public/logo-mark.svg` (favicon), component `src/ui/Brand.tsx` (`Logo`, `LogoMark`).
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -68,3 +77,7 @@ React + TypeScript · Tailwind v4 (OKLCH tokens) · shadcn/ui + Radix · TanStac
 | 2026-06-18 | Single-family Geist + Geist Mono | Coherence khí cụ + diacritics tiếng Việt + perf (self-host woff2) |
 | 2026-06-18 | Accent Signal Teal #0EA5A4 | Khác biệt với xanh/tím SaaS; đọc như công cụ dữ liệu |
 | 2026-06-18 | Density theo persona + dark-first war-room | Data-dense không áp đồng nhất; monitoring dùng dark |
+| 2026-07-09 | Đổi accent Signal Teal → AIPOWER blue #2563EB | Khớp thương hiệu công ty (aipower.vn); yêu cầu người dùng |
+| 2026-07-09 | Personality: Airy modern SaaS (light-first) thay war-room dày đặc | Người dùng chọn cảm giác thoáng/sáng kiểu Segment/Hightouch |
+| 2026-07-09 | Custom primitives (Tailwind) + ECharts + lucide + Geist thay shadcn/Recharts | Kiểm soát trực tiếp, ECharts mạnh Sankey/heatmap; brainstorming chốt |
+| 2026-07-09 | Logo "OCC CDP" + mark Convergence Node (gradient tile) | Thể hiện hợp nhất định danh xuyên thương hiệu |

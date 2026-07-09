@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ShieldCheck, Search, X } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   ApiError,
@@ -6,6 +7,7 @@ import {
   type ConsentEffectiveStatus,
   type ConsentPurpose,
 } from "../lib/types.js";
+import { PageHeader, Panel, Field, Input, Button, StatusPill, EmptyState } from "../ui/index.js";
 
 const PURPOSES: { purpose: ConsentPurpose; label: string }[] = [
   { purpose: "marketing_email", label: "Email marketing" },
@@ -15,17 +17,15 @@ const PURPOSES: { purpose: ConsentPurpose; label: string }[] = [
   { purpose: "data_sharing", label: "Chia sẻ dữ liệu" },
 ];
 
-const STATUS_STYLE: Record<ConsentEffectiveStatus, string> = {
-  granted: "text-success",
-  withdrawn: "text-warning",
-  denied: "text-text-subtle",
+const STATUS_TONE: Record<ConsentEffectiveStatus, "success" | "warning" | "neutral"> = {
+  granted: "success",
+  withdrawn: "warning",
+  denied: "neutral",
 };
 
 /** Governance — quản trị consent (deny-by-default). Chỉ activation mới bị gate bởi consent. */
 export function GovernanceScreen() {
   const [occId, setOccId] = useState("");
-  // occId ĐÃ load (gắn với bảng đang hiển thị). Thao tác ghi theo giá trị này, KHÔNG theo
-  // input hiện tại — tránh ghi nhầm consent cho OCC khác khi user vừa sửa ô input.
   const [loadedOccId, setLoadedOccId] = useState("");
   const [states, setStates] = useState<Record<string, ConsentState> | null>(null);
   const [busy, setBusy] = useState(false);
@@ -59,7 +59,6 @@ export function GovernanceScreen() {
     setError(null);
     try {
       await api.recordConsent(loadedOccId, purpose, status, "csr");
-      // Đọc lại theo đúng OCC đã ghi (không phụ thuộc input có thể đã đổi).
       const list = await api.listConsents(loadedOccId);
       setStates(Object.fromEntries(list.map((c) => [c.purpose, c])));
     } catch (err) {
@@ -70,83 +69,46 @@ export function GovernanceScreen() {
   }
 
   return (
-    <section className="mx-auto max-w-[900px] p-6">
-      <header className="mb-5">
-        <h1 className="text-xl font-bold tracking-tight">Governance · Consent</h1>
-        <p className="text-text-muted">
-          Deny-by-default. Ingestion và loyalty luôn ghi nhận; chỉ activation bị chặn theo consent.
-        </p>
-      </header>
+    <div className="mx-auto max-w-[900px] p-6">
+      <PageHeader
+        title="Governance · Consent"
+        description="Deny-by-default. Ingestion và loyalty luôn ghi nhận; chỉ activation bị chặn theo consent."
+        breadcrumb={["Quản trị", "Consent"]}
+      />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-1 flex-col gap-1">
-          <span className="text-xs text-text-muted">OCC ID</span>
-          <input
-            aria-label="OCC ID"
-            value={occId}
-            onChange={(e) => setOccId(e.target.value)}
-            placeholder="uuid khách hàng"
-            className="input w-full font-mono"
-          />
-        </label>
-        <button
-          type="button"
-          onClick={load}
-          disabled={!occId.trim() || busy}
-          className="h-9 rounded-md bg-accent px-4 font-medium text-accent-fg disabled:opacity-40"
-        >
-          Xem consent
-        </button>
-      </div>
-
-      {error && (
-        <div className="mt-4 rounded-md border border-error/40 bg-surface p-3 text-error">
-          {error}
+      <Panel>
+        <div className="flex flex-wrap items-end gap-3">
+          <Field className="min-w-[280px] flex-1" label="OCC ID">
+            <Input aria-label="OCC ID" value={occId} onChange={(e) => setOccId(e.target.value)} placeholder="uuid khách hàng" className="font-mono" icon={<Search className="size-4" />} />
+          </Field>
+          <Button variant="primary" onClick={load} disabled={!occId.trim() || busy} loading={busy} className="mb-[1px]">Xem consent</Button>
         </div>
-      )}
+      </Panel>
+
+      {error && <div className="mt-4"><EmptyState tone="error" icon={<X className="size-6" />} title="Lỗi" description={error} /></div>}
 
       {states && (
-        <div className="mt-6 rounded-lg border border-border bg-surface">
+        <Panel className="mt-5" title="Trạng thái đồng ý theo mục đích" icon={<ShieldCheck className="size-4" />} bodyClassName="p-0">
           <ul className="divide-y divide-border">
             {PURPOSES.map(({ purpose, label }) => {
               const status: ConsentEffectiveStatus = states[purpose]?.status ?? "denied";
               return (
-                <li
-                  key={purpose}
-                  data-testid={`consent-${purpose}`}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
-                >
+                <li key={purpose} data-testid={`consent-${purpose}`} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div>
-                    <div className="font-medium">{label}</div>
+                    <div className="text-sm font-medium text-text">{label}</div>
                     <div className="font-mono text-xs text-text-subtle">{purpose}</div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`text-sm font-medium uppercase ${STATUS_STYLE[status]}`}>
-                      {status}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setConsent(purpose, "granted")}
-                      disabled={busy || status === "granted"}
-                      className="h-8 rounded-md border border-border bg-surface-alt px-3 disabled:opacity-40"
-                    >
-                      Cấp
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConsent(purpose, "withdrawn")}
-                      disabled={busy || status !== "granted"}
-                      className="h-8 rounded-md border border-border bg-surface-alt px-3 disabled:opacity-40"
-                    >
-                      Thu hồi
-                    </button>
+                    <StatusPill tone={STATUS_TONE[status]}>{status.toUpperCase()}</StatusPill>
+                    <Button size="sm" variant="secondary" onClick={() => setConsent(purpose, "granted")} disabled={busy || status === "granted"}>Cấp</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConsent(purpose, "withdrawn")} disabled={busy || status !== "granted"}>Thu hồi</Button>
                   </div>
                 </li>
               );
             })}
           </ul>
-        </div>
+        </Panel>
       )}
-    </section>
+    </div>
   );
 }
