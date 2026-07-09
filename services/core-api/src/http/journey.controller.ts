@@ -8,7 +8,7 @@ import { Roles } from "./auth/roles.js";
 import { runJourney } from "../journey/journey.service.js";
 import {
   createDraft, saveDraft, getJourney, listJourneys, publish, activateJourney,
-  setStatus, listParticipants, retryParticipant, forceExitParticipant,
+  setStatus, listParticipants, retryParticipant, forceExitParticipant, participantHistory,
   type CreateDraftArgs, type SaveArgs,
 } from "../journey/journey-admin.service.js";
 import { enroll, enrollSegment, tick } from "../journey/journey-engine.service.js";
@@ -125,6 +125,12 @@ export class JourneyController {
       ...(offset ? { offset: Number(offset) } : {}),
     });
     return { data: r.rows, meta: { total: r.total } };
+  }
+
+  /** Drill-down: lịch sử các bước một participant đã đi qua. */
+  @Get(":id/participants/:pid/history")
+  async participantHistory(@Param("pid") pid: string) {
+    return { data: await participantHistory(this.pool, pid) };
   }
 
   @Post(":id/participants/:pid/retry")

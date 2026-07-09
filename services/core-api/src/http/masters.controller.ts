@@ -40,6 +40,7 @@ import {
   createBrand,
   updateBrand,
   deleteBrand,
+  brandDetail,
 } from "../master/master.repo.js";
 
 // Nhận diện lỗi FK (foreign_key_violation) của Postgres.
@@ -86,6 +87,14 @@ export class MastersController {
   @Get("brands")
   async getBrands() {
     return { data: await listBrands(this.pool) };
+  }
+
+  /** Drill-down: brand + cửa hàng kèm doanh thu/đơn. */
+  @Get("brands/:id/detail")
+  async getBrandDetail(@Param("id") id: string) {
+    const detail = await brandDetail(this.pool, id);
+    if (!detail) throw notFoundError("brand", id);
+    return { data: detail };
   }
 
   @Get("stores")

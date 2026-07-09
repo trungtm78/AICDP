@@ -188,6 +188,27 @@ export async function listParticipants(
   return { rows: r.rows, total: Number(totalR.rows[0]!.n) };
 }
 
+export interface StepRunView {
+  nodeId: string;
+  nodeType: string;
+  status: string;
+  result: Record<string, unknown>;
+  ranAt: string;
+}
+
+/** Drill-down: timeline các bước một participant đã đi qua (append-only journey_step_run). */
+export async function participantHistory(pool: Pool, participantId: string): Promise<StepRunView[]> {
+  const r = await pool.query<{ node_id: string; node_type: string; status: string; result: Record<string, unknown>; ran_at: string }>(
+    `SELECT node_id, node_type, status, result, ran_at
+       FROM cdp.journey_step_run WHERE participant_id=$1
+      ORDER BY ran_at ASC`,
+    [participantId],
+  );
+  return r.rows.map((row) => ({
+    nodeId: row.node_id, nodeType: row.node_type, status: row.status, result: row.result ?? {}, ranAt: row.ran_at,
+  }));
+}
+
 /** Retry participant failed → active (reset attempts). */
 export async function retryParticipant(pool: Pool, participantId: string): Promise<boolean> {
   const r = await pool.query(

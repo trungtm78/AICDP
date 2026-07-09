@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ShieldCheck, Search, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { ShieldCheck, Search, X, History } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   ApiError,
@@ -7,7 +8,8 @@ import {
   type ConsentEffectiveStatus,
   type ConsentPurpose,
 } from "../lib/types.js";
-import { PageHeader, Panel, Field, Input, Button, StatusPill, EmptyState } from "../ui/index.js";
+import { fmtDateTime } from "../lib/format.js";
+import { PageHeader, Panel, Field, Input, Button, StatusPill, EmptyState, Drawer, Table, Skeleton, type Column } from "../ui/index.js";
 
 const PURPOSES: { purpose: ConsentPurpose; label: string }[] = [
   { purpose: "marketing_email", label: "Email marketing" },
@@ -30,6 +32,7 @@ export function GovernanceScreen() {
   const [states, setStates] = useState<Record<string, ConsentState> | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [histPurpose, setHistPurpose] = useState<{ purpose: ConsentPurpose; label: string } | null>(null);
 
   function errMsg(err: unknown): string {
     if (err instanceof ApiError) return err.message;
@@ -100,6 +103,7 @@ export function GovernanceScreen() {
                   </div>
                   <div className="flex items-center gap-3">
                     <StatusPill tone={STATUS_TONE[status]}>{status.toUpperCase()}</StatusPill>
+                    <Button size="sm" variant="ghost" icon={<History className="size-3.5" />} onClick={() => setHistPurpose({ purpose, label })}>Lịch sử</Button>
                     <Button size="sm" variant="secondary" onClick={() => setConsent(purpose, "granted")} disabled={busy || status === "granted"}>Cấp</Button>
                     <Button size="sm" variant="ghost" onClick={() => setConsent(purpose, "withdrawn")} disabled={busy || status !== "granted"}>Thu hồi</Button>
                   </div>
@@ -109,6 +113,30 @@ export function GovernanceScreen() {
           </ul>
         </Panel>
       )}
+
+      {histPurpose && loadedOccId && (
+        <ConsentHistoryDrawer occId={loadedOccId} purpose={histPurpose.purpose} label={histPurpose.label} onClose={() => setHistPurpose(null)} />
+      )}
     </div>
+  );
+}
+
+/** Drill-down: timeline cấp/thu hồi của một purpose. */
+function ConsentHistoryDrawer({ occId, purpose, label, onClose }: { occId: string; purpose: ConsentPurpose; label: string; onClose: () => void }) {
+  const hq = useQuery({ queryKey: ["consent-history", occId, purpose], queryFn: () => api.getConsentHistory(occId, purpose) });
+  const cols: Column<{ status: string; source: string; channel: string | null; recordedAt: string }>[] = [
+    { key: "status", header: "Hành động", width: "120px", cell: (h) => <StatusPill tone={h.status === "granted" ? "success" : "warning"}>{h.status === "granted" ? "Cấp" : "Thu hồi"}</StatusPill> },
+    { key: "source", header: "Nguồn", cell: (h) => <span className="text-text-muted">{h.source}{h.channel ? ` · ${h.channel}` : ""}</span> },
+    { key: "at", header: "Thời gian", width: "110px", cell: (h) => <span className="tabular text-xs text-text-subtle">{fmtDateTime(h.recordedAt)}</span> },
+  ];
+  return (
+    <Drawer open onClose={onClose} title={`Lịch sử consent — ${label}`} description={purpose}>
+      {hq.isLoading ? (
+        <Skeleton className="h-40 w-full" />
+      ) : (
+        <Table columns={cols} rows={hq.data ?? []} rowKey={(h, i) => `${h.recordedAt}-${i}`}
+          empty={{ title: "Chưa có bản ghi consent cho mục đích này" }} density="compact" />
+      )}
+    </Drawer>
   );
 }

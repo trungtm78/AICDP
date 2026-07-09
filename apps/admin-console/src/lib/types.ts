@@ -178,6 +178,41 @@ export interface ConsentState {
   recorded_at: string | null;
 }
 
+/** Một sự kiện consent (drill-down timeline). */
+export interface ConsentHistoryEntry {
+  status: "granted" | "withdrawn";
+  source: string;
+  channel: string | null;
+  evidence: string | null;
+  recordedAt: string;
+}
+
+/** Chi tiết brand + cửa hàng kèm doanh thu (drill-down Masters). */
+export interface BrandStoreDetail {
+  store_id: string;
+  name: string;
+  city: string | null;
+  region: string | null;
+  status: string;
+  orders: number;
+  revenue: number;
+}
+export interface BrandDetail {
+  brand: Brand;
+  totalRevenue: number;
+  totalOrders: number;
+  stores: BrandStoreDetail[];
+}
+
+/** Một bước journey một participant đã đi qua (drill-down). */
+export interface JourneyStepRun {
+  nodeId: string;
+  nodeType: string;
+  status: string;
+  result: Record<string, unknown>;
+  ranAt: string;
+}
+
 export type ConsentPurpose =
   | "marketing_email"
   | "marketing_sms"

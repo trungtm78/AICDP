@@ -7,7 +7,7 @@ import {
   consentListQuerySchema,
   consentCheckQuerySchema,
 } from "./schemas.js";
-import { recordConsent, listConsents, isAllowed } from "../consent/consent.service.js";
+import { recordConsent, listConsents, isAllowed, listConsentHistory } from "../consent/consent.service.js";
 import { Roles } from "./auth/roles.js";
 
 /** Consent deny-by-default. /check là chokepoint dành cho ACTIVATION (không gate ingestion/loyalty). */
@@ -43,5 +43,12 @@ export class ConsentController {
   async check(@Query() query: Record<string, string>) {
     const { occId, purpose } = validate(consentCheckQuerySchema, query, "consent_check");
     return { data: { occId, purpose, allowed: await isAllowed(this.pool, occId, purpose) } };
+  }
+
+  /** Drill-down: timeline cấp/thu hồi của một purpose. */
+  @Get("history")
+  async history(@Query() query: Record<string, string>) {
+    const { occId, purpose } = validate(consentCheckQuerySchema, query, "consent_history");
+    return { data: await listConsentHistory(this.pool, occId, purpose) };
   }
 }

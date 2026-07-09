@@ -1,9 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Building2, Store, Package, Plus, Pencil, Trash2, X } from "lucide-react";
+import { Building2, Store, Package, Plus, Pencil, Trash2, X, BarChart3 } from "lucide-react";
 import { api } from "../lib/api.js";
 import { ApiError, type Brand, type Store as StoreT, type Product } from "../lib/types.js";
-import { PageHeader, Panel, Field, Input, Select, Button, Badge, Table, type Column } from "../ui/index.js";
+import { fmtInt, fmtVndFull } from "../lib/format.js";
+import { PageHeader, Panel, Field, Input, Select, Button, Badge, StatTile, Drawer, Skeleton, Table, type Column } from "../ui/index.js";
 
 /** Data Ops · Master Data — Brands / Stores / Products (đầy đủ CRUD). Data 100% từ core-api. */
 export function MastersScreen() {
@@ -36,6 +37,7 @@ function BrandsPanel() {
   const q = useQuery({ queryKey: ["brands"], queryFn: api.listBrands });
   const [form, setForm] = useState({ brand_id: "", name: "", industry: "", brand_accent: "" });
   const [editing, setEditing] = useState<string | null>(null);
+  const [detail, setDetail] = useState<Brand | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const reset = () => { setForm({ brand_id: "", name: "", industry: "", brand_accent: "" }); setEditing(null); setErr(null); };
   const invalidate = () => { void qc.invalidateQueries({ queryKey: ["brands"] }); };
@@ -80,7 +82,12 @@ function BrandsPanel() {
     { key: "industry", header: "Ngành", cell: (b) => b.industry ?? "—" },
     { key: "accent", header: "Màu", cell: (b) => b.brand_accent ? <span className="inline-flex items-center gap-1.5"><span className="size-3.5 rounded" style={{ backgroundColor: b.brand_accent }} /><span className="font-mono text-xs">{b.brand_accent}</span></span> : "—", width: "120px" },
     { key: "status", header: "Trạng thái", cell: (b) => <Badge tone={b.status === "active" ? "success" : "neutral"}>{b.status}</Badge>, width: "110px" },
-    { key: "act", header: "", numeric: true, width: "150px", cell: (b) => <RowActions onEdit={() => edit(b)} onDelete={() => { if (window.confirm(`Xoá thương hiệu "${b.name}"?`)) del.mutate(b.brand_id); }} deleting={del.isPending} /> },
+    { key: "act", header: "", numeric: true, width: "210px", cell: (b) => (
+      <div className="flex items-center justify-end gap-1.5">
+        <Button size="sm" variant="ghost" icon={<BarChart3 className="size-3.5" />} onClick={() => setDetail(b)}>Chi tiết</Button>
+        <RowActions onEdit={() => edit(b)} onDelete={() => { if (window.confirm(`Xoá thương hiệu "${b.name}"?`)) del.mutate(b.brand_id); }} deleting={del.isPending} />
+      </div>
+    ) },
   ];
 
   return (
@@ -100,8 +107,46 @@ function BrandsPanel() {
       {err && <p className="mb-2 text-sm text-error">Lỗi: {err}</p>}
       <Table columns={columns} rows={q.data ?? []} rowKey={(b) => b.brand_id} loading={q.isLoading}
         empty={{ title: "Chưa có thương hiệu" }} density="compact" />
+      {detail && <BrandDetailDrawer brand={detail} onClose={() => setDetail(null)} />}
     </Panel>
   );
+}
+
+/** Drill-down: brand + cửa hàng kèm doanh thu/đơn. */
+function BrandDetailDrawer({ brand, onClose }: { brand: Brand; onClose: () => void }) {
+  const dq = useQuery({ queryKey: ["brand-detail", brand.brand_id], queryFn: () => api.getBrandDetail(brand.brand_id) });
+  const d = dq.data;
+  const cols: Column<{ name: string; city: string | null; orders: number; revenue: number }>[] = [
+    { key: "name", header: "Cửa hàng", cell: (s) => <span className="font-medium text-text">{s.name}</span> },
+    { key: "city", header: "Thành phố", cell: (s) => s.city ?? "—", width: "130px" },
+    { key: "orders", header: "Đơn", numeric: true, width: "90px", cell: (s) => fmtInt(s.orders) },
+    { key: "revenue", header: "Doanh thu", numeric: true, width: "150px", cell: (s) => <span className="font-semibold">{fmtVndFull(s.revenue)}</span> },
+  ];
+  return (
+    <Drawer open onClose={onClose} title={brand.name} description={`${brand.industry ?? "—"} · ${brand.brand_id}`}>
+      {dq.isLoading ? (
+        <Skeleton className="h-48 w-full" />
+      ) : !d ? (
+        <EmptyStateInline />
+      ) : (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-3">
+            <StatTile label="Cửa hàng" value={fmtInt(d.stores.length)} icon={<Store className="size-4" />} />
+            <StatTile label="Tổng đơn" value={fmtInt(d.totalOrders)} icon={<Package className="size-4" />} />
+            <StatTile label="Doanh thu" value={fmtVndFull(d.totalRevenue)} icon={<BarChart3 className="size-4" />} />
+          </div>
+          <Panel title="Cửa hàng theo doanh thu" icon={<Store className="size-4" />} bodyClassName="p-0">
+            <Table columns={cols} rows={d.stores} rowKey={(s) => s.store_id}
+              empty={{ title: "Thương hiệu chưa có cửa hàng" }} density="compact" />
+          </Panel>
+        </div>
+      )}
+    </Drawer>
+  );
+}
+
+function EmptyStateInline() {
+  return <p className="p-4 text-sm text-text-muted">Không tải được chi tiết thương hiệu.</p>;
 }
 
 function StoresPanel() {

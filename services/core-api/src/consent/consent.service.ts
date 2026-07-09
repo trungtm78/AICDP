@@ -89,6 +89,32 @@ export async function isAllowed(
   return state.status === "granted";
 }
 
+export interface ConsentHistoryEntry {
+  status: ConsentStatus;
+  source: string;
+  channel: string | null;
+  evidence: string | null;
+  recordedAt: string;
+}
+
+/** Drill-down: timeline append-only các sự kiện consent của MỘT (occId, purpose). */
+export async function listConsentHistory(
+  pool: Pool,
+  occId: string,
+  purpose: string,
+): Promise<ConsentHistoryEntry[]> {
+  const r = await pool.query<{ status: ConsentStatus; source: string; channel: string | null; evidence: string | null; recorded_at: string }>(
+    `SELECT status, source, channel, evidence, recorded_at
+       FROM cdp.consent_record
+       WHERE occ_id=$1 AND purpose=$2
+       ORDER BY recorded_at DESC, id DESC`,
+    [occId, purpose],
+  );
+  return r.rows.map((row) => ({
+    status: row.status, source: row.source, channel: row.channel, evidence: row.evidence, recordedAt: row.recorded_at,
+  }));
+}
+
 /** Trạng thái hiện tại của MỌI purpose mà khách từng có bản ghi. */
 export async function listConsents(pool: Pool, occId: string): Promise<ConsentState[]> {
   const r = await pool.query<{ purpose: string; status: ConsentStatus; recorded_at: string }>(

@@ -222,6 +222,53 @@ export async function deleteBrand(pool: Pool, brandId: string): Promise<boolean>
   return (r.rowCount ?? 0) > 0;
 }
 
+export interface BrandStoreDetail {
+  store_id: string;
+  name: string;
+  city: string | null;
+  region: string | null;
+  status: string;
+  orders: number;
+  revenue: number;
+}
+export interface BrandDetail {
+  brand: Brand;
+  totalRevenue: number;
+  totalOrders: number;
+  stores: BrandStoreDetail[];
+}
+
+/** Drill-down Masters: brand + cửa hàng kèm doanh thu/đơn (từ canonical_transaction). */
+export async function brandDetail(pool: Pool, brandId: string): Promise<BrandDetail | null> {
+  const b = await pool.query<Brand>(
+    `SELECT brand_id, name, industry, brand_accent, status FROM cdp.brand WHERE brand_id=$1`,
+    [brandId],
+  );
+  const brand = b.rows[0];
+  if (!brand) return null;
+  const stores = await pool.query<{ store_id: string; name: string; city: string | null; region: string | null; status: string; orders: string; revenue: string | null }>(
+    `SELECT s.store_id, s.name, s.city, s.region, s.status,
+            count(ct.message_id)::text AS orders,
+            COALESCE(sum(ct.total), 0)::text AS revenue
+       FROM cdp.store s
+       LEFT JOIN cdp.canonical_transaction ct ON ct.store_id = s.store_id
+      WHERE s.brand_id = $1
+      GROUP BY s.store_id, s.name, s.city, s.region, s.status
+      ORDER BY COALESCE(sum(ct.total), 0) DESC, s.name`,
+    [brandId],
+  );
+  const rows = stores.rows.map((r) => ({
+    store_id: r.store_id, name: r.name, city: r.city, region: r.region, status: r.status,
+    orders: Number(r.orders), revenue: Number(r.revenue ?? 0),
+  }));
+  return {
+    brand,
+    totalRevenue: rows.reduce((s, r) => s + r.revenue, 0),
+    totalOrders: rows.reduce((s, r) => s + r.orders, 0),
+    stores: rows,
+  };
+}
+
 /** Resolve SKU nội bộ brand -> product_master_id chuẩn OCC, hoặc null nếu chưa map. */
 export async function resolveProductMaster(
   pool: Pool,

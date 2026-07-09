@@ -2,6 +2,7 @@ import { getToken, clearSession } from "./auth.js";
 import {
   ApiError,
   type Brand,
+  type BrandDetail,
   type Store,
   type Product,
   type Customer360,
@@ -19,6 +20,7 @@ import {
   type LoyaltyResult,
   type ReserveResult,
   type ConsentState,
+  type ConsentHistoryEntry,
   type ConsentPurpose,
   type ActivateArgs,
   type ActivateResult,
@@ -48,6 +50,7 @@ import {
   type JourneyRow,
   type JourneySummary,
   type JourneyParticipant,
+  type JourneyStepRun,
   type JourneyReport,
 } from "./types.js";
 
@@ -125,6 +128,9 @@ export const api = {
     }),
 
   listBrands: () => request<Brand[]>("/v1/brands"),
+
+  getBrandDetail: (brandId: string) =>
+    request<BrandDetail>(`/v1/brands/${encodeURIComponent(brandId)}/detail`),
 
   listStores: (brandId?: string) =>
     request<Store[]>(`/v1/stores${brandId ? `?brand_id=${encodeURIComponent(brandId)}` : ""}`),
@@ -226,6 +232,9 @@ export const api = {
   listConsents: (occId: string) =>
     request<ConsentState[]>(`/v1/consent?occId=${encodeURIComponent(occId)}`),
 
+  getConsentHistory: (occId: string, purpose: string) =>
+    request<ConsentHistoryEntry[]>(`/v1/consent/history?occId=${encodeURIComponent(occId)}&purpose=${encodeURIComponent(purpose)}`),
+
   recordConsent: (
     occId: string,
     purpose: ConsentPurpose,
@@ -297,6 +306,8 @@ export const api = {
     if (q.offset) p.set("offset", String(q.offset));
     return requestFull<JourneyParticipant[]>(`/v1/journeys/${encodeURIComponent(id)}/participants?${p.toString()}`);
   },
+  jParticipantHistory: (id: string, pid: string) =>
+    request<JourneyStepRun[]>(`/v1/journeys/${encodeURIComponent(id)}/participants/${encodeURIComponent(pid)}/history`),
   jRetry: (id: string, pid: string) => request<{ ok: boolean }>(`/v1/journeys/${encodeURIComponent(id)}/participants/${encodeURIComponent(pid)}/retry`, { method: "POST" }),
   jForceExit: (id: string, pid: string) => request<{ ok: boolean }>(`/v1/journeys/${encodeURIComponent(id)}/participants/${encodeURIComponent(pid)}/force-exit`, { method: "POST" }),
   jReport: (id: string, windowDays = 7) => request<JourneyReport>(`/v1/journeys/${encodeURIComponent(id)}/report?windowDays=${windowDays}`),

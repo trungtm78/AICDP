@@ -2,10 +2,10 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { BrainCircuit, Cpu, ToggleRight, SlidersHorizontal, History, Gauge, ShieldAlert } from "lucide-react";
 import { api } from "../lib/api.js";
-import { ApiError, type AiConfig, type LlmProvider, type LlmUsageEntry } from "../lib/types.js";
-import { fmtInt } from "../lib/format.js";
+import { ApiError, type AiConfig, type LlmProvider, type LlmUsageEntry, type AiConfigAuditEntry } from "../lib/types.js";
+import { fmtInt, fmtDateTime } from "../lib/format.js";
 import {
-  PageHeader, Panel, Field, Input, Select, Button, Checkbox, Badge, Table, type Column, EmptyState,
+  PageHeader, Panel, Field, Input, Select, Button, Checkbox, Badge, Table, type Column, EmptyState, Drawer,
 } from "../ui/index.js";
 
 const PROVIDERS: LlmProvider[] = ["anthropic", "openai", "gemini"];
@@ -18,6 +18,7 @@ export function AiGovernanceScreen() {
   const auditQ = useQuery({ queryKey: ["ai-config-audit"], queryFn: api.listAiConfigAudit });
   const usageQ = useQuery({ queryKey: ["ai-usage"], queryFn: api.listLlmUsage });
   const [error, setError] = useState<string | null>(null);
+  const [diff, setDiff] = useState<AiConfigAuditEntry | null>(null);
 
   const [draft, setDraft] = useState<AiConfig | null>(null);
   useEffect(() => {
@@ -147,13 +148,16 @@ export function AiGovernanceScreen() {
       </Panel>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <Panel title="Audit thay đổi cấu hình (bất biến)" icon={<History className="size-4" />} bodyClassName="p-0">
+        <Panel title="Audit thay đổi cấu hình (bất biến)" subtitle="Bấm một dòng để xem thay đổi trước → sau" icon={<History className="size-4" />} bodyClassName="p-0">
           {(auditQ.data?.length ?? 0) === 0 && <p className="p-4 text-sm text-text-muted">Chưa có thay đổi.</p>}
           <ul className="divide-y divide-border">
             {(auditQ.data ?? []).slice(0, 20).map((a) => (
-              <li key={a.id} data-testid={`audit-${a.id}`} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
-                <span className="font-mono text-xs text-text">{a.key}</span>
-                <span className="text-xs text-text-subtle">{a.changed_by} · {new Date(a.changed_at).toLocaleString("vi-VN")}</span>
+              <li key={a.id} data-testid={`audit-${a.id}`}>
+                <button type="button" onClick={() => setDiff(a)}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm hover:bg-accent-subtle/40">
+                  <span className="font-mono text-xs text-text">{a.key}</span>
+                  <span className="text-xs text-text-subtle">{a.changed_by} · {fmtDateTime(a.changed_at)}</span>
+                </button>
               </li>
             ))}
           </ul>
@@ -165,7 +169,28 @@ export function AiGovernanceScreen() {
             className="rounded-none border-0 shadow-none" />
         </Panel>
       </div>
+
+      {diff && <AuditDiffDrawer entry={diff} onClose={() => setDiff(null)} />}
     </div>
+  );
+}
+
+/** Drill-down: diff old → new của một thay đổi cấu hình AI (FE thuần, dữ liệu đã có). */
+function AuditDiffDrawer({ entry, onClose }: { entry: AiConfigAuditEntry; onClose: () => void }) {
+  const fmt = (v: unknown) => JSON.stringify(v ?? null, null, 2);
+  return (
+    <Drawer open onClose={onClose} title={`Thay đổi — ${entry.key}`} description={`${entry.changed_by} · ${fmtDateTime(entry.changed_at)}`}>
+      <div className="space-y-4">
+        <div>
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-error">Trước</div>
+          <pre className="overflow-x-auto rounded-lg border border-border bg-error-subtle/30 p-3 font-mono text-xs text-text">{fmt(entry.old_value)}</pre>
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-success">Sau</div>
+          <pre className="overflow-x-auto rounded-lg border border-border bg-success-subtle/30 p-3 font-mono text-xs text-text">{fmt(entry.new_value)}</pre>
+        </div>
+      </div>
+    </Drawer>
   );
 }
 
