@@ -54,6 +54,31 @@ export interface ActivationRun {
   created_at: string;
 }
 
+// ── Connector & Pipeline builder ──
+export interface ConnectorConfigField { key: string; label: string; type: "text" | "password" | "url" | "select"; placeholder?: string; secret?: boolean; options?: string[] }
+export interface Connector {
+  key: string; name: string; direction: "source" | "destination"; category: string;
+  transport: "rest" | "webhook" | "database" | "sdk" | "warehouse" | "event-stream" | "reverse-etl" | "warehouse";
+  vn?: boolean; blurb: string; configFields: ConnectorConfigField[]; isCustom?: boolean;
+}
+export interface ConnectorTemplate {
+  key: string; name: string; blurb: string; kind: "connection" | "pipeline";
+  connectorKey?: string; direction?: "source" | "destination";
+  pipelineKind?: "event_stream" | "etl" | "reverse_etl"; sourceKey?: string; transform?: string; destinationKey?: string;
+}
+export interface ConnectorCatalog { connectors: Connector[]; templates: ConnectorTemplate[] }
+export interface Connection {
+  id: string; name: string; direction: "source" | "destination"; connectorKey: string; connectorName: string;
+  config: Record<string, unknown>; status: "active" | "paused" | "draft" | "error"; createdAt: string;
+}
+export interface PipelineNode { id: string; type: "source" | "transform" | "destination"; config?: Record<string, unknown>; pos?: { x: number; y: number } }
+export interface PipelineEdge { from: string; to: string }
+export interface PipelineDefinition { nodes: PipelineNode[]; edges: PipelineEdge[] }
+export interface Pipeline {
+  id: string; name: string; kind: "event_stream" | "etl" | "reverse_etl";
+  definition: PipelineDefinition; status: "active" | "paused" | "draft"; createdAt: string;
+}
+
 /** Phân tích hành vi mua chuyên sâu (Customer 360). */
 export interface CustomerAnalytics {
   summary: { orderCount: number; totalSpend: number; aov: number; firstOrderAt: string | null; lastOrderAt: string | null; tenureDays: number | null };

@@ -354,3 +354,48 @@ export const journeyEnrollSchema = z.object({
   occIds: z.array(z.string().uuid()).max(10000).optional(),
   useSegment: z.boolean().optional(),
 });
+
+// Connector & Pipeline builder
+const connectorKeyRe = z.string().min(1).max(80);
+export const connectionCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  direction: z.enum(["source", "destination"]),
+  connectorKey: connectorKeyRe,
+  config: z.record(z.unknown()).optional(),
+  status: z.enum(["active", "paused", "draft", "error"]).optional(),
+});
+export const connectionStatusSchema = z.object({
+  status: z.enum(["active", "paused", "draft", "error"]),
+});
+export const connectorCreateSchema = z.object({
+  key: z.string().min(2).max(80).regex(/^[a-z0-9_]+$/i),
+  name: z.string().min(1).max(120),
+  direction: z.enum(["source", "destination"]),
+  category: z.string().min(1).max(80),
+  transport: z.enum(["rest", "webhook", "database", "sdk", "warehouse"]),
+  configSchema: z.array(z.record(z.unknown())).optional(),
+  blurb: z.string().max(300).optional(),
+});
+const pipeNode = z.object({
+  id: z.string().min(1),
+  type: z.enum(["source", "transform", "destination"]),
+  config: z.record(z.unknown()).optional(),
+  pos: z.object({ x: z.number(), y: z.number() }).optional(),
+});
+const pipeDef = z.object({
+  nodes: z.array(pipeNode),
+  edges: z.array(z.object({ from: z.string(), to: z.string() })),
+});
+export const pipelineCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  kind: z.enum(["event_stream", "etl", "reverse_etl"]).optional(),
+  definition: pipeDef.optional(),
+});
+export const pipelineSaveSchema = z.object({
+  name: z.string().min(1).max(120).optional(),
+  kind: z.enum(["event_stream", "etl", "reverse_etl"]).optional(),
+  definition: pipeDef.optional(),
+  status: z.enum(["active", "paused", "draft"]).optional(),
+});
+export const pipelineStatusSchema = z.object({ status: z.enum(["active", "paused", "draft"]) });
+export const applyTemplateSchema = z.object({ templateKey: z.string().min(1).max(80) });

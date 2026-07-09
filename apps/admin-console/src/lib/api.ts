@@ -7,6 +7,9 @@ import {
   type Customer360,
   type CustomerAnalytics,
   type CustomerListItem,
+  type ConnectorCatalog,
+  type Connection,
+  type Pipeline,
   type IdentifierType,
   type LoyaltyBalance,
   type LoyaltyMember,
@@ -365,4 +368,33 @@ export const api = {
     }),
   assistantExplain: (occId: string) =>
     request<{ text: string }>("/v1/ai/assistant/explain", { method: "POST", body: JSON.stringify({ occId }) }),
+
+  // ── Connector & Pipeline builder ──
+  getConnectorCatalog: () => request<ConnectorCatalog>("/v1/connectors/catalog"),
+  createConnector: (dto: { key: string; name: string; direction: "source" | "destination"; category: string; transport: string; configSchema?: unknown[]; blurb?: string }) =>
+    request<{ key: string }>("/v1/connectors", { method: "POST", body: JSON.stringify(dto) }),
+  deleteConnector: (key: string) =>
+    request<{ deleted: true }>(`/v1/connectors/${encodeURIComponent(key)}`, { method: "DELETE" }),
+  applyConnectorTemplate: (templateKey: string) =>
+    request<{ kind: "connection" | "pipeline"; id: string }>("/v1/connectors/apply-template", { method: "POST", body: JSON.stringify({ templateKey }) }),
+
+  listConnections: () => request<Connection[]>("/v1/connections"),
+  createConnection: (dto: { name: string; direction: "source" | "destination"; connectorKey: string; config?: Record<string, unknown>; status?: string }) =>
+    request<Connection>("/v1/connections", { method: "POST", body: JSON.stringify(dto) }),
+  setConnectionStatus: (id: string, status: string) =>
+    request<{ id: string; status: string }>(`/v1/connections/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  deleteConnection: (id: string) =>
+    request<{ deleted: true }>(`/v1/connections/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  listPipelines: () => request<Pipeline[]>("/v1/pipelines"),
+  getPipeline: (id: string) => request<Pipeline>(`/v1/pipelines/${encodeURIComponent(id)}`),
+  createPipeline: (dto: { name: string; kind?: string; definition?: unknown }) =>
+    request<Pipeline>("/v1/pipelines", { method: "POST", body: JSON.stringify(dto) }),
+  savePipeline: (id: string, dto: { name?: string; kind?: string; definition?: unknown; status?: string }) =>
+    request<Pipeline>(`/v1/pipelines/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(dto) }),
+  setPipelineStatus: (id: string, status: string) =>
+    request<{ id: string; status: string }>(`/v1/pipelines/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
+  deletePipeline: (id: string) =>
+    request<{ deleted: true }>(`/v1/pipelines/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
 };

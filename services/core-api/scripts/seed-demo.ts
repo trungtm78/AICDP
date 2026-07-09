@@ -23,6 +23,7 @@ import { activate } from "../src/activation/activation.service.js";
 import { createUser } from "../src/auth/user.service.js";
 import { createApiKey } from "../src/auth/apikey.service.js";
 import { setConfig } from "../src/ai-config/ai-config.service.js";
+import { createConnection, createPipeline } from "../src/connector/connector.service.js";
 import type { JourneyDefinition } from "../src/journey/journey.types.js";
 
 // ── PRNG tất định (mulberry32) ──
@@ -285,6 +286,7 @@ async function resetAll(): Promise<void> {
     `TRUNCATE cdp.ai_llm_usage, cdp.ai_config_audit, cdp.ai_config, cdp.customer_feature,
               cdp.journey_step_run, cdp.journey_participant, cdp.journey_version,
               cdp.journey_run, cdp.journey, cdp.cart, cdp.password_reset,
+              cdp.pipeline, cdp.connection, cdp.connector,
               cdp.activation_member, cdp.activation_run, cdp.consent_record,
               cdp.loyalty_entry, cdp.loyalty_reservation, cdp.loyalty_txn,
               cdp.canonical_transaction, cdp.ingest_event, cdp.identity_edge,
@@ -596,6 +598,34 @@ async function main(): Promise<void> {
   await createApiKey(pool, { name: "PMS Connector — Khách sạn", role: "connector" });
   await createApiKey(pool, { name: "Reverse-ETL → Data Warehouse", role: "analyst" });
 
+  // ── Connectors & Pipelines dựng sẵn (workspace Kết nối) ──
+  const connsSeed: { name: string; direction: "source" | "destination"; connectorKey: string; status: "active" | "paused" }[] = [
+    { name: "POS Givral — Đồng Khởi", direction: "source", connectorKey: "src_pos", status: "active" },
+    { name: "PMS Sunrise Nha Trang", direction: "source", connectorKey: "src_pms", status: "active" },
+    { name: "Website OCH (JS SDK)", direction: "source", connectorKey: "src_js", status: "active" },
+    { name: "Zalo ZNS — Chăm sóc KH", direction: "destination", connectorKey: "dst_zalo_zns", status: "active" },
+    { name: "SendGrid — Email marketing", direction: "destination", connectorKey: "dst_sendgrid", status: "active" },
+    { name: "Google Ads — Audience", direction: "destination", connectorKey: "dst_google_ads", status: "paused" },
+    { name: "ClickHouse — Kho phân tích", direction: "destination", connectorKey: "dst_clickhouse", status: "active" },
+  ];
+  for (const c of connsSeed) await createConnection(pool, { name: c.name, direction: c.direction, connectorKey: c.connectorKey, status: c.status });
+
+  const pipe = (name: string, kind: "event_stream" | "reverse_etl", src: string, tf: string, dst: string) =>
+    createPipeline(pool, {
+      name, kind, status: "active",
+      definition: {
+        nodes: [
+          { id: "s", type: "source", config: { connectorKey: src }, pos: { x: 60, y: 180 } },
+          { id: "t", type: "transform", config: { kind: tf }, pos: { x: 340, y: 180 } },
+          { id: "d", type: "destination", config: { connectorKey: dst }, pos: { x: 620, y: 180 } },
+        ],
+        edges: [{ from: "s", to: "t" }, { from: "t", to: "d" }],
+      },
+    });
+  await pipe("Thu POS F&B → CDP", "event_stream", "src_pos", "normalize", "dst_clickhouse");
+  await pipe("CDP → Zalo ZNS (lọc consent)", "reverse_etl", "src_pg", "consent_filter", "dst_zalo_zns");
+  await pipe("CDP → Google Ads Audience", "reverse_etl", "src_pg", "audience", "dst_google_ads");
+
   // ── AI config (tạo audit log cho AI & Governance) ──
   await setConfig(pool, "features", { recoV2: true, nba: true, forecast: true, assistant: true }, "admin");
   await setConfig(pool, "reco", { topN: 6, diversityWeight: 0.35, enableCrossBrand: true, enableMarketBasket: true, boost: [], bury: [] }, "admin");
@@ -619,7 +649,7 @@ async function main(): Promise<void> {
     `   • ${s.brands} thương hiệu · ${s.stores} cửa hàng\n` +
     `   • ${s.khach} khách · ${s.gd} giao dịch (mục tiêu ~${txnCount}) · ${merges.rows[0]!.c} lần hợp nhất định danh (${mergeCount} ca)\n` +
     `   • Journeys: ${s.journeys} (welcome ${r1.enrolled} · cart ${r2.enrolled} · VIP ${r3.enrolled} · diamond ${r4.enrolled} · winback ${r5.enrolled} · at-risk ${r6.enrolled} · hotel ${r7.enrolled}) · ${s.runs} activation run · ${redeemed} lượt đổi điểm · ${carts} giỏ hàng mở/bỏ quên\n` +
-    `   • ${s.users} user · ${s.keys} api-key\n` +
+    `   • ${s.users} user · ${s.keys} api-key · ${connsSeed.length} connection · 3 pipeline\n` +
     `   Đăng nhập: admin / Och@2026\n`,
   );
   await pool.end();

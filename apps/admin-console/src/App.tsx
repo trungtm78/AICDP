@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, UserRound, Gift, Database, ChartColumnBig, Target, Waypoints,
   Sparkles, BrainCircuit, ShieldCheck, Server, Search, Bell, LogOut, Command as CommandIcon,
-  Sun, Moon, type LucideIcon,
+  Sun, Moon, Plug, type LucideIcon,
 } from "lucide-react";
 import { getToken, getName, getRole, clearSession } from "./lib/auth.js";
 import { LoginScreen } from "./screens/LoginScreen.js";
@@ -19,6 +19,8 @@ import { PlatformScreen } from "./screens/PlatformScreen.js";
 import { AiGovernanceScreen } from "./screens/AiGovernanceScreen.js";
 import { InsightsScreen } from "./screens/InsightsScreen.js";
 import { AssistantScreen } from "./screens/AssistantScreen.js";
+import { ConnectorsScreen } from "./screens/ConnectorsScreen.js";
+import { PipelineCanvas } from "./screens/connector/PipelineCanvas.js";
 import { Logo, Kbd, CommandPalette, useTheme, type CommandItem } from "./ui/index.js";
 import { cn } from "./ui/cn.js";
 
@@ -48,6 +50,12 @@ const GROUPS: NavGroup[] = [
     items: [
       { to: "/assistant", label: "Trợ lý AI", icon: Sparkles, kw: "chat hỏi đáp generative llm" },
       { to: "/ai-governance", label: "AI & Governance", icon: BrainCircuit, kw: "cấu hình llm model audit usage" },
+    ],
+  },
+  {
+    label: "Tích hợp",
+    items: [
+      { to: "/connectors", label: "Kết nối", icon: Plug, kw: "connector pipeline etl rudderstack tích hợp nguồn đích zalo" },
     ],
   },
   {
@@ -98,6 +106,8 @@ export function App() {
             <Route path="/platform" element={<PlatformScreen />} />
             <Route path="/assistant" element={<AssistantScreen />} />
             <Route path="/ai-governance" element={<AiGovernanceScreen />} />
+            <Route path="/connectors" element={<ConnectorsScreen />} />
+            <Route path="/connectors/pipelines/:id" element={<PipelineCanvas />} />
             <Route path="*" element={<Placeholder />} />
           </Routes>
         </main>

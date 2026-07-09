@@ -21,6 +21,7 @@ import { FeatureController } from "./feature.controller.js";
 import { AssistantController } from "./assistant.controller.js";
 import { JourneyController } from "./journey.controller.js";
 import { AuthController } from "./auth.controller.js";
+import { ConnectorController } from "./connector.controller.js";
 import { JourneyScheduler } from "../journey/journey-scheduler.js";
 
 @Module({
@@ -40,6 +41,7 @@ import { JourneyScheduler } from "../journey/journey-scheduler.js";
     FeatureController,
     AssistantController,
     JourneyController,
+    ConnectorController,
   ],
   providers: [
     pgPoolProvider,
