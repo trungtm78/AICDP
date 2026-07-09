@@ -41,17 +41,27 @@
 - Codex-hardened (4 fix): tick dùng client cho READ (tránh deadlock), validate predicate + node try/catch, cardinality cạnh, publish re-read trong lock.
 - Verify: tsc sạch · **257 test pass** (16 engine + 3 e2e). Effectively-once: step_run UNIQUE(participant,node) + action idempotencyKey.
 
-## ▶ NEXT sau /clear: Journey Builder — M2 (Analytics/Report)
-> Đọc plan file + M1 code (`services/core-api/src/journey/*`) trước.
-**M2 việc cụ thể (TDD PG18 thật):**
-1. `journey-report.service.ts` + `GET /v1/journeys/:id/report` (role executive|analyst|marketer):
-   - Funnel theo node: số participant CHẠM mỗi node (từ journey_step_run, thứ tự topo entry→exit).
-   - Đếm: entered/active/completed/exited(by reason)/failed (từ journey_participant).
-   - Attribution (window mặc định 7 ngày, nhận `?windowDays=`): đơn + doanh thu từ canonical_transaction sau enrolled_at (JOIN occ_id), điểm loyalty cấp (từ step_run action loyalty result), activation gửi/suppressed (từ step_run action activation result → activation_run).
-   - Enrollment theo ngày (group by date(enrolled_at)).
-   - Giới hạn: attribution chỉ cộng order_completed (chưa refund).
-2. Tests: report số liệu đúng (dựng journey → enroll nhiều occ → tick → transaction sau enroll → assert funnel/conversion/revenue/points).
-3. Checkpoint: tsc+test → /codex → commit → PROGRESS → M3.
+## ✅ M2 (report) + M3 (trigger/scheduler) — XONG (commit)
+- **M2**: `journey-report.service.ts` + `GET /v1/journeys/:id/report` (funnel/counts/attribution windowDays/enrollmentByDay). Engine ghi step_run exit (funnel per-exit). Codex-hardened (funnel version-agnostic, bỏ double-count).
+- **M3**: `journey-scheduler.ts` (interval single-flight, lifecycle, await shutdown) + `journey-triggers.service.ts` (enrollEventJourneys derive eventName từ definition, runSegmentEntry) + ingest hook fire-and-forget + app.module đăng ký + vitest tắt scheduler. Codex-hardened (3 fix).
+- **Backend Journey (M1–M3) XONG: 267 test pass, tsc sạch.** API contract sẵn cho UI (bên dưới).
+
+## ▶ NEXT sau /clear: Journey Builder — M4+M5 (Frontend, canvas react-flow)
+> Đọc plan file + `services/core-api/src/http/journey.controller.ts` (contract) + `apps/admin-console/src/screens/JourneysScreen.tsx` (rewrite) + hệ primitives `src/ui/*` (đã có Panel/Table/Drawer/Button/Badge/StatTile + ECharts Funnel/ForecastLine).
+
+**Dep mới:** `@xyflow/react` (react-flow v12) trong admin-console (`pnpm --dir apps/admin-console add @xyflow/react`). Nhớ import CSS `@xyflow/react/dist/style.css`.
+
+**API contract (M1–M3, prefix /v1/journeys):**
+- `GET /` → list + {participants, completed}. `POST /` {name,triggerType,triggerConfig,definition} → draft. `GET /:id`. `PUT /:id` (save draft/paused).
+- `POST /:id/publish` (400 JOURNEY_INVALID) · `/:id/activate` (409 nếu chưa publish) · `/:id/pause` · `/:id/archive`.
+- `POST /:id/enroll` {occIds?|useSegment:true} → {enrolled}. `GET /:id/participants?status=&limit=&offset=` → {data, meta:{total}}. `POST /:id/participants/:pid/retry` · `/force-exit`.
+- `GET /:id/report?windowDays=` → {entered,active,completed,exited,failed,exitReasons[],funnel[{nodeId,nodeType,reached}],attribution{windowDays,orders,revenue,convertedCustomers,loyaltyPointsIssued,activationsAllowed,activationsSuppressed},enrollmentByDay[{day,count}]}.
+- `POST /tick` {limit} (dev, admin/marketer — gọi để chạy engine trong demo/E2E).
+- **Definition shape**: `{nodes:[{id,type,config,pos?}],edges:[{from,to,branch?}]}`. type: entry(config{trigger:'event'|'segment'|'manual',eventName?,segment?}) · wait(config{delayMinutes}) · condition(config{predicate:{kind:'lifecycle'|'churnRiskGte'|'propensityGte'|'loyaltyMinGte'|'favoriteCategory'|'consentGranted', equals?|value?|purpose?}}) · action(config{kind:'activation'{purpose,channel,destination}|'loyalty_bonus'{points}}) · exit. condition có 2 cạnh branch yes/no; node khác 1 cạnh.
+
+**M4 (canvas builder):** rewrite `JourneysScreen.tsx` → List (bảng journey + status + entered/completed + nút Report/Sửa/Tạo). Detail route `/journeys/:id` (thêm ở App.tsx) tabs **Build/Participants/Report**. Build = react-flow canvas: palette 5 node, kéo-thả, nối cạnh, click node → Drawer cấu hình (đã có `Drawer` trong ui); nút Lưu(PUT)/Publish/Activate/Pause. Custom node theo token (auto dark/light). `api.ts`+`types.ts` thêm journey client/types.
+**M5 (participants + report UI):** Participants = Table (lọc status, retry/force-exit). Report = ECharts **Funnel** (dùng component có sẵn) + StatTiles (entered/completed/converted/revenue) + Table conversion từng node + line enrollment/day.
+**Checkpoint mỗi milestone:** tsc + vite build + component test + /review→/codex + commit. Cuối: E2E Playwright dựng journey qua canvas → publish → activate → enroll → tick → Report (chụp Dark+Light). Servers: core-api :8071 + admin-console :8073 (bind localhost) + seed-demo.
 
 ## (cũ, tham chiếu) M1 chi tiết ban đầu:
 > Plan đầy đủ đã duyệt (qua /plan-eng-review + codex, 0 unresolved): `~/.claude/plans/h-y-ph-n-t-ch-research-delightful-spindle.md`. ĐỌC PLAN ĐÓ TRƯỚC.
