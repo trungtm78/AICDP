@@ -41,6 +41,19 @@ export interface Customer360 {
 
 export type LifecycleStage = "new" | "active" | "at_risk" | "vip" | "dormant" | "churned";
 
+/** Một lần kích hoạt audience (Activation) — lịch sử. */
+export interface ActivationRun {
+  run_id: string;
+  audience_name: string;
+  purpose: string;
+  channel: string;
+  destination: string;
+  total: number;
+  allowed_count: number;
+  suppressed_count: number;
+  created_at: string;
+}
+
 /** Phân tích hành vi mua chuyên sâu (Customer 360). */
 export interface CustomerAnalytics {
   summary: { orderCount: number; totalSpend: number; aov: number; firstOrderAt: string | null; lastOrderAt: string | null; tenureDays: number | null };

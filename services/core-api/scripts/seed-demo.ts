@@ -298,13 +298,43 @@ async function resetAll(): Promise<void> {
 }
 
 // ── Journey helpers ──
+// Tự bố trí vị trí node trái→phải (x theo độ sâu từ entry, y giãn theo nhánh) để canvas
+// hiển thị lưu đồ đẹp (nếu không set pos, mọi node chồng lên nhau).
+function withLayout(def: JourneyDefinition): JourneyDefinition {
+  const depth = new Map<string, number>();
+  const entry = def.nodes.find((n) => n.type === "entry");
+  if (entry) depth.set(entry.id, 0);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const e of def.edges) {
+      const d = depth.get(e.from);
+      if (d !== undefined && (depth.get(e.to) ?? -1) < d + 1) { depth.set(e.to, d + 1); changed = true; }
+    }
+  }
+  const byDepth = new Map<number, string[]>();
+  for (const n of def.nodes) {
+    const d = depth.get(n.id) ?? 0;
+    if (!byDepth.has(d)) byDepth.set(d, []);
+    byDepth.get(d)!.push(n.id);
+  }
+  const nodes = def.nodes.map((n) => {
+    const d = depth.get(n.id) ?? 0;
+    const sibs = byDepth.get(d)!;
+    const idx = sibs.indexOf(n.id);
+    return { ...n, pos: { x: 60 + d * 260, y: 200 + idx * 150 - ((sibs.length - 1) * 75) } };
+  });
+  return { nodes, edges: def.edges };
+}
+
 async function runJourney(
   name: string,
   triggerType: "event" | "segment" | "manual",
   triggerConfig: Record<string, unknown>,
-  def: JourneyDefinition,
+  rawDef: JourneyDefinition,
   opts: { enrollOccIds?: string[]; enrollSegment?: boolean; ticks: number },
 ): Promise<{ id: string; enrolled: number }> {
+  const def = withLayout(rawDef);
   const j = await createDraft(pool, { name, triggerType, triggerConfig, definition: def });
   await publish(pool, j.journey_id, "admin");
   await activateJourney(pool, j.journey_id);
@@ -412,11 +442,13 @@ async function main(): Promise<void> {
 
   // Giỏ hàng đang mở / BỎ QUÊN (~24% khách) — cơ hội thúc đẩy hoàn tất đơn.
   let carts = 0;
+  const cartOccIds: string[] = [];
   for (let i = 0; i < customers.length; i++) {
     const occId = occByCustomer.get(i);
     if (!occId) continue;
     const roll = r();
     if (roll > 0.24) continue;
+    cartOccIds.push(occId);
     const c = customers[i]!;
     const brand = pick(c.brands);
     const oi = orderItems(brand);
@@ -436,8 +468,11 @@ async function main(): Promise<void> {
   // Recompute feature TRƯỚC khi chạy journey theo segment (segment đọc customer_feature)
   await recomputeAllFeatures(pool);
 
-  // ── Journeys (4) ──
-  const welcomeOccIds = occIds.slice(0, 45);
+  // ── Journeys (7 kịch bản đa dạng — participant rải nhiều trạng thái để report phong phú) ──
+  const A = (purpose: string, channel: string, destination: string) =>
+    ({ kind: "activation" as const, purpose, channel, destination });
+
+  // 1) Chào mừng khách mới (event) — tặng điểm rồi hoàn tất.
   const j1: JourneyDefinition = {
     nodes: [
       { id: "e", type: "entry", config: { trigger: "event", eventName: "order_completed" } },
@@ -446,51 +481,96 @@ async function main(): Promise<void> {
     ],
     edges: [{ from: "e", to: "bonus" }, { from: "bonus", to: "x" }],
   };
-  const r1 = await runJourney("Chào mừng khách hàng mới", "event", { eventName: "order_completed" }, j1, { enrollOccIds: welcomeOccIds, ticks: 4 });
+  const r1 = await runJourney("Chào mừng khách hàng mới", "event", { eventName: "order_completed" }, j1, { enrollOccIds: occIds.slice(0, 70), ticks: 5 });
 
+  // 2) Nhắc GIỎ HÀNG BỎ QUÊN — gửi email nhắc hoàn tất đơn (enroll khách có giỏ).
   const j2: JourneyDefinition = {
     nodes: [
-      { id: "e", type: "entry", config: { trigger: "segment", segment: { brandId: "givral", loyaltyMin: 300 } } },
-      { id: "cond", type: "condition", config: { predicate: { kind: "loyaltyMinGte", value: 500 } } },
-      { id: "act", type: "action", config: { kind: "activation", purpose: "marketing_email", channel: "email", destination: "esp:sendgrid" } },
+      { id: "e", type: "entry", config: { trigger: "manual" } },
+      { id: "cond", type: "condition", config: { predicate: { kind: "consentGranted", purpose: "marketing_email" } } },
+      { id: "act", type: "action", config: A("marketing_email", "email", "esp:sendgrid") },
+      { id: "wait", type: "wait", config: { delayMinutes: 1440 } },
       { id: "x", type: "exit" },
     ],
     edges: [
       { from: "e", to: "cond" },
-      { from: "cond", to: "act", branch: "yes" },
-      { from: "cond", to: "x", branch: "no" },
+      { from: "cond", to: "act", branch: "yes" }, { from: "cond", to: "x", branch: "no" },
+      { from: "act", to: "wait" }, { from: "wait", to: "x" },
+    ],
+  };
+  const r2 = await runJourney("Nhắc giỏ hàng bỏ quên", "manual", {}, j2, { enrollOccIds: cartOccIds, ticks: 4 });
+
+  // 3) Thưởng khách VIP Givral (segment) — điều kiện điểm → gửi ưu đãi.
+  const j3: JourneyDefinition = {
+    nodes: [
+      { id: "e", type: "entry", config: { trigger: "segment", segment: { brandId: "givral", loyaltyMin: 300 } } },
+      { id: "cond", type: "condition", config: { predicate: { kind: "loyaltyMinGte", value: 500 } } },
+      { id: "act", type: "action", config: A("marketing_email", "email", "esp:sendgrid") },
+      { id: "x", type: "exit" },
+    ],
+    edges: [
+      { from: "e", to: "cond" },
+      { from: "cond", to: "act", branch: "yes" }, { from: "cond", to: "x", branch: "no" },
       { from: "act", to: "x" },
     ],
   };
-  const r2 = await runJourney("Thưởng khách VIP Givral", "segment", {}, j2, { enrollSegment: true, ticks: 4 });
+  const r3 = await runJourney("Thưởng khách VIP Givral", "segment", {}, j3, { enrollSegment: true, ticks: 5 });
 
-  const j3: JourneyDefinition = {
+  // 4) Tri ân khách KIM CƯƠNG (chi tiêu ≥ 50tr) — Zalo ZNS + chờ 3 ngày.
+  const j4: JourneyDefinition = {
+    nodes: [
+      { id: "e", type: "entry", config: { trigger: "segment", segment: { minSpend: 50_000_000 } } },
+      { id: "act", type: "action", config: A("marketing_zalo", "zalo", "zalo:zns") },
+      { id: "wait", type: "wait", config: { delayMinutes: 4320 } },
+      { id: "x", type: "exit" },
+    ],
+    edges: [{ from: "e", to: "act" }, { from: "act", to: "wait" }, { from: "wait", to: "x" }],
+  };
+  const r4 = await runJourney("Tri ân khách hàng Kim cương", "segment", {}, j4, { enrollSegment: true, ticks: 4 });
+
+  // 5) Kéo lại khách NGỦ ĐÔNG (dormant) — điều kiện consent → email → chờ.
+  const j5: JourneyDefinition = {
     nodes: [
       { id: "e", type: "entry", config: { trigger: "segment", segment: { lifecycleStage: "dormant" } } },
       { id: "cond", type: "condition", config: { predicate: { kind: "consentGranted", purpose: "marketing_email" } } },
-      { id: "act", type: "action", config: { kind: "activation", purpose: "marketing_email", channel: "email", destination: "esp:sendgrid" } },
+      { id: "act", type: "action", config: A("marketing_email", "email", "esp:sendgrid") },
       { id: "wait", type: "wait", config: { delayMinutes: 4320 } },
       { id: "x", type: "exit" },
     ],
     edges: [
       { from: "e", to: "cond" },
-      { from: "cond", to: "act", branch: "yes" },
-      { from: "cond", to: "x", branch: "no" },
-      { from: "act", to: "wait" },
-      { from: "wait", to: "x" },
+      { from: "cond", to: "act", branch: "yes" }, { from: "cond", to: "x", branch: "no" },
+      { from: "act", to: "wait" }, { from: "wait", to: "x" },
     ],
   };
-  const r3 = await runJourney("Kéo lại khách ngủ đông", "segment", {}, j3, { enrollSegment: true, ticks: 3 });
+  const r5 = await runJourney("Kéo lại khách ngủ đông", "segment", {}, j5, { enrollSegment: true, ticks: 4 });
 
-  const j4: JourneyDefinition = {
+  // 6) Chăm sóc khách CÓ NGUY CƠ RỜI (at_risk) — điều kiện consent SMS → SMS.
+  const j6: JourneyDefinition = {
+    nodes: [
+      { id: "e", type: "entry", config: { trigger: "segment", segment: { lifecycleStage: "at_risk" } } },
+      { id: "cond", type: "condition", config: { predicate: { kind: "consentGranted", purpose: "marketing_sms" } } },
+      { id: "act", type: "action", config: A("marketing_sms", "sms", "sms:vietguys") },
+      { id: "x", type: "exit" },
+    ],
+    edges: [
+      { from: "e", to: "cond" },
+      { from: "cond", to: "act", branch: "yes" }, { from: "cond", to: "x", branch: "no" },
+      { from: "act", to: "x" },
+    ],
+  };
+  const r6 = await runJourney("Chăm sóc khách có nguy cơ rời", "segment", {}, j6, { enrollSegment: true, ticks: 5 });
+
+  // 7) Ưu đãi lưu trú khách sạn Sunrise (segment brand) — SMS ngay.
+  const j7: JourneyDefinition = {
     nodes: [
       { id: "e", type: "entry", config: { trigger: "segment", segment: { brandId: "sunrise_nha_trang" } } },
-      { id: "act", type: "action", config: { kind: "activation", purpose: "marketing_sms", channel: "sms", destination: "sms:vietguys" } },
+      { id: "act", type: "action", config: A("marketing_sms", "sms", "sms:vietguys") },
       { id: "x", type: "exit" },
     ],
     edges: [{ from: "e", to: "act" }, { from: "act", to: "x" }],
   };
-  const r4 = await runJourney("Ưu đãi lưu trú khách sạn Sunrise", "segment", {}, j4, { enrollSegment: true, ticks: 3 });
+  const r7 = await runJourney("Ưu đãi lưu trú khách sạn Sunrise", "segment", {}, j7, { enrollSegment: true, ticks: 4 });
 
   // ── Activation runs độc lập (lịch sử kích hoạt) ──
   const seg = occIds.slice(50, 140);
@@ -538,7 +618,7 @@ async function main(): Promise<void> {
     `\n✅ Demo OCH seed xong:\n` +
     `   • ${s.brands} thương hiệu · ${s.stores} cửa hàng\n` +
     `   • ${s.khach} khách · ${s.gd} giao dịch (mục tiêu ~${txnCount}) · ${merges.rows[0]!.c} lần hợp nhất định danh (${mergeCount} ca)\n` +
-    `   • Journeys: ${s.journeys} (welcome ${r1.enrolled} · VIP ${r2.enrolled} · winback ${r3.enrolled} · hotel ${r4.enrolled}) · ${s.runs} activation run · ${redeemed} lượt đổi điểm · ${carts} giỏ hàng mở/bỏ quên\n` +
+    `   • Journeys: ${s.journeys} (welcome ${r1.enrolled} · cart ${r2.enrolled} · VIP ${r3.enrolled} · diamond ${r4.enrolled} · winback ${r5.enrolled} · at-risk ${r6.enrolled} · hotel ${r7.enrolled}) · ${s.runs} activation run · ${redeemed} lượt đổi điểm · ${carts} giỏ hàng mở/bỏ quên\n` +
     `   • ${s.users} user · ${s.keys} api-key\n` +
     `   Đăng nhập: admin / Och@2026\n`,
   );

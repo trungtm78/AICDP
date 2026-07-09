@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag, ArrowLeft } from "lucide-react";
+import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag, ArrowLeft, Gem, Crown, Medal, Award } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   ApiError,
@@ -185,16 +185,20 @@ const LIFECYCLE_FILTER: { value: string; label: string }[] = [
   { value: "churned", label: "Đã rời" },
 ];
 
-/** Huy hiệu hạng khách hàng (Kim cương/Vàng/Bạc/Đồng) theo tổng chi tiêu. */
-function TierBadge({ spend }: { spend: number }) {
+const TIER_ICON = { diamond: Gem, gold: Crown, silver: Medal, bronze: Award } as const;
+
+/** Huy hiệu hạng khách hàng (Kim cương/Vàng/Bạc/Đồng) — có icon + màu kim loại. */
+function TierBadge({ spend, size = "sm" }: { spend: number; size?: "sm" | "lg" }) {
   const t = customerTier(spend);
+  const Icon = TIER_ICON[t.key];
+  const lg = size === "lg";
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      className={`inline-flex items-center rounded-full font-semibold ${lg ? "gap-2 px-3.5 py-1 text-sm" : "gap-1.5 px-2.5 py-0.5 text-xs"}`}
       style={{ backgroundColor: `${t.color}1f`, color: t.color, border: `1px solid ${t.color}66` }}
       title={`Hạng ${t.label} · tổng chi tiêu ${fmtVndFull(spend)}`}
     >
-      <span className="size-2 rounded-full" style={{ backgroundColor: t.color }} />
+      <Icon className={lg ? "size-4" : "size-3.5"} strokeWidth={2.2} />
       {t.label}
     </span>
   );
@@ -308,7 +312,7 @@ function CustomerCard({ data }: { data: Customer360 }) {
           <div>
             <div className="flex items-center gap-2.5">
               <p className="text-base font-semibold text-text">{fullName}</p>
-              <TierBadge spend={totalSpend} />
+              <TierBadge spend={totalSpend} size="lg" />
             </div>
             <p className="font-mono text-xs text-text-muted">{data.occId}</p>
           </div>

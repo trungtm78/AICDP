@@ -15,6 +15,7 @@ import {
   type ConsentPurpose,
   type ActivateArgs,
   type ActivateResult,
+  type ActivationRun,
   type Overview,
   type SegmentCriteria,
   type SegmentPreview,
@@ -209,6 +210,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify(args),
     }),
+
+  listActivationRuns: () => request<ActivationRun[]>("/v1/activation"),
 
   getOverview: () => request<Overview>("/v1/analytics/overview"),
 

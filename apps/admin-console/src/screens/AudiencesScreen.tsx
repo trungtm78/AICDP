@@ -1,14 +1,24 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, ShieldX, SlidersHorizontal } from "lucide-react";
+import { Send, Users, ShieldX, SlidersHorizontal, History } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   type ActivateResult,
+  type ActivationRun,
   type ConsentPurpose,
   type SegmentCriteria,
 } from "../lib/types.js";
 import { fmtInt } from "../lib/format.js";
-import { PageHeader, Panel, Field, Select, Input, Textarea, Button, Badge, StatTile, EmptyState } from "../ui/index.js";
+import { PageHeader, Panel, Field, Select, Input, Textarea, Button, Badge, StatTile, EmptyState, Table, type Column } from "../ui/index.js";
+
+const PURPOSE_LABEL: Record<string, string> = {
+  marketing_email: "Email", marketing_sms: "SMS", marketing_zalo: "Zalo",
+  personalization: "Cá nhân hóa", data_sharing: "Chia sẻ dữ liệu",
+};
+function fmtDateTime(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 const PURPOSES: { value: ConsentPurpose; label: string }[] = [
   { value: "marketing_email", label: "Email marketing" },
@@ -34,6 +44,7 @@ export function AudiencesScreen() {
   const [segMinTxn, setSegMinTxn] = useState("");
   const [segCount, setSegCount] = useState<number | null>(null);
   const brands = useQuery({ queryKey: ["brands"], queryFn: api.listBrands });
+  const runs = useQuery({ queryKey: ["activation-runs"], queryFn: api.listActivationRuns });
 
   async function previewSegment() {
     setBusy(true);
@@ -63,6 +74,7 @@ export function AudiencesScreen() {
     setResult(null);
     try {
       setResult(await api.activate({ audienceName: audienceName.trim(), purpose, channel: channel.trim(), destination: destination.trim(), occIds }));
+      void runs.refetch();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi kích hoạt");
     } finally {
@@ -139,7 +151,28 @@ export function AudiencesScreen() {
             </div>
           </div>
         )}
+
+        <ActivationHistory runs={runs.data ?? []} loading={runs.isLoading} />
       </div>
     </div>
+  );
+}
+
+/** Lịch sử kích hoạt audience gần đây. */
+function ActivationHistory({ runs, loading }: { runs: ActivationRun[]; loading: boolean }) {
+  const columns: Column<ActivationRun>[] = [
+    { key: "name", header: "Audience", cell: (r) => <span className="font-medium">{r.audience_name}</span> },
+    { key: "purpose", header: "Mục đích", cell: (r) => <Badge tone="neutral">{PURPOSE_LABEL[r.purpose] ?? r.purpose}</Badge>, width: "120px" },
+    { key: "channel", header: "Kênh", cell: (r) => <span className="text-text-muted">{r.channel}</span>, width: "90px" },
+    { key: "total", header: "Tổng", numeric: true, cell: (r) => fmtInt(r.total), width: "80px" },
+    { key: "allowed", header: "Đã gửi", numeric: true, cell: (r) => <span className="font-semibold text-success">{fmtInt(r.allowed_count)}</span>, width: "90px" },
+    { key: "suppressed", header: "Bị chặn", numeric: true, cell: (r) => <span className="text-warning">{fmtInt(r.suppressed_count)}</span>, width: "90px" },
+    { key: "date", header: "Thời gian", cell: (r) => <span className="tabular text-xs text-text-subtle">{fmtDateTime(r.created_at)}</span>, width: "110px" },
+  ];
+  return (
+    <Panel title="Lịch sử kích hoạt" icon={<History className="size-4" />} subtitle={`${fmtInt(runs.length)} lần gần đây`} bodyClassName="p-0">
+      <Table columns={columns} rows={runs} rowKey={(r) => r.run_id} loading={loading}
+        empty={{ title: "Chưa có lần kích hoạt nào" }} density="compact" />
+    </Panel>
   );
 }

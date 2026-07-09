@@ -124,3 +124,14 @@ export async function getRun(pool: Pool, runId: string): Promise<ActivationRun |
   );
   return r.rows[0] ?? null;
 }
+
+/** Lịch sử kích hoạt gần đây (Audiences). */
+export async function listRuns(pool: Pool, limit = 50): Promise<ActivationRun[]> {
+  const r = await pool.query<ActivationRun>(
+    `SELECT run_id, audience_name, purpose, channel, destination,
+            total, allowed_count, suppressed_count, created_at
+       FROM cdp.activation_run ORDER BY created_at DESC LIMIT $1`,
+    [Math.min(limit, 200)],
+  );
+  return r.rows;
+}

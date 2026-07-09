@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>OCH · Customer Data Platform — Cẩm nang sử dụng</title>
+<style>
+  :root{
+    --navy:#2e2e40; --gold:#c39851; --bg:#f7f6f2; --surface:#ffffff; --surface-alt:#f2f0e9;
+    --border:#e7e3da; --text:#1b1b2e; --muted:#565564; --subtle:#9a968c;
+    --success:#2f7d5b; --warning:#b4791f; --error:#b3372f;
+    --radius:12px; --sans:"Segoe UI",Roboto,system-ui,-apple-system,sans-serif; --serif:Georgia,"Times New Roman",serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:15.5px;line-height:1.65}
+  a{color:var(--navy)}
+  .wrap{display:grid;grid-template-columns:270px 1fr;max-width:1280px;margin:0 auto}
+  /* Sidebar */
+  aside{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;border-right:1px solid var(--border);
+    background:var(--surface);padding:24px 18px}
+  .brand{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+  .brand .mark{font-family:var(--serif);font-weight:700;font-size:30px;letter-spacing:3px;color:var(--navy);line-height:1}
+  .brand .sub{font-size:9.5px;letter-spacing:2px;color:var(--navy);border-top:1.5px solid var(--gold);padding-top:3px;width:max-content}
+  .brand .cdp{font-size:11px;letter-spacing:1.5px;color:var(--muted);text-transform:uppercase;margin-top:6px;font-weight:600}
+  nav{margin-top:18px}
+  nav a{display:block;padding:6px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:14px}
+  nav a:hover{background:var(--surface-alt);color:var(--navy)}
+  nav .grp{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--subtle);font-weight:700;margin:16px 10px 4px}
+  main{padding:40px 48px 80px;min-width:0}
+  /* Hero */
+  .hero{background:linear-gradient(135deg,#2e2e40 0%,#4a4763 55%,#c39851 130%);color:#fff;border-radius:16px;padding:38px 40px;margin-bottom:34px}
+  .hero h1{font-family:var(--sans);font-weight:700;font-size:30px;margin:0 0 8px}
+  .hero p{margin:0;color:rgba(255,255,255,.85);max-width:60ch}
+  .hero .by{margin-top:16px;font-size:12px;letter-spacing:2px;text-transform:uppercase;color:rgba(255,255,255,.7);font-weight:600}
+  /* Sections */
+  section{margin-bottom:44px;scroll-margin-top:20px}
+  h2{font-family:var(--serif);font-size:23px;color:var(--navy);margin:0 0 4px;padding-bottom:8px;position:relative}
+  h2::after{content:"";position:absolute;left:0;bottom:0;width:52px;height:3px;background:var(--gold);border-radius:2px}
+  .lead{color:var(--muted);margin:10px 0 18px;max-width:70ch}
+  h3{font-size:16px;color:var(--navy);margin:22px 0 8px}
+  ol.steps{counter-reset:s;list-style:none;padding:0;margin:0}
+  ol.steps>li{counter-increment:s;position:relative;padding:6px 0 6px 40px;margin-bottom:4px}
+  ol.steps>li::before{content:counter(s);position:absolute;left:0;top:4px;width:26px;height:26px;border-radius:50%;
+    background:var(--navy);color:#fff;font-weight:700;font-size:13px;display:grid;place-items:center}
+  .fig{margin:16px 0;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--surface);box-shadow:0 4px 14px -6px rgba(15,23,42,.14)}
+  .fig img{display:block;width:100%}
+  .fig figcaption{padding:8px 14px;font-size:12.5px;color:var(--subtle);border-top:1px solid var(--border);background:var(--surface-alt)}
+  .tip{border-left:3px solid var(--gold);background:var(--surface-alt);border-radius:0 8px 8px 0;padding:12px 16px;margin:14px 0;font-size:14.5px}
+  .tip b{color:var(--navy)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border)}
+  th{background:var(--navy);color:#fff;font-weight:600}
+  tr:nth-child(even) td{background:var(--surface-alt)}
+  code,.kbd{font-family:"Cascadia Code",Consolas,monospace;background:var(--surface-alt);border:1px solid var(--border);border-radius:5px;padding:1px 6px;font-size:13px}
+  .pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .p-gold{background:#f6efe0;color:#8a6a2f} .p-navy{background:#ececef;color:var(--navy)}
+  footer{border-top:1px solid var(--border);margin-top:40px;padding-top:18px;color:var(--subtle);font-size:13px}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}aside{display:none}main{padding:24px}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside>
+    <div class="brand">
+      <span class="mark">OCH</span>
+      <span class="sub">ONE CAPITAL HOSPITALITY</span>
+      <span class="cdp">Customer Data Platform</span>
+    </div>
+    <nav>
+      <div class="grp">Bắt đầu</div>
+      <a href="#gioi-thieu">Giới thiệu &amp; Đăng nhập</a>
+      <a href="#dieu-huong">Điều hướng hệ thống</a>
+      <div class="grp">Vận hành</div>
+      <a href="#control-tower">Control Tower</a>
+      <a href="#customer360">Khách hàng — Customer 360</a>
+      <a href="#loyalty">Loyalty — Điểm thưởng</a>
+      <a href="#data-ops">Data Ops — Master Data</a>
+      <div class="grp">Phân tích &amp; AI</div>
+      <a href="#insights">Phân tích chuyên sâu</a>
+      <a href="#audiences">Audiences — Phân khúc</a>
+      <a href="#journeys">Journeys — Hành trình</a>
+      <a href="#ai">Trợ lý AI &amp; AI Governance</a>
+      <div class="grp">Quản trị</div>
+      <a href="#governance">Governance — Consent</a>
+      <a href="#platform">Platform — Người dùng</a>
+      <a href="#meo">Mẹo &amp; phím tắt</a>
+    </nav>
+  </aside>
+
+  <main>
+    <div class="hero">
+      <h1>Cẩm nang sử dụng hệ thống</h1>
+      <p>Hướng dẫn thao tác trên nền tảng <b>OCH — Customer Data Platform</b>: đăng nhập, điều hướng và cách sử dụng từng workspace. Tài liệu này tập trung vào <b>hướng dẫn sử dụng</b>; phần giới thiệu tổng quan, business flow và thị trường xem trong bộ slide trình bày.</p>
+      <div class="by">Phát triển bởi AIPOWER</div>
+    </div>
+
+    <section id="gioi-thieu">
+      <h2>1. Giới thiệu &amp; Đăng nhập</h2>
+      <p class="lead">OCH-CDP là nền tảng hợp nhất dữ liệu khách hàng xuyên các thương hiệu của tập đoàn (Givral, Kem Tràng Tiền, Fuji, Sunrise Nha Trang, StarCity Nha Trang, Dusit Le Palais Tu Hoa) thành <b>một hồ sơ khách hàng 360°</b> với <b>một mã OCH ID duy nhất</b>.</p>
+      <h3>Các bước đăng nhập</h3>
+      <ol class="steps">
+        <li>Mở trình duyệt tới địa chỉ hệ thống (mặc định môi trường demo: <code>http://localhost:8073</code>).</li>
+        <li>Nhập <b>Tên đăng nhập</b> và <b>Mật khẩu</b> được cấp, bấm <b>Đăng nhập</b>.</li>
+        <li>Hệ thống mở vào <b>Control Tower</b> — bảng điều khiển tổng quan.</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/login.png" alt="Màn đăng nhập OCH-CDP" loading="lazy" /><figcaption>Màn đăng nhập — nhập tài khoản để vào hệ thống.</figcaption></figure>
+      <div class="tip"><b>Tài khoản demo:</b> <code>admin / Och@2026</code> (toàn quyền). Ngoài ra có các vai trò: data steward, marketer, CSKH, analyst, compliance, điều hành — mỗi vai trò thấy phần việc phù hợp.</div>
+    </section>
+
+    <section id="dieu-huong">
+      <h2>2. Điều hướng hệ thống</h2>
+      <p class="lead">Thanh điều hướng bên trái gom các workspace theo nhóm chức năng, giúp tìm đúng việc cần làm.</p>
+      <table>
+        <tr><th>Nhóm</th><th>Workspace</th><th>Dùng để</th></tr>
+        <tr><td><b>Vận hành</b></td><td>Control Tower · Customers · Loyalty · Data Ops</td><td>Theo dõi realtime, tra cứu khách, điểm thưởng, quản trị dữ liệu gốc</td></tr>
+        <tr><td><b>Phân tích</b></td><td>Phân tích chuyên sâu · Audiences · Journeys</td><td>Insight doanh thu/vòng đời, tạo phân khúc, dựng hành trình tự động</td></tr>
+        <tr><td><b>AI</b></td><td>Trợ lý AI · AI &amp; Governance</td><td>Hỏi đáp dữ liệu bằng ngôn ngữ tự nhiên, cấu hình &amp; giám sát AI</td></tr>
+        <tr><td><b>Quản trị</b></td><td>Governance · Platform</td><td>Đồng ý (consent) khách hàng, quản trị người dùng &amp; API key</td></tr>
+      </table>
+      <div class="tip"><b>Tìm nhanh:</b> bấm ô <span class="kbd">Tìm kiếm</span> trên đầu trang (hoặc <span class="kbd">⌘/Ctrl</span> + <span class="kbd">K</span>) để nhảy nhanh tới bất kỳ màn nào.</div>
+    </section>
+
+    <section id="control-tower">
+      <h2>3. Control Tower</h2>
+      <p class="lead"><b>Mục đích:</b> bảng điều khiển "tháp kiểm soát" — mọi chỉ số quan trọng của toàn tập đoàn hiển thị realtime, đáng tin, ở một nơi.</p>
+      <ol class="steps">
+        <li>Đăng nhập → hệ thống tự mở Control Tower.</li>
+        <li>Đọc các thẻ KPI (doanh thu, số khách, giao dịch…) và biểu đồ xu hướng.</li>
+        <li>Bấm vào workspace liên quan ở thanh trái để đi sâu vào chi tiết.</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/control-tower.png" alt="Control Tower" loading="lazy" /><figcaption>Control Tower — chỉ số toàn tập đoàn realtime.</figcaption></figure>
+    </section>
+
+    <section id="customer360">
+      <h2>4. Khách hàng — Customer 360</h2>
+      <p class="lead"><b>Mục đích:</b> xem chân dung khách hàng <b>hợp nhất xuyên thương hiệu</b> — hồ sơ, hạng, giá trị, hành vi mua và <b>hành động kinh doanh đề xuất</b>. Đây là màn "đắt giá" nhất để chăm sóc &amp; bán hàng.</p>
+      <h3>4.1. Duyệt danh bạ khách hàng</h3>
+      <ol class="steps">
+        <li>Vào <b>Customers</b> ở nhóm Vận hành.</li>
+        <li>Danh bạ liệt kê toàn bộ khách hàng hợp nhất kèm <b>Hạng</b>, <b>Vòng đời</b>, số thương hiệu, số đơn, chi tiêu, điểm.</li>
+        <li>Dùng ô <b>tìm theo tên/SĐT/email</b> hoặc bộ lọc <b>Vòng đời</b> để thu hẹp; phân trang bằng nút Trước/Sau.</li>
+        <li>Bấm vào một dòng để mở hồ sơ 360 của khách đó.</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/customers-directory.png" alt="Danh bạ khách hàng" loading="lazy" /><figcaption>Danh bạ khách hàng hợp nhất — cột Hạng (Kim cương/Vàng/Bạc/Đồng) và Vòng đời.</figcaption></figure>
+      <h3>4.2. Tra cứu nhanh theo định danh</h3>
+      <ol class="steps">
+        <li>Chọn <b>Loại định danh</b> (SĐT / Email / Thẻ loyalty…), nhập giá trị.</li>
+        <li>Bấm <b>Tra cứu</b> — hệ thống hợp nhất mọi thương hiệu về đúng một OCH ID.</li>
+      </ol>
+      <h3>4.3. Đọc hồ sơ 360 &amp; hành động</h3>
+      <p class="lead">Hồ sơ 360 gồm nhiều lớp thông tin, đọc từ trên xuống:</p>
+      <table>
+        <tr><th>Khối</th><th>Ý nghĩa nghiệp vụ</th></tr>
+        <tr><td><b>Hạng khách hàng</b></td><td>Kim cương / Vàng / Bạc / Đồng theo tổng chi tiêu — ưu tiên chăm sóc.</td></tr>
+        <tr><td><b>Phân tích hành vi (AI)</b></td><td>Vòng đời, nguy cơ rời (churn), xu hướng mua, RFM, nhóm hàng ưa thích.</td></tr>
+        <tr><td><b>Hành động kinh doanh đề xuất</b></td><td>Gợi ý cụ thể: giữ chân khách nguy cơ rời, nhắc <b>giỏ hàng bỏ quên</b>, bán chéo F&amp;B↔Khách sạn, đặc quyền VIP.</td></tr>
+        <tr><td><b>Giỏ hàng đang mở / bỏ quên</b></td><td>Món khách đang cân nhắc — cơ hội thúc đẩy hoàn tất đơn, không bỏ lỡ doanh thu.</td></tr>
+        <tr><td><b>Giá trị khách hàng (CLV)</b></td><td>Tổng chi tiêu (LTV), <b>CLV dự đoán</b>, giá trị đơn trung bình, thời gian gắn bó.</td></tr>
+        <tr><td><b>Nhịp mua &amp; dự đoán</b></td><td>Khoảng cách mua trung bình → <b>dự đoán ngày mua kế tiếp</b>, cảnh báo quá hạn/sắp tới.</td></tr>
+        <tr><td><b>Xu hướng &amp; ưa thích</b></td><td>Chi tiêu theo tháng, ưa thích thương hiệu/nhóm hàng, cửa hàng &amp; thời điểm mua.</td></tr>
+      </table>
+      <figure class="fig"><img src="assets/screens/customer360.png" alt="Customer 360 chuyên sâu" loading="lazy" /><figcaption>Customer 360 — hạng khách hàng, phân tích hành vi AI, hành động kinh doanh, giỏ hàng, CLV, nhịp mua.</figcaption></figure>
+      <div class="tip"><b>Mẹo bán hàng:</b> ưu tiên xử lý các thẻ <span class="pill p-gold">Ưu tiên cao</span> trong "Hành động kinh doanh đề xuất" — đặc biệt <b>giỏ hàng bỏ quên</b> và <b>khách quá chu kỳ mua</b>.</div>
+    </section>
+
+    <section id="loyalty">
+      <h2>5. Loyalty — Điểm thưởng hợp nhất</h2>
+      <p class="lead"><b>Mục đích:</b> tích/đổi điểm xuyên thương hiệu, minh bạch, không sai lệch quỹ.</p>
+      <ol class="steps">
+        <li>Vào <b>Loyalty</b>, nhập <b>OCH ID</b> của khách, bấm <b>Xem số dư</b>.</li>
+        <li>Xem số dư khả dụng / đang giữ. Dùng <b>Cộng điểm</b> để tích, <b>Giữ điểm</b> để tạm giữ khi đổi thưởng.</li>
+        <li>Với mỗi khoản giữ, bấm <b>Chốt</b> (xác nhận đổi) hoặc <b>Hủy</b> (hoàn điểm).</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/loyalty.png" alt="Loyalty" loading="lazy" /><figcaption>Loyalty — cộng/giữ/chốt/hủy điểm với lịch sử minh bạch.</figcaption></figure>
+      <div class="tip"><b>An tâm về tiền:</b> mọi thay đổi điểm đều được ghi sổ kép — số dư luôn khớp lịch sử, không thể âm quỹ.</div>
+    </section>
+
+    <section id="data-ops">
+      <h2>6. Data Ops — Master Data</h2>
+      <p class="lead"><b>Mục đích:</b> quản trị dữ liệu gốc — thương hiệu, cửa hàng, sản phẩm chuẩn. Hỗ trợ đầy đủ <b>Thêm · Sửa · Xoá</b>.</p>
+      <ol class="steps">
+        <li>Vào <b>Data Ops</b>. Mỗi khối (Thương hiệu / Cửa hàng / Sản phẩm) có form thêm mới ở trên và bảng danh sách bên dưới.</li>
+        <li><b>Thêm:</b> điền form → bấm nút "Thêm…".</li>
+        <li><b>Sửa:</b> bấm <b>Sửa</b> trên dòng → form chuyển sang chế độ chỉnh → sửa xong bấm <b>Lưu</b>.</li>
+        <li><b>Xoá:</b> bấm <b>Xoá</b> trên dòng → xác nhận. (Không xoá được nếu còn dữ liệu liên quan — hệ thống báo rõ.)</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/data-ops.png" alt="Data Ops Master Data" loading="lazy" /><figcaption>Master Data — quản trị thương hiệu, cửa hàng, sản phẩm (CRUD đầy đủ).</figcaption></figure>
+    </section>
+
+    <section id="insights">
+      <h2>7. Phân tích chuyên sâu</h2>
+      <p class="lead"><b>Mục đích:</b> bức tranh phân tích cấp điều hành — doanh thu &amp; dự báo, vòng đời khách, cộng hưởng đa thương hiệu.</p>
+      <ol class="steps">
+        <li>Vào <b>Phân tích chuyên sâu</b> ở nhóm Phân tích.</li>
+        <li>Đọc biểu đồ doanh thu theo tháng, dự báo, phân bố vòng đời, và mức độ khách dùng nhiều thương hiệu.</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/insights.png" alt="Insights" loading="lazy" /><figcaption>Phân tích chuyên sâu — doanh thu, dự báo, vòng đời, synergy đa thương hiệu.</figcaption></figure>
+    </section>
+
+    <section id="audiences">
+      <h2>8. Audiences — Tạo phân khúc &amp; Kích hoạt</h2>
+      <p class="lead"><b>Mục đích:</b> chọn nhóm khách theo tiêu chí rồi kích hoạt tới kênh (email/SMS/Zalo…). Hệ thống tự loại người chưa đồng ý (consent).</p>
+      <ol class="steps">
+        <li>Vào <b>Audiences</b>. Đặt tiêu chí segment (thương hiệu, chi tiêu tối thiểu, số giao dịch…) và bấm <b>Xem trước segment</b> để biết số khách khớp.</li>
+        <li>Nhập <b>Tên audience</b>, chọn <b>Mục đích</b> / <b>Kênh</b> / <b>Destination</b>.</li>
+        <li>Bấm <b>Kích hoạt</b>. Hệ thống hiển thị số được gửi và số bị loại do chưa đồng ý.</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/audiences.png" alt="Audiences" loading="lazy" /><figcaption>Audiences — tạo tệp khách &amp; kích hoạt, có cổng consent.</figcaption></figure>
+      <div class="tip"><b>Tuân thủ:</b> chỉ khách đã đồng ý đúng mục đích mới được gửi — cổng consent bảo vệ thương hiệu khỏi rủi ro pháp lý.</div>
+    </section>
+
+    <section id="journeys">
+      <h2>9. Journeys — Hành trình khách hàng tự động</h2>
+      <p class="lead"><b>Mục đích:</b> dựng kịch bản chăm sóc tự động (chào mừng, thưởng VIP, kéo lại khách ngủ đông, ưu đãi lưu trú…) bằng thao tác kéo-thả, rồi để hệ thống tự chạy.</p>
+      <ol class="steps">
+        <li>Vào <b>Journeys</b> → xem danh sách hành trình; bấm <b>Tạo</b> để dựng mới hoặc bấm một hành trình để mở chi tiết.</li>
+        <li>Trên canvas, ghép các bước: <b>Điểm vào</b> (sự kiện/segment) → <b>Chờ</b> → <b>Điều kiện</b> → <b>Hành động</b> (tặng điểm / gửi kích hoạt) → <b>Kết thúc</b>.</li>
+        <li>Bấm <b>Publish</b> để chốt phiên bản, rồi <b>Kích hoạt</b> để bắt đầu thu nạp khách.</li>
+        <li>Mở tab <b>Người tham gia</b> và <b>Báo cáo</b> để theo dõi hiệu quả.</li>
+      </ol>
+      <div class="grid2">
+        <figure class="fig"><img src="assets/screens/journeys.png" alt="Danh sách Journeys" loading="lazy" /><figcaption>Danh sách hành trình.</figcaption></figure>
+        <figure class="fig"><img src="assets/screens/journey-detail.png" alt="Chi tiết Journey" loading="lazy" /><figcaption>Chi tiết hành trình — người tham gia &amp; báo cáo.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="ai">
+      <h2>10. Trợ lý AI &amp; AI Governance</h2>
+      <p class="lead"><b>Mục đích:</b> hỏi đáp dữ liệu bằng ngôn ngữ tự nhiên và quản trị các tham số AI của hệ thống.</p>
+      <h3>Trợ lý AI</h3>
+      <ol class="steps">
+        <li>Vào <b>Trợ lý AI</b>, gõ câu hỏi nghiệp vụ (ví dụ: "gợi ý nội dung ưu đãi cho khách Kim cương ngủ đông").</li>
+        <li>Đọc phản hồi; dùng cho tra cứu nhanh, gợi ý phân khúc/nội dung.</li>
+      </ol>
+      <h3>AI &amp; Governance</h3>
+      <ol class="steps">
+        <li>Vào <b>AI &amp; Governance</b> để bật/tắt tính năng AI, chỉnh ngưỡng (RFM, gợi ý, dự báo…).</li>
+        <li>Mọi thay đổi được ghi <b>nhật ký audit</b> — minh bạch, truy vết được.</li>
+      </ol>
+      <div class="grid2">
+        <figure class="fig"><img src="assets/screens/assistant.png" alt="Trợ lý AI" loading="lazy" /><figcaption>Trợ lý AI — hỏi đáp dữ liệu.</figcaption></figure>
+        <figure class="fig"><img src="assets/screens/ai-governance.png" alt="AI Governance" loading="lazy" /><figcaption>AI &amp; Governance — cấu hình &amp; audit.</figcaption></figure>
+      </div>
+    </section>
+
+    <section id="governance">
+      <h2>11. Governance — Đồng ý &amp; Quyền riêng tư</h2>
+      <p class="lead"><b>Mục đích:</b> quản lý sự đồng ý (consent) của khách theo từng mục đích. Nguyên tắc <b>mặc định từ chối</b> — chỉ gửi khi khách đã đồng ý.</p>
+      <ol class="steps">
+        <li>Vào <b>Governance</b>, nhập <b>OCH ID</b>, bấm <b>Xem consent</b>.</li>
+        <li>Với mỗi mục đích (email/SMS/Zalo/cá nhân hoá/chia sẻ dữ liệu): bấm <b>Cấp</b> hoặc <b>Thu hồi</b>.</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/governance.png" alt="Governance Consent" loading="lazy" /><figcaption>Governance — cấp/thu hồi đồng ý theo mục đích.</figcaption></figure>
+    </section>
+
+    <section id="platform">
+      <h2>12. Platform — Người dùng &amp; API key</h2>
+      <p class="lead"><b>Mục đích (chỉ admin):</b> quản trị tài khoản người dùng theo vai trò và khoá tích hợp (API key) cho hệ thống khác.</p>
+      <ol class="steps">
+        <li>Vào <b>Platform</b>. Khối <b>Người dùng</b>: thêm user (username, mật khẩu, họ tên, vai trò), <b>Sửa</b>/<b>Vô hiệu</b>/<b>Xoá</b> trên từng dòng.</li>
+        <li>Khối <b>API keys</b>: tạo khoá cho kết nối service-to-service; khoá chỉ hiện <b>một lần</b> — sao chép ngay. Có thể <b>Thu hồi</b> hoặc <b>Xoá</b>.</li>
+      </ol>
+      <figure class="fig"><img src="assets/screens/platform.png" alt="Platform" loading="lazy" /><figcaption>Platform — quản trị người dùng (7 vai trò) &amp; API key.</figcaption></figure>
+    </section>
+
+    <section id="meo">
+      <h2>13. Mẹo &amp; phím tắt</h2>
+      <table>
+        <tr><th>Thao tác</th><th>Cách làm</th></tr>
+        <tr><td>Tìm nhanh màn hình</td><td><span class="kbd">⌘/Ctrl</span> + <span class="kbd">K</span> hoặc bấm ô Tìm kiếm</td></tr>
+        <tr><td>Đổi giao diện Sáng/Tối</td><td>Biểu tượng mặt trời/mặt trăng góc trên phải</td></tr>
+        <tr><td>Về danh bạ từ hồ sơ 360</td><td>Bấm "← Về danh bạ khách hàng"</td></tr>
+        <tr><td>Ưu tiên xử lý bán hàng</td><td>Xem thẻ <span class="pill p-gold">Ưu tiên cao</span> ở "Hành động kinh doanh đề xuất"</td></tr>
+      </table>
+      <footer>
+        <b>OCH · Customer Data Platform</b> — Cẩm nang sử dụng. Phát triển bởi <b>AIPOWER</b> (aipower.vn).
+        Phần giới thiệu tổng quan, business flow, so sánh thị trường và phụ lục nghiên cứu: xem bộ slide trình bày.
+      </footer>
+    </section>
+  </main>
+</div>
+</body>
+</html>

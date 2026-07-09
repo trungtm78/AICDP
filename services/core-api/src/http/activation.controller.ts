@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
 import { activationSchema } from "./schemas.js";
-import { activate, getRun } from "../activation/activation.service.js";
+import { activate, getRun, listRuns } from "../activation/activation.service.js";
 import { Roles } from "./auth/roles.js";
 
 /** Activation — kích hoạt audience tới destination, GATE bằng consent (deny-by-default). */
@@ -17,6 +17,11 @@ export class ActivationController {
   async run(@Body() body: unknown) {
     const dto = validate(activationSchema, body, "activation");
     return { data: await activate(this.pool, dto) };
+  }
+
+  @Get()
+  async list() {
+    return { data: await listRuns(this.pool) };
   }
 
   @Get(":runId")
