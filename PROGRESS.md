@@ -46,7 +46,13 @@
 - **M3**: `journey-scheduler.ts` (interval single-flight, lifecycle, await shutdown) + `journey-triggers.service.ts` (enrollEventJourneys derive eventName từ definition, runSegmentEntry) + ingest hook fire-and-forget + app.module đăng ký + vitest tắt scheduler. Codex-hardened (3 fix).
 - **Backend Journey (M1–M3) XONG: 267 test pass, tsc sạch.** API contract sẵn cho UI (bên dưới).
 
-## ▶ NEXT sau /clear: Journey Builder — M4+M5 (Frontend, canvas react-flow)
+## ✅ JOURNEY BUILDER (M1–M5) HOÀN TẤT — commit
+- Backend M1–M3 (engine/report/trigger+scheduler): 267 test, codex-hardened.
+- Frontend M4–M5: List + Detail(tabs) + Canvas react-flow (@xyflow/react) + Participants + Report. tsc/build sạch, 28 unit test. Screenshot dữ liệu thật (`docs/assets/screens/journey-*.png` dark+light): 49 khách qua journey điều kiện lifecycle → funnel/report đúng.
+- Cross-model /codex mỗi milestone: tổng ~12 lỗi thật đã fix (deadlock nested-pool, funnel double-count, ingest block, shutdown race, trigger-state split, canvas remount…).
+- **Trụ tiếp theo (roadmap từ research, chọn 1 khi tiếp tục):** Activation thật + Destinations (reverse-ETL) · Audience Builder + membership · Governance sâu (DSAR + retention) · Behavioral events + funnel/cohort.
+
+## (đã xong) Journey M4+M5 (Frontend, canvas react-flow) — chi tiết:
 > Đọc plan file + `services/core-api/src/http/journey.controller.ts` (contract) + `apps/admin-console/src/screens/JourneysScreen.tsx` (rewrite) + hệ primitives `src/ui/*` (đã có Panel/Table/Drawer/Button/Badge/StatTile + ECharts Funnel/ForecastLine).
 
 **Dep mới:** `@xyflow/react` (react-flow v12) trong admin-console (`pnpm --dir apps/admin-console add @xyflow/react`). Nhớ import CSS `@xyflow/react/dist/style.css`.
