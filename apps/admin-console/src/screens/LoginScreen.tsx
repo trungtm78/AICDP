@@ -38,18 +38,18 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
       {/* Panel hero — ảnh di sản OCH (och.vn) phủ lớp navy→gold, ẩn trên mobile */}
       <aside className="relative hidden overflow-hidden lg:block">
         <img
-          src="/och-hero.jpg"
+          src="/och-tower.jpg"
           alt=""
           aria-hidden="true"
           className="absolute inset-0 h-full w-full object-cover"
           draggable={false}
         />
-        {/* Lớp phủ thương hiệu: navy đậm → gủ vàng nhạt (nhận diện OCH) */}
+        {/* Lớp phủ nhẹ (giữ ánh hoàng hôn của ảnh, chỉ đủ tối để chữ trắng đọc rõ) */}
         <div
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(150deg, rgba(27,27,46,0.94) 0%, rgba(46,46,64,0.86) 45%, rgba(122,106,83,0.55) 100%)",
+              "linear-gradient(170deg, rgba(27,27,46,0.62) 0%, rgba(35,33,52,0.48) 45%, rgba(46,46,64,0.62) 100%)",
           }}
         />
         <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
