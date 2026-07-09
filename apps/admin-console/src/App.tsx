@@ -32,9 +32,9 @@ export function App() {
   return (
     <div className="flex h-full">
       <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface-alt">
-        <div className="flex items-center gap-2 px-4 py-4">
-          <span className="inline-block h-3 w-3 rounded-sm bg-accent" aria-hidden />
-          <span className="font-bold tracking-tight">OCC-CDP</span>
+        <div className="flex items-center gap-2.5 px-4 py-4">
+          <span className="brand-gradient inline-block h-6 w-6 rounded-lg" aria-hidden />
+          <span className="text-[0.95rem] font-bold tracking-tight">OCC-CDP</span>
         </div>
         <nav className="flex flex-col gap-0.5 px-2">
           {NAV.map((n) => (

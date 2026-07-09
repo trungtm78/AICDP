@@ -36,12 +36,12 @@ export function AiGovernanceScreen() {
     return <Shell><p className="text-text-muted">Đang tải…</p></Shell>;
   }
   if (cfgQ.isError) {
-    return <Shell><p className="text-danger">Lỗi tải cấu hình AI (chỉ admin được phép).</p></Shell>;
+    return <Shell><p className="text-error">Lỗi tải cấu hình AI (chỉ admin được phép).</p></Shell>;
   }
 
   return (
     <Shell>
-      {error && <p className="mb-3 rounded-md border border-danger/40 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
+      {error && <p className="mb-3 rounded-md border border-error/40 bg-error/10 px-3 py-2 text-sm text-error">{error}</p>}
 
       {/* ── LLM Settings ── */}
       <Panel title="LLM Settings — nhà cung cấp & model">

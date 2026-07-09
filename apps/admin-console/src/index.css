@@ -1,35 +1,43 @@
 @import "tailwindcss";
 
 /*
-  Design tokens OCC-CDP (DESIGN.md). KHÔNG hardcode hex trong component — chỉ dùng
-  utility map từ @theme dưới đây (bg-surface, text-muted, text-accent, border-border...).
-  Font: Geist self-host (woff2) sẽ bổ sung sau; tạm fallback system-ui (giữ diacritics VN).
+  Design tokens OCC-CDP — tông SÁNG, brand AIPOWER (accent xanh dương). KHÔNG hardcode hex
+  trong component — chỉ dùng utility map từ @theme (bg-surface, text-muted, text-accent, ...).
+  Font: Geist self-host (woff2) bổ sung sau; tạm fallback system-ui (giữ diacritics VN).
 */
 @theme {
-  --color-bg: #fbfbfc;
+  --color-bg: #f4f8fd;          /* nền plane xanh-lam nhạt (AI-tech) */
   --color-surface: #ffffff;
-  --color-surface-alt: #f4f5f7;
-  --color-border: #e7e9ee;
-  --color-border-strong: #cbd2dc;
-  --color-text: #0b0e14;
-  --color-text-muted: #5b6573;
-  --color-text-subtle: #8a93a2;
+  --color-surface-alt: #eef4ff; /* card phụ tinh nền xanh nhạt */
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-text: #0f172a;        /* slate-900 (tông lạnh, hiện đại) */
+  --color-text-muted: #475569;
+  --color-text-subtle: #94a3b8;
 
-  --color-accent: #0ea5a4;
+  --color-accent: #2563eb;      /* AIPOWER blue */
+  --color-accent-strong: #1d4ed8;
   --color-accent-fg: #ffffff;
   --color-secondary: #334155;
 
+  --color-cyan: #06b6d4;
+  --color-violet: #7c3aed;
   --color-success: #16a34a;
   --color-warning: #d97706;
   --color-error: #dc2626;
   --color-info: #2563eb;
 
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 8px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
 
   --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+/* Gradient thương hiệu AIPOWER (blue → cyan → violet) cho logo / điểm nhấn. */
+.brand-gradient {
+  background-image: linear-gradient(135deg, #2563eb 0%, #06b6d4 50%, #7c3aed 100%);
 }
 
 html,
