@@ -12,6 +12,7 @@ import { JourneysScreen } from "./screens/JourneysScreen.js";
 import { PlatformScreen } from "./screens/PlatformScreen.js";
 import { AiGovernanceScreen } from "./screens/AiGovernanceScreen.js";
 import { InsightsScreen } from "./screens/InsightsScreen.js";
+import { AssistantScreen } from "./screens/AssistantScreen.js";
 
 // IA workspace (DESIGN.md). + Phân tích + AI & Governance (Phase A).
 const NAV = [
@@ -24,6 +25,7 @@ const NAV = [
   { to: "/data-ops", label: "Data Ops", ready: true },
   { to: "/governance", label: "Governance", ready: true },
   { to: "/platform", label: "Platform", ready: true },
+  { to: "/assistant", label: "Trợ lý AI", ready: true },
   { to: "/ai-governance", label: "AI & Governance", ready: true },
 ];
 
@@ -85,6 +87,7 @@ export function App() {
           <Route path="/data-ops" element={<MastersScreen />} />
           <Route path="/governance" element={<GovernanceScreen />} />
           <Route path="/platform" element={<PlatformScreen />} />
+          <Route path="/assistant" element={<AssistantScreen />} />
           <Route path="/ai-governance" element={<AiGovernanceScreen />} />
           <Route path="*" element={<Placeholder />} />
         </Routes>
