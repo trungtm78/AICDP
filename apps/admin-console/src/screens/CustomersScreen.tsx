@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag, ArrowLeft, Gem, Crown, Medal, Award, Receipt, CreditCard } from "lucide-react";
+import { Search, UserRound, ShieldAlert, UserX, Sparkles, Target, ShoppingBag, ArrowLeft, Gem, Crown, Medal, Award, Receipt, CreditCard, Gauge as GaugeIcon } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   ApiError,
@@ -146,6 +146,7 @@ export function CustomersScreen() {
               <ArrowLeft className="size-4" /> Về danh bạ khách hàng
             </button>
             <CustomerCard data={view.data} />
+            <PredictionMiniPanel occId={view.data.occId} />
             <TransactionsPanel occId={view.data.occId} transactions={view.data.transactions} />
             {feature && (
               <AiBehaviorPanel
@@ -363,6 +364,26 @@ function CustomerCard({ data }: { data: Customer360 }) {
             </Badge>
           ))}
         </div>
+      </div>
+    </Panel>
+  );
+}
+
+/** Panel dự đoán ML (Customer 360): CLV / churn / propensity / ngày mua kế + nguồn. */
+function PredictionMiniPanel({ occId }: { occId: string }) {
+  const q = useQuery({ queryKey: ["prediction", occId], queryFn: () => api.getPrediction(occId) });
+  const p = q.data;
+  if (q.isLoading) return <Skeleton className="h-24 w-full" />;
+  if (!p) return null;
+  const pct = (v: number | null) => (v === null ? "—" : `${Math.round(v * 100)}%`);
+  return (
+    <Panel title="Dự đoán (AI)" icon={<GaugeIcon className="size-4" />}
+      actions={p.scoreSource === "ml" ? <Badge tone="accent">ML{p.modelVersions?.churn ? ` · ${p.modelVersions.churn}` : ""}</Badge> : <Badge tone="neutral">Heuristic</Badge>}>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MetaItem label="CLV dự đoán" value={p.predictedClv === null ? "—" : fmtVndFull(p.predictedClv)} />
+        <MetaItem label="Nguy cơ rời" value={pct(p.churnProb)} />
+        <MetaItem label="Khả năng mua" value={pct(p.propensity)} />
+        <MetaItem label="Ngày mua kế" value={fmtDateTime(p.nextPurchaseAt)} />
       </div>
     </Panel>
   );

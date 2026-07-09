@@ -12,6 +12,9 @@ import {
   type Connection,
   type Pipeline,
   type IdentifierType,
+  type CustomerPrediction,
+  type ModelCard,
+  type PredictionBucket,
   type LoyaltyBalance,
   type LoyaltyMember,
   type LoyaltyLedgerEntry,
@@ -195,6 +198,23 @@ export const api = {
 
   getCustomerAnalytics: (occId: string) =>
     request<CustomerAnalytics>(`/v1/customers/by-id/${encodeURIComponent(occId)}/analytics`),
+
+  // ── Predictive Studio (ML: churn/CLV/propensity/next-purchase) ──
+  listPredictions: (params: { model?: string; limit?: number; offset?: number } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.model) qs.set("model", params.model);
+    qs.set("limit", String(params.limit ?? 25));
+    qs.set("offset", String(params.offset ?? 0));
+    return requestFull<CustomerPrediction[]>(`/v1/predictions/customers?${qs.toString()}`);
+  },
+  getPrediction: (occId: string) =>
+    request<CustomerPrediction | null>(`/v1/predictions/customers/${encodeURIComponent(occId)}`),
+  getModelCards: () => request<ModelCard[]>("/v1/predictions/model-cards"),
+  getPredictionDistribution: (metric: string) =>
+    request<PredictionBucket[]>(`/v1/predictions/distribution?metric=${encodeURIComponent(metric)}`),
+  getPredictionHealth: () => request<{ aiService: boolean }>("/v1/predictions/health"),
+  recomputePredictions: () =>
+    request<{ count: number; source: "ml" | "heuristic" }>("/v1/predictions/recompute", { method: "POST" }),
 
   getLoyaltyBalance: (occId: string) =>
     request<LoyaltyBalance>(`/v1/loyalty/balance?occId=${encodeURIComponent(occId)}`),

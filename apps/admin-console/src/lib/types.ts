@@ -121,6 +121,37 @@ export interface LoyaltyBalance {
   reserved: number;
 }
 
+/** Điểm dự đoán ML của một khách (Predictive Studio / Customer 360). */
+export interface CustomerPrediction {
+  occId: string;
+  fullName: string | null;
+  predictedClv: number | null;
+  predictedPurchases: number | null;
+  churnProb: number | null;
+  propensity: number | null;
+  nextPurchaseAt: string | null;
+  nextIntervalDays: number | null;
+  scoreSource: "ml" | "heuristic";
+  modelVersions: Record<string, string>;
+  explain: Record<string, string[]>;
+  computedAt: string;
+}
+
+/** Model card + độ quan trọng đặc trưng (Predictive Studio). */
+export interface ModelCard {
+  modelType: string;
+  modelVersion: string;
+  algorithm: string;
+  metricName: string;
+  metricValue: number;
+  sampleSize: number | null;
+  isDemo: boolean;
+  trainedAt: string;
+  featureImportance: { feature: string; weight: number }[];
+}
+
+export interface PredictionBucket { bucket: string; count: number }
+
 /** Thành viên tích điểm (leaderboard màn Loyalty). */
 export interface LoyaltyMember {
   occId: string;

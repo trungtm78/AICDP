@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, UserRound, Gift, Database, ChartColumnBig, Target, Waypoints,
   Sparkles, BrainCircuit, ShieldCheck, Server, Search, Bell, LogOut, Command as CommandIcon,
-  Sun, Moon, Plug, type LucideIcon,
+  Sun, Moon, Plug, Gauge, type LucideIcon,
 } from "lucide-react";
 import { getToken, getName, getRole, clearSession } from "./lib/auth.js";
 import { LoginScreen } from "./screens/LoginScreen.js";
@@ -21,6 +21,7 @@ import { InsightsScreen } from "./screens/InsightsScreen.js";
 import { AssistantScreen } from "./screens/AssistantScreen.js";
 import { ConnectorsScreen } from "./screens/ConnectorsScreen.js";
 import { PipelineCanvas } from "./screens/connector/PipelineCanvas.js";
+import { PredictionsScreen } from "./screens/PredictionsScreen.js";
 import { Logo, Kbd, CommandPalette, useTheme, type CommandItem } from "./ui/index.js";
 import { cn } from "./ui/cn.js";
 
@@ -41,6 +42,7 @@ const GROUPS: NavGroup[] = [
     label: "Phân tích",
     items: [
       { to: "/insights", label: "Phân tích chuyên sâu", icon: ChartColumnBig, kw: "insights doanh thu forecast vòng đời synergy" },
+      { to: "/predictions", label: "Dự đoán", icon: Gauge, kw: "predictive ml churn clv propensity next purchase mô hình dự đoán" },
       { to: "/audiences", label: "Audiences", icon: Target, kw: "phân khúc segment kích hoạt" },
       { to: "/journeys", label: "Journeys", icon: Waypoints, kw: "hành trình automation" },
     ],
@@ -96,6 +98,7 @@ export function App() {
             <Route path="/" element={<Navigate to="/control-tower" replace />} />
             <Route path="/control-tower" element={<ControlTowerScreen />} />
             <Route path="/insights" element={<InsightsScreen />} />
+            <Route path="/predictions" element={<PredictionsScreen />} />
             <Route path="/customers" element={<CustomersScreen />} />
             <Route path="/audiences" element={<AudiencesScreen />} />
             <Route path="/loyalty" element={<LoyaltyScreen />} />
