@@ -31,3 +31,4 @@ Thumbs.db
 # infra runtime data
 infra/.data/
 *.local
+deploy/admin-dist/
