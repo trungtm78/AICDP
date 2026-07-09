@@ -76,6 +76,13 @@ describe("journey HTTP (engine)", () => {
 
     const list = await http().get("/v1/journeys");
     expect(list.body.data.some((j: { name: string }) => j.name === "VIP bonus")).toBe(true);
+
+    const rep = await http().get(`/v1/journeys/${jid}/report?windowDays=7`);
+    expect(rep.status).toBe(200);
+    expect(rep.body.data.entered).toBe(1);
+    expect(rep.body.data.completed).toBe(1);
+    expect(rep.body.data.attribution.loyaltyPointsIssued).toBe(100);
+    expect(rep.body.data.funnel.some((f: { nodeId: string; reached: number }) => f.nodeId === "a" && f.reached === 1)).toBe(true);
   });
 
   it("publish graph không hợp lệ -> 400 JOURNEY_INVALID", async () => {

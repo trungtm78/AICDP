@@ -276,7 +276,13 @@ async function advanceParticipant(pool: Pool, client: PoolClient, p: Participant
     return;
   }
   const node = findNode(def, p.current_node_id);
-  if (!node || node.type === "exit") {
+  if (!node) {
+    await complete(client, p.id, "completed");
+    return;
+  }
+  if (node.type === "exit") {
+    // Ghi step_run exit → funnel đếm đúng per-exit (multi-exit) & không phụ thuộc version.
+    await recordStep(client, p, node, {});
     await complete(client, p.id, "completed");
     return;
   }

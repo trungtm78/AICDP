@@ -12,6 +12,7 @@ import {
   type CreateDraftArgs, type SaveArgs,
 } from "../journey/journey-admin.service.js";
 import { enroll, enrollSegment, tick } from "../journey/journey-engine.service.js";
+import { journeyReport } from "../journey/journey-report.service.js";
 import { JourneyValidationError, type JourneyDefinition } from "../journey/journey.types.js";
 
 /** Journeys — orchestration đa bước (state machine + tick). RBAC: marketer. */
@@ -99,6 +100,14 @@ export class JourneyController {
       if ((await enroll(this.pool, id, occId)).enrolled) enrolled++;
     }
     return { data: { enrolled } };
+  }
+
+  @Get(":id/report")
+  @Roles("executive", "analyst", "marketer")
+  async report(@Param("id") id: string, @Query("windowDays") windowDays?: string) {
+    const j = await getJourney(this.pool, id);
+    if (!j) throw new AppError({ code: "JOURNEY_NOT_FOUND", httpStatus: 404, message: "Journey không tồn tại." });
+    return { data: await journeyReport(this.pool, id, windowDays ? Number(windowDays) : 7) };
   }
 
   @Get(":id/participants")
