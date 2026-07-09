@@ -6,56 +6,58 @@
 @import "@fontsource/geist-mono/500.css";
 
 /*
-  Design tokens AICDP — "Airy modern SaaS" + bảng màu INDIGO AI (xem DESIGN.md).
+  Design tokens OCH — "Light heritage" (navy #2E2E40 + gold #C39851, lấy từ logo och.vn).
   Nguyên tắc: KHÔNG hardcode hex trong component — chỉ dùng utility map từ @theme
-  (bg-surface, text-muted, text-accent, border-border, ...). Gradient indigo→violet
-  chỉ dùng ở ĐIỂM NHẤN (.brand-gradient / .brand-text). Indigo #4F46E5 = accent chính.
+  (bg-surface, text-muted, text-accent, text-gold, border-border, ...). Gradient navy→gold
+  chỉ dùng ở ĐIỂM NHẤN (.brand-gradient / .brand-text). Navy #2E2E40 = accent chính; Light mặc định.
 */
 @theme {
-  /* Nền & bề mặt — sáng, mát (cool indigo-slate) */
-  --color-bg: #f6f7fb;            /* nền plane xám-indigo rất nhạt */
+  /* Nền & bề mặt — Light HERITAGE (ấm, "giấy di sản" OCH) */
+  --color-bg: #f7f6f2;            /* nền kem ấm */
   --color-surface: #ffffff;
-  --color-surface-alt: #f2f4f9;  /* card phụ / vùng chìm */
-  --color-surface-hover: #f7f8fc;
+  --color-surface-alt: #f2f0e9;  /* card phụ / vùng chìm ấm */
+  --color-surface-hover: #faf9f5;
 
-  /* Viền — hairline nhạt */
-  --color-border: #e6e8f0;
-  --color-border-strong: #cbd0de;
+  /* Viền — hairline ấm */
+  --color-border: #e7e3da;
+  --color-border-strong: #cfcabd;
 
-  /* Chữ */
-  --color-text: #0f172a;         /* slate-900 */
-  --color-text-muted: #565e73;
-  --color-text-subtle: #98a0b3;
+  /* Chữ — navy-đen OCH */
+  --color-text: #1b1b2e;
+  --color-text-muted: #565564;
+  --color-text-subtle: #9a968c;
 
-  /* Accent Indigo AI */
-  --color-accent: #4f46e5;        /* indigo-600 */
-  --color-accent-hover: #4338ca;  /* indigo-700 */
-  --color-accent-strong: #4338ca;
-  --color-accent-subtle: #eef2ff; /* indigo-50 — nền accent nhạt (badge/active) */
+  /* Accent OCH: navy (chủ đạo, chữ/nút) + gold (điểm nhấn di sản) */
+  --color-accent: #2e2e40;        /* navy OCH — lấy từ logo och.vn */
+  --color-accent-hover: #3d3d57;
+  --color-accent-strong: #3d3d57;
+  --color-accent-subtle: #ececef; /* nền active/badge (navy rất nhạt) */
   --color-accent-fg: #ffffff;
-  --color-secondary: #334155;
+  --color-gold: #c39851;          /* gủ vàng OCH — điểm nhấn heritage */
+  --color-gold-subtle: #f6efe0;
+  --color-secondary: #3d3d57;
 
-  /* Hue biểu đồ (data-viz) — CVD-safe, thứ tự cố định (đầu = indigo) */
-  --color-viz-blue: #4f46e5;
+  /* Hue biểu đồ (data-viz) — dẫn bằng navy + gold OCH */
+  --color-viz-blue: #2e2e40;
   --color-viz-aqua: #1baf7a;
-  --color-viz-amber: #eda100;
-  --color-viz-green: #008300;
+  --color-viz-amber: #c39851;
+  --color-viz-green: #2f7d5b;
   --color-viz-violet: #7c3aed;
-  --color-cyan: #06b6d4;
+  --color-cyan: #2a78d6;
   --color-violet: #7c3aed;
 
-  /* Ngữ nghĩa */
-  --color-success: #16a34a;
-  --color-success-subtle: #e9f7ef;
-  --color-warning: #d97706;
-  --color-warning-subtle: #fdf3e7;
-  --color-error: #dc2626;
-  --color-error-subtle: #fdecec;
-  --color-info: #4f46e5;
-  --color-info-subtle: #eef2ff;
+  /* Ngữ nghĩa (ấm hơn, hợp heritage) */
+  --color-success: #2f7d5b;
+  --color-success-subtle: #e9f3ee;
+  --color-warning: #b4791f;
+  --color-warning-subtle: #f7efdf;
+  --color-error: #b3372f;
+  --color-error-subtle: #f7e9e7;
+  --color-info: #2e2e40;
+  --color-info-subtle: #ececef;
 
   /* Scrim overlay (modal/drawer/palette) — luôn tối để nội dung nổi */
-  --color-scrim: rgb(15 23 42 / 0.4);
+  --color-scrim: rgb(27 27 46 / 0.45);
 
   /* Bán kính — bo mềm (airy) */
   --radius-sm: 6px;
@@ -75,7 +77,7 @@
 }
 
 /*
-  Theme TỐI "Slate sâu" (Linear/Vercel) — mặc định của AICDP (chất kỹ thuật/war-room).
+  Theme TỐI "Slate sâu" (Linear/Vercel) — theme tối tuỳ chọn của OCH.
   Override GIÁ TRỊ biến (không đổi tên) → mọi utility token tự đổi màu, không sửa component.
 */
 :root[data-theme="dark"] {
@@ -93,30 +95,33 @@
   --color-text-muted: #98a2b8;
   --color-text-subtle: #5c6784;
 
-  --color-accent: #818cf8;        /* indigo-400 — sáng, đọc rõ trên nền tối */
-  --color-accent-hover: #a5b4fc;
-  --color-accent-strong: #a5b4fc;
-  --color-accent-subtle: #1b2140; /* nền badge/active tối */
-  --color-accent-fg: #0b0f1a;     /* chữ TỐI trên nút indigo sáng (kiểu Linear) */
+  /* Dark heritage: accent = GOLD OCH (nổi trên nền tối) */
+  --color-accent: #d4a960;        /* gold sáng — đọc rõ trên nền tối */
+  --color-accent-hover: #e2bd7d;
+  --color-accent-strong: #e2bd7d;
+  --color-accent-subtle: #2a2413; /* nền badge/active (gold rất tối) */
+  --color-accent-fg: #141119;     /* chữ TỐI trên nút gold sáng */
+  --color-gold: #d4a960;
+  --color-gold-subtle: #2a2413;
 
-  --color-cyan: #22d3ee;
+  --color-cyan: #7cc0ff;
   --color-violet: #a78bfa;
 
   --color-success: #34d399; --color-success-subtle: #10231c;
   --color-warning: #fbbf24; --color-warning-subtle: #2a2010;
   --color-error: #f87171;   --color-error-subtle: #2a1418;
-  --color-info: #818cf8;    --color-info-subtle: #1b2140;
+  --color-info: #d4a960;    --color-info-subtle: #2a2413;
 
   --color-scrim: rgb(2 4 10 / 0.6);
 }
 
-/* Gradient thương hiệu AICDP (indigo → violet) — CHỈ điểm nhấn: logo, hero, nút primary. */
+/* Gradient thương hiệu OCH (navy → gold heritage) — CHỈ điểm nhấn: logo, hero, nút primary. */
 .brand-gradient {
-  background-image: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #a855f7 100%);
+  background-image: linear-gradient(135deg, #2e2e40 0%, #4a4763 45%, #c39851 100%);
 }
 /* Chữ gradient (tiêu đề hero) */
 .brand-text {
-  background-image: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #a855f7 100%);
+  background-image: linear-gradient(120deg, #2e2e40 0%, #7a6a53 55%, #c39851 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

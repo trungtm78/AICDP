@@ -41,7 +41,7 @@ test.describe("E2E data-flow qua UI thật", () => {
 
   test("E2E-J03: Loyalty earn -> reserve -> capture qua UI; balance projection đúng @p0", async ({ page }) => {
     await page.goto("/loyalty");
-    await page.getByLabel("AICDP ID").fill(occId);
+    await page.getByLabel("OCH ID").fill(occId);
     await page.getByRole("button", { name: "Xem số dư" }).click();
     await expect(page.getByTestId("bal-available")).toHaveText("0");
 
@@ -64,7 +64,7 @@ test.describe("E2E data-flow qua UI thật", () => {
 
   test("E2E-J06: Cấp consent marketing_email qua UI -> badge GRANTED @p0", async ({ page }) => {
     await page.goto("/governance");
-    await page.getByLabel("AICDP ID").fill(occId);
+    await page.getByLabel("OCH ID").fill(occId);
     await page.getByRole("button", { name: "Xem consent" }).click();
     const row = page.getByTestId("consent-marketing_email");
     await expect(row).toBeVisible();

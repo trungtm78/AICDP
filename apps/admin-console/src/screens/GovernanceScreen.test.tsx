@@ -19,7 +19,7 @@ describe("GovernanceScreen — consent deny-by-default", () => {
   it("purpose chưa có bản ghi hiển thị 'denied' (deny-by-default)", async () => {
     m.listConsents.mockResolvedValue([]);
     renderWithProviders(<GovernanceScreen />);
-    await userEvent.type(screen.getByLabelText(/aicdp id/i), OCC);
+    await userEvent.type(screen.getByLabelText(/och id/i), OCC);
     await userEvent.click(screen.getByRole("button", { name: /xem consent/i }));
 
     const row = await screen.findByTestId("consent-marketing_email");
@@ -38,7 +38,7 @@ describe("GovernanceScreen — consent deny-by-default", () => {
     ]);
 
     renderWithProviders(<GovernanceScreen />);
-    await userEvent.type(screen.getByLabelText(/aicdp id/i), OCC);
+    await userEvent.type(screen.getByLabelText(/och id/i), OCC);
     await userEvent.click(screen.getByRole("button", { name: /xem consent/i }));
 
     const row = await screen.findByTestId("consent-marketing_email");
@@ -58,14 +58,14 @@ describe("GovernanceScreen — consent deny-by-default", () => {
       recorded_at: "2026-06-18T00:00:00Z",
     });
     renderWithProviders(<GovernanceScreen />);
-    await userEvent.type(screen.getByLabelText(/aicdp id/i), OCC);
+    await userEvent.type(screen.getByLabelText(/och id/i), OCC);
     await userEvent.click(screen.getByRole("button", { name: /xem consent/i }));
     await screen.findByTestId("consent-marketing_email");
 
     // người dùng sửa input sang OCC khác nhưng CHƯA bấm "Xem consent"
     const OTHER = "99999999-9999-9999-9999-999999999999";
-    await userEvent.clear(screen.getByLabelText(/aicdp id/i));
-    await userEvent.type(screen.getByLabelText(/aicdp id/i), OTHER);
+    await userEvent.clear(screen.getByLabelText(/och id/i));
+    await userEvent.type(screen.getByLabelText(/och id/i), OTHER);
 
     const row = screen.getByTestId("consent-marketing_email");
     await userEvent.click(within(row).getByRole("button", { name: /cấp/i }));

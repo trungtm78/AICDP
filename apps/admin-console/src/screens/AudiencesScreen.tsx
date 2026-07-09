@@ -18,7 +18,7 @@ const PURPOSES: { value: ConsentPurpose; label: string }[] = [
   { value: "data_sharing", label: "Chia sẻ dữ liệu" },
 ];
 
-/** Audiences — kích hoạt danh sách AICDP ID tới destination, GATE bằng consent (deny-by-default). */
+/** Audiences — kích hoạt danh sách OCH ID tới destination, GATE bằng consent (deny-by-default). */
 export function AudiencesScreen() {
   const [audienceName, setAudienceName] = useState("");
   const [purpose, setPurpose] = useState<ConsentPurpose>("marketing_email");
@@ -114,8 +114,8 @@ export function AudiencesScreen() {
               <Field label="Kênh"><Input aria-label="Kênh" value={channel} onChange={(e) => setChannel(e.target.value)} /></Field>
               <Field label="Destination"><Input aria-label="Destination" value={destination} onChange={(e) => setDestination(e.target.value)} /></Field>
             </div>
-            <Field className="mt-3" label={`Danh sách AICDP ID (mỗi dòng hoặc cách nhau dấu phẩy) — ${occIds.length} id`}>
-              <Textarea aria-label="Danh sách AICDP ID" value={raw} onChange={(e) => setRaw(e.target.value)} rows={5} className="font-mono text-xs" />
+            <Field className="mt-3" label={`Danh sách OCH ID (mỗi dòng hoặc cách nhau dấu phẩy) — ${occIds.length} id`}>
+              <Textarea aria-label="Danh sách OCH ID" value={raw} onChange={(e) => setRaw(e.target.value)} rows={5} className="font-mono text-xs" />
             </Field>
             <div className="mt-3">
               <Button type="submit" variant="primary" disabled={busy || !audienceName.trim() || occIds.length === 0} loading={busy} icon={<Send className="size-4" />}>

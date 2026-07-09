@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 
 export type Theme = "light" | "dark";
 const STORAGE_KEY = "aicdp-theme";
-const DEFAULT_THEME: Theme = "dark"; // AICDP dark-first (chất kỹ thuật)
+const DEFAULT_THEME: Theme = "light"; // OCH light-first (heritage navy/gold)
 
 interface ThemeCtx {
   theme: Theme;

@@ -18,30 +18,30 @@ beforeEach(() => {
 });
 
 describe("ThemeProvider", () => {
-  it("mặc định dark khi chưa có localStorage", () => {
+  it("mặc định light khi chưa có localStorage (OCH heritage)", () => {
     render(
       <ThemeProvider>
         <Probe />
       </ThemeProvider>,
     );
-    expect(screen.getByRole("button")).toHaveTextContent("theme:dark");
-    expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(localStorage.getItem("aicdp-theme")).toBe("dark");
-  });
-
-  it("toggle lật dark ↔ light + ghi localStorage + data-theme", async () => {
-    render(
-      <ThemeProvider>
-        <Probe />
-      </ThemeProvider>,
-    );
-    await userEvent.click(screen.getByRole("button"));
     expect(screen.getByRole("button")).toHaveTextContent("theme:light");
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(localStorage.getItem("aicdp-theme")).toBe("light");
-    // lật lại về dark
+  });
+
+  it("toggle lật light ↔ dark + ghi localStorage + data-theme", async () => {
+    render(
+      <ThemeProvider>
+        <Probe />
+      </ThemeProvider>,
+    );
     await userEvent.click(screen.getByRole("button"));
+    expect(screen.getByRole("button")).toHaveTextContent("theme:dark");
     expect(document.documentElement.dataset.theme).toBe("dark");
+    expect(localStorage.getItem("aicdp-theme")).toBe("dark");
+    // lật lại về light
+    await userEvent.click(screen.getByRole("button"));
+    expect(document.documentElement.dataset.theme).toBe("light");
   });
 
   it("khôi phục theme đã lưu từ localStorage", () => {

@@ -120,7 +120,7 @@ test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
     const btn = page.getByRole("button", { name: "Xem consent" });
     await expect(btn).toBeDisabled();
 
-    await page.getByLabel("AICDP ID").fill("00000000-0000-0000-0000-0000000000bb");
+    await page.getByLabel("OCH ID").fill("00000000-0000-0000-0000-0000000000bb");
     await btn.click();
     const row = page.getByTestId("consent-marketing_email");
     await expect(row).toBeVisible();
@@ -138,7 +138,7 @@ test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
     await expect(btn).toBeDisabled();
 
     // occId hợp lệ (uuid) nhưng chưa phát sinh điểm -> projection = 0/0 (data thật từ API).
-    await page.getByLabel("AICDP ID").fill("00000000-0000-0000-0000-0000000000aa");
+    await page.getByLabel("OCH ID").fill("00000000-0000-0000-0000-0000000000aa");
     await expect(btn).toBeEnabled();
     await btn.click();
     await expect(page.getByTestId("bal-available")).toHaveText("0");

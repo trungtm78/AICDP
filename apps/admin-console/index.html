@@ -1,18 +1,18 @@
 <!doctype html>
-<html lang="vi" data-theme="dark">
+<html lang="vi" data-theme="light">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="icon" type="image/svg+xml" href="/logo-mark.svg" />
-    <title>AICDP — Control Tower</title>
-    <!-- Đặt theme TRƯỚC khi render để tránh nháy sáng (mặc định dark). -->
+    <link rel="icon" type="image/png" href="/och-logo.png" />
+    <title>OCH — Customer Data Platform</title>
+    <!-- Đặt theme TRƯỚC khi render để tránh nháy (OCH mặc định light heritage). -->
     <script>
       (function () {
         try {
           var t = localStorage.getItem("aicdp-theme");
-          document.documentElement.dataset.theme = t === "light" || t === "dark" ? t : "dark";
+          document.documentElement.dataset.theme = t === "light" || t === "dark" ? t : "light";
         } catch (e) {
-          document.documentElement.dataset.theme = "dark";
+          document.documentElement.dataset.theme = "light";
         }
       })();
     </script>

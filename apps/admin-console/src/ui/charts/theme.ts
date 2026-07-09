@@ -37,11 +37,11 @@ export function chartTokens(): ChartTokens {
   };
 }
 
-/** Palette dữ liệu (categorical) — bản sáng hơn trên dark để đọc rõ. */
+/** Palette dữ liệu (categorical) OCH — dẫn navy + gold; bản sáng hơn trên dark. */
 export function vizPalette(): string[] {
   return isDark()
-    ? ["#818cf8", "#2dd4bf", "#fbbf24", "#4ade80", "#a78bfa", "#22d3ee"]
-    : ["#4f46e5", "#1baf7a", "#eda100", "#008300", "#7c3aed", "#06b6d4"];
+    ? ["#d4a960", "#2dd4bf", "#7cc0ff", "#4ade80", "#a78bfa", "#f0e0c0"]
+    : ["#2e2e40", "#c39851", "#1baf7a", "#2a78d6", "#7c3aed", "#2f7d5b"];
 }
 
 /** Tooltip theo token (nền surface, viền border, chữ text). */
@@ -69,17 +69,17 @@ export function axisStyle(_opts: { numeric?: boolean } = {}) {
 
 /** Vùng area translucent cho line (theo theme). */
 export function areaColor(kind: "accent" | "violet"): string {
-  if (kind === "violet") return isDark() ? "rgba(167,139,250,0.14)" : "rgba(124,58,237,0.08)";
-  return isDark() ? "rgba(129,140,248,0.16)" : "rgba(79,70,229,0.10)";
+  if (kind === "violet") return isDark() ? "rgba(212,169,96,0.16)" : "rgba(195,152,81,0.12)"; // gold band
+  return isDark() ? "rgba(212,169,96,0.16)" : "rgba(46,46,64,0.10)"; // navy/gold
 }
 
-/** Dải màu heatmap theo theme. */
+/** Dải màu heatmap theo theme (cream→gold→navy OCH). */
 export function heatmapRange(): string[] {
-  return isDark() ? ["#1b2140", "#818cf8", "#c4b5fd"] : ["#eef2ff", "#4f46e5", "#3730a3"];
+  return isDark() ? ["#2a2413", "#d4a960", "#f0e0c0"] : ["#f2f0e9", "#c39851", "#2e2e40"];
 }
 
 // Hằng tiện dụng (light) cho nơi cần màu tĩnh.
-export const ACCENT = "#4f46e5";
-export const CYAN = "#06b6d4";
+export const ACCENT = "#2e2e40";
+export const CYAN = "#2a78d6";
 export const VIOLET = "#7c3aed";
 export { FONT };

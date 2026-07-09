@@ -1,14 +1,14 @@
-# Design System — AICDP
+# Design System — OCH · Customer Data Platform
 
 ## Product Context
-- **What this is:** Admin console enterprise + exec war-room cho **AICDP** — AI Customer Data Platform (CDP đa thương hiệu F&B self-host). (Tên cũ "OCC-CDP" đã đổi thành AICDP, 2026-07-09.)
+- **What this is:** Admin console enterprise + exec war-room — **Customer Data Platform** triển khai cho **OCH (One Capital Hospitality)**, hệ sinh thái đa thương hiệu F&B + khách sạn, self-host. Nền tảng do **AIPOWER** phát triển. (Lịch sử tên nội bộ: OCC-CDP → AICDP → mang bộ nhận diện khách hàng OCH, 2026-07-09.)
 - **Who it's for:** Data steward, marketer, CSKH, analyst, compliance/DPO, executive (Ban điều hành). Người vận hành 8h/ngày.
 - **Space/industry:** Customer Data Platform / MarTech (peers: Segment, Tealium, Hightouch, Amplitude). Tham chiếu UX: Linear, Vercel.
 - **Project type:** Data-dense admin web app + realtime executive dashboard.
 - **Memorable thing:** "Kiểm soát toàn cục, tức thì" — control tower: mọi số liệu 5 brand realtime, đáng tin, tra cứu 1 khách trong 2 giây.
 
 ## Aesthetic Direction
-> **Cập nhật triển khai (2026-07-09, rev.2 — rebrand AICDP + Indigo AI):** hướng thực thi = **"Airy modern SaaS + bảng màu Indigo AI"** (kiểu Segment/Hightouch/Linear) — nhiều khoảng thở, card bo góc + shadow nhẹ, nền sáng mát; vẫn giữ độ chính xác (số căn phải `tabular-nums`, bảng hairline gọn) ở khu dữ liệu. Accent = **Indigo `#4F46E5`**; gradient **indigo→violet** (`#4F46E5→#7C3AED→#A855F7`) chỉ ở **điểm nhấn** (logo, hero KPI, nút primary, header, active nav). Component = **custom primitives (Tailwind thuần)**; chart = **ECharts**; icon = **lucide**. Xem "Color", "Stack", "Logo" bên dưới.
+> **Cập nhật triển khai (2026-07-09, rev.3 — bộ nhận diện OCH "Light heritage"):** hệ thống dùng **bộ nhận diện thương hiệu OCH thật** (logo och.vn + màu chủ đạo trích từ logo: **navy `#2E2E40`** + **gủ vàng `#C39851`**). Hướng thực thi = **"Airy modern SaaS + heritage OCH"**: nền kem ấm ("giấy di sản"), card bo góc + shadow nhẹ, accent **navy** cho chữ/nút, **gủ vàng** cho điểm nhấn (gradient navy→gold, vạch heritage, hero). **Mặc định Light** (heritage), giữ toggle Dark ("Slate sâu", accent flip sang gold `#D4A960`). Component = **custom primitives (Tailwind thuần)**; chart = **ECharts** (đọc token runtime → tự đổi theme); icon = **lucide**. Xem "Color", "Stack", "Logo" bên dưới.
 
 - **Direction:** Industrial/Utilitarian × Minimal (instrument-panel precision).
 - **Decoration level:** minimal — typography + token + hairline borders; KHÔNG bubble/gradient/blob.
@@ -25,15 +25,15 @@
 - **Lý do single-family:** coherence khí cụ + đảm bảo diacritics tiếng Việt + perf; rủi ro đã chấp nhận.
 
 ## Color
-> **Cập nhật 2026-07-09 (rev.2):** accent hệ thống = **Indigo `#4F46E5`** (indigo-600; hover `#4338CA`, subtle `#EEF2FF`). Nền sáng mát `#F6F7FB`, surface-alt `#F2F4F9`, border `#E6E8F0`. Gradient **indigo→violet** `#4F46E5→#7C3AED→#A855F7` (`.brand-gradient`/`.brand-text`) chỉ ở điểm nhấn. Hue biểu đồ (data-viz) CVD-safe: indigo `#4F46E5` · aqua `#1baf7a` · amber `#eda100` · green `#008300` · violet `#7c3aed`. Token thực tế xem `apps/admin-console/src/index.css`. (Lịch sử: Signal Teal → AIPOWER blue → Indigo.)
+> **Cập nhật 2026-07-09 (rev.3 — nhận diện OCH):** màu chủ đạo **trích thật từ logo OCH** (och.vn): **navy `#2E2E40`** (accent chính — chữ/nút/focus/link; hover `#3D3D57`, subtle `#ECECEF`) + **gủ vàng `#C39851`** (`--color-gold` — điểm nhấn heritage). Nền **kem ấm** `#F7F6F2`, surface `#FFFFFF`, surface-alt `#F2F0E9`, border ấm `#E7E3DA`. Gradient **navy→gold** `#2E2E40→#4A4763→#C39851` (`.brand-gradient`/`.brand-text`) chỉ ở điểm nhấn (logo/hero/login). Hue biểu đồ (data-viz) dẫn navy+gold: navy `#2E2E40` · gold `#C39851` · aqua `#1baf7a` · blue `#2a78d6` · violet `#7c3aed` · green `#2f7d5b`. Token thực tế xem `apps/admin-console/src/index.css`. (Lịch sử: Signal Teal → AIPOWER blue → Indigo → **OCH navy/gold**.)
 
-- **Approach:** restrained — neutral foundation + 1 accent + semantic; gradient chỉ cho brand/điểm nhấn.
-- **Primary (accent):** `#4F46E5` (Indigo AI) — action chính, focus, selection, link.
-- **Secondary:** neutral đậm `#334155` cho action phụ; KHÔNG thêm accent thứ 2 (giữ "tín hiệu" hiếm & có nghĩa).
-- **Neutrals (cool slate):** bg `#FBFBFC` · surface `#FFFFFF` · surface-alt `#F4F5F7` · border `#E7E9EE` · border-strong `#CBD2DC` · text `#0B0E14` · text-muted `#5B6573` · text-subtle `#8A93A2`.
-- **Semantic:** success `#16A34A` · warning `#D97706` · error `#DC2626` · info `#2563EB`.
-- **Dark mode (mặc định, "Slate sâu" Linear/Vercel — chất kỹ thuật):** bg `#0B0F1A` · surface `#141A28` · surface-alt `#1B2333` · border `#232C40` · text `#E6E9F0` · text-muted `#98A2B8` · accent `#818CF8` (indigo-400) · accent-fg `#0B0F1A` (nút indigo sáng, chữ tối). Data-viz palette sáng hơn cho dark. **Toggle Light/Dark** (Sun/Moon ở topbar), lưu `localStorage["aicdp-theme"]` (mặc định dark), set `:root[data-theme]`; token override tại `:root[data-theme="dark"]` (index.css) → component tự đổi. Overlay dùng token `--color-scrim` (tối cả 2 theme). ECharts đọc CSS var lúc render → tự đổi theme.
-- **Brand-kit:** 5 thương hiệu map vào `--brand-accent` token; brand context badge dùng màu này, KHÔNG ghi đè Signal Teal của hệ thống.
+- **Approach:** restrained — neutral foundation + 1 accent (navy) + gold điểm nhấn + semantic; gradient chỉ cho brand.
+- **Primary (accent):** `#2E2E40` (navy OCH) — action chính, focus, selection, link.
+- **Decorative accent:** `#C39851` (gủ vàng OCH) — vạch heritage, gradient, hero; **KHÔNG dùng làm chữ trên nền sáng** (không đạt AA), chỉ trang trí.
+- **Neutrals (warm heritage):** bg `#F7F6F2` · surface `#FFFFFF` · surface-alt `#F2F0E9` · border `#E7E3DA` · border-strong `#CFCABD` · text `#1B1B2E` · text-muted `#565564` · text-subtle `#9A968C`.
+- **Semantic (ấm hợp heritage):** success `#2F7D5B` · warning `#B4791F` · error `#B3372F` · info `#2E2E40`.
+- **Dark mode ("Slate sâu" — toggle, không mặc định):** bg `#0B0F1A` · surface `#141A28` · border `#232C40` · text `#E6E9F0` · **accent flip sang gold `#D4A960`** (navy quá tối để nổi trên nền dark) · accent-fg `#141119` (chữ tối trên nút gold sáng). Data-viz palette sáng hơn cho dark. **Toggle Light/Dark** (Sun/Moon ở topbar), lưu `localStorage["aicdp-theme"]` (**mặc định light** — heritage), set `:root[data-theme]`; token override tại `:root[data-theme="dark"]` (index.css) → component tự đổi. Overlay dùng token `--color-scrim`. ECharts đọc CSS var lúc render → tự đổi theme.
+- **Brand-kit:** các thương hiệu OCH (Givral, Kem Tràng Tiền, Fuji, Sunrise/StarCity/Dusit) map vào `--brand-accent` token; brand context badge dùng màu này, KHÔNG ghi đè accent navy của hệ thống.
 - **Tokens:** semantic (`--color-text-primary`, `--color-surface`, `--color-accent`...), OKLCH-based (Tailwind v4), không hardcode hex trong component.
 
 ## Spacing
@@ -66,9 +66,10 @@
 > **Triển khai thực tế (2026-07-09):** React + TypeScript · Tailwind v4 · **custom primitives (`src/ui/*`, ~18 component — KHÔNG shadcn/Radix)** · **ECharts** (`echarts` + `echarts-for-react`) cho mọi biểu đồ (bar/donut/line-forecast/funnel/heatmap/sankey/sparkline) · **lucide-react** (icon) · **Geist + Geist Mono** (@fontsource, self-host). TanStack Table (virtualized) + WebSocket/SSE = đợt sau. (Bản gốc dự kiến shadcn/Radix + Recharts/visx — đã thay bằng custom + ECharts.)
 
 ## Logo
-- **Tên hiển thị:** **AICDP** (AI đậm · CDP nhạt), Geist tracking chặt.
-- **Mark "Channel Hub":** lõi trung tâm (AI/CDP) + 6 node quanh = các kênh (email/SMS/Zalo/POS/web/app) kết nối vào lõi — thể hiện **hợp nhất dữ liệu đa kênh**. Tile bo góc gradient indigo→violet; dùng được 16px (favicon) → lớn.
-- **File:** `apps/admin-console/public/logo.svg` (lockup), `public/logo-mark.svg` (favicon), component `src/ui/Brand.tsx` (`Logo`, `LogoMark`). (Bản trước: "OCC CDP" + Convergence Node — đã thay.)
+- **Logo OCH thật:** dùng logo chính thức của OCH (tải từ och.vn) — bản navy cho nền sáng, bản trắng cho nền tối. Phụ đề "Customer Data Platform" (Geist, uppercase, tracking rộng) đặt cạnh logo.
+- **Theme-aware:** `Brand.tsx` chọn `/och-logo.png` (light) ↔ `/och-logo-light.png` (dark) theo theme hiện tại.
+- **Login hero:** ảnh di sản OCH thật (`/och-hero.jpg` từ och.vn) phủ lớp navy→gold + tagline OCH "Creating Legacy — Sharing Value"; ghi "Phát triển bởi AIPOWER".
+- **File:** `apps/admin-console/public/{och-logo.png, och-logo-light.png, och-hero.jpg}` + favicon `och-logo.png`; component `src/ui/Brand.tsx` (`Logo`, `LogoMark`). (Bản trước: wordmark "AICDP" + mark "Channel Hub" — đã thay bằng logo OCH thật.)
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -85,3 +86,6 @@
 | 2026-07-09 | **Đổi accent → Indigo AI #4F46E5** (gradient indigo→violet), nền mát hơn | "Hiện đại, chuyên nghiệp hơn"; hợp định vị AI của AICDP |
 | 2026-07-09 | **Logo mới "Channel Hub"** (lõi + 6 kênh kết nối) | Thể hiện kết nối/hợp nhất nhiều kênh dữ liệu |
 | 2026-07-09 | **Dark-first "Slate sâu" + toggle Light/Dark** (mặc định dark, accent indigo #818CF8) | "Tông sậm thể hiện tính kỹ thuật"; ThemeProvider + token override + ECharts runtime |
+| 2026-07-09 | **Mang bộ nhận diện OCH** (logo och.vn thật + accent **navy #2E2E40** + gủ vàng **#C39851** trích từ logo; "Light heritage" nền kem, **mặc định Light**; dark accent flip → gold #D4A960) | Hệ thống triển khai cho khách hàng OCH — dùng bộ nhận diện thương hiệu thật của OCH; yêu cầu người dùng |
+| 2026-07-09 | **Nhãn "AICDP ID" → "OCH ID"** (hiển thị; `occId`/API/DB giữ nguyên) | Đồng bộ nhận diện OCH trên UI |
+| 2026-07-09 | **Login split-hero** (ảnh di sản OCH thật + overlay navy→gold + tagline "Creating Legacy — Sharing Value") | Tham chiếu màu + hình nền och.vn; yêu cầu người dùng |

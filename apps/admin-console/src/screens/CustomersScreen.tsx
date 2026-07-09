@@ -109,7 +109,7 @@ export function CustomersScreen() {
         )}
         {view.kind === "loading" && <Skeleton className="h-48 w-full" />}
         {view.kind === "notfound" && (
-          <EmptyState icon={<UserX className="size-6" />} title="Không tìm thấy khách hàng" description="Định danh chưa gắn với AICDP ID nào — khách có thể chưa phát sinh giao dịch." />
+          <EmptyState icon={<UserX className="size-6" />} title="Không tìm thấy khách hàng" description="Định danh chưa gắn với OCH ID nào — khách có thể chưa phát sinh giao dịch." />
         )}
         {view.kind === "error" && (
           <EmptyState tone="error" icon={<ShieldAlert className="size-6" />} title="Lỗi tra cứu" description={view.message} />
