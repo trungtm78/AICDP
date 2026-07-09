@@ -9,6 +9,7 @@ import {
   type CustomerListItem,
   type IdentifierType,
   type LoyaltyBalance,
+  type LoyaltyMember,
   type LoyaltyResult,
   type ReserveResult,
   type ConsentState,
@@ -91,6 +92,12 @@ async function requestFull<T>(path: string, init?: RequestInit): Promise<{ data:
   return { data: env.data, meta: { total: Number((env.meta?.total as number) ?? 0) } };
 }
 
+/** Trả kèm TOÀN BỘ meta (nhiều field). */
+async function requestEnvelope<T>(path: string, init?: RequestInit): Promise<{ data: T; meta: Record<string, unknown> }> {
+  const env = await rawRequest<T>(path, init);
+  return { data: env.data, meta: env.meta ?? {} };
+}
+
 export const api = {
   login: (username: string, password: string) =>
     request<{ token: string; role: string; name: string }>("/v1/auth/login", {
@@ -165,6 +172,8 @@ export const api = {
 
   getLoyaltyBalance: (occId: string) =>
     request<LoyaltyBalance>(`/v1/loyalty/balance?occId=${encodeURIComponent(occId)}`),
+
+  listLoyaltyMembers: () => requestEnvelope<LoyaltyMember[]>("/v1/loyalty/members"),
 
   loyaltyEarn: (occId: string, points: number, idempotencyKey: string) =>
     request<LoyaltyResult>("/v1/loyalty/earn", {

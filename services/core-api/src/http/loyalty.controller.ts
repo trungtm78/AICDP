@@ -8,7 +8,7 @@ import {
   loyaltyReservationOpSchema,
   loyaltyBalanceQuerySchema,
 } from "./schemas.js";
-import { earn, reserve, capture, release, getBalance } from "../loyalty/loyalty.service.js";
+import { earn, reserve, capture, release, getBalance, listMembers } from "../loyalty/loyalty.service.js";
 import { Roles } from "./auth/roles.js";
 
 /** Loyalty double-entry: earn + reserve/capture/release (theo reservationId) + balance. */
@@ -56,5 +56,11 @@ export class LoyaltyController {
   async balance(@Query() query: Record<string, string>) {
     const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_balance");
     return { data: await getBalance(this.pool, occId) };
+  }
+
+  @Get("members")
+  async members() {
+    const res = await listMembers(this.pool);
+    return { data: res.members, meta: { total: res.totalMembers, totalPoints: res.totalPoints } };
   }
 }

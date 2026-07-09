@@ -309,3 +309,36 @@ export async function getBalance(pool: Pool, occId: string): Promise<LoyaltyBala
     client.release();
   }
 }
+
+export interface LoyaltyMember {
+  occId: string;
+  fullName: string | null;
+  available: number;
+  totalEarned: number;
+}
+
+/** Danh sách thành viên tích điểm (leaderboard) + tổng quan — cho màn Loyalty. */
+export async function listMembers(pool: Pool, limit = 30): Promise<{ members: LoyaltyMember[]; totalMembers: number; totalPoints: number }> {
+  const rows = await pool.query<{ occ_id: string; full_name: string | null; available: string; earned: string | null }>(
+    `SELECT cf.occ_id, p.full_name, cf.loyalty_available::text AS available,
+            (SELECT COALESCE(sum(delta), 0) FROM cdp.loyalty_entry le
+               WHERE le.account = 'member:' || cf.occ_id::text || ':available' AND le.delta > 0)::text AS earned
+       FROM cdp.customer_feature cf
+       LEFT JOIN cdp.profile p ON p.occ_id = cf.occ_id
+       WHERE cf.loyalty_available > 0
+       ORDER BY cf.loyalty_available DESC
+       LIMIT $1`,
+    [Math.min(limit, 100)],
+  );
+  const agg = await pool.query<{ n: string; total: string | null }>(
+    `SELECT count(*)::text AS n, COALESCE(sum(loyalty_available), 0)::text AS total
+       FROM cdp.customer_feature WHERE loyalty_available > 0`,
+  );
+  return {
+    members: rows.rows.map((r) => ({
+      occId: r.occ_id, fullName: r.full_name, available: Number(r.available), totalEarned: Number(r.earned ?? 0),
+    })),
+    totalMembers: Number(agg.rows[0]?.n ?? 0),
+    totalPoints: Number(agg.rows[0]?.total ?? 0),
+  };
+}

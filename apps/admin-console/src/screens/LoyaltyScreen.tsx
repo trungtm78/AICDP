@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Coins, Gift, Lock, Check, X, Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { Coins, Gift, Lock, Check, X, Search, Users, Trophy } from "lucide-react";
 import { api } from "../lib/api.js";
-import { ApiError, type LoyaltyBalance } from "../lib/types.js";
+import { ApiError, type LoyaltyBalance, type LoyaltyMember } from "../lib/types.js";
 import { fmtInt } from "../lib/format.js";
-import { PageHeader, Panel, Field, Input, Button, StatTile, StatusPill, EmptyState } from "../ui/index.js";
+import { PageHeader, Panel, Field, Input, Button, StatTile, StatusPill, EmptyState, Table, type Column } from "../ui/index.js";
 
 interface ReservationRow {
   reservationId: string;
@@ -28,18 +29,25 @@ export function LoyaltyScreen() {
     return err instanceof Error ? err.message : "Lỗi thao tác loyalty";
   }
 
-  async function loadBalance() {
-    if (!occId.trim()) return;
+  const members = useQuery({ queryKey: ["loyalty-members"], queryFn: api.listLoyaltyMembers });
+
+  async function loadBalance(id: string = occId) {
+    if (!id.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      setBalance(await api.getLoyaltyBalance(occId.trim()));
+      setBalance(await api.getLoyaltyBalance(id.trim()));
     } catch (err) {
       setBalance(null);
       setError(errMsg(err));
     } finally {
       setBusy(false);
     }
+  }
+  function openMember(m: LoyaltyMember) {
+    setOccId(m.occId);
+    setReservations([]);
+    void loadBalance(m.occId);
   }
 
   function parsePts(v: string): number | null {
@@ -105,12 +113,19 @@ export function LoyaltyScreen() {
         breadcrumb={["Vận hành", "Loyalty"]}
       />
 
+      {/* Tổng quan chương trình điểm */}
+      <div className="mb-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
+        <StatTile label="Thành viên có điểm" value={fmtInt(Number(members.data?.meta.total ?? 0))} icon={<Users className="size-4" />} />
+        <StatTile label="Tổng điểm khả dụng" value={fmtInt(Number(members.data?.meta.totalPoints ?? 0))} icon={<Coins className="size-4" />} />
+        <StatTile label="Top thành viên" value={fmtInt(members.data?.data?.[0]?.available ?? 0)} icon={<Trophy className="size-4" />} />
+      </div>
+
       <Panel>
         <div className="flex flex-wrap items-end gap-3">
           <Field className="min-w-[280px] flex-1" label="OCH ID">
             <Input aria-label="OCH ID" value={occId} onChange={(e) => setOccId(e.target.value)} placeholder="uuid khách hàng" className="font-mono" icon={<Search className="size-4" />} />
           </Field>
-          <Button variant="primary" onClick={loadBalance} disabled={!occId.trim() || busy} loading={busy} className="mb-[1px]">Xem số dư</Button>
+          <Button variant="primary" onClick={() => loadBalance()} disabled={!occId.trim() || busy} loading={busy} className="mb-[1px]">Xem số dư</Button>
         </div>
       </Panel>
 
@@ -150,7 +165,38 @@ export function LoyaltyScreen() {
           )}
         </div>
       )}
+
+      {/* Danh sách thành viên tích điểm — luôn hiển thị (click để xem số dư) */}
+      <div className="mt-6">
+        <LoyaltyMembers members={members.data?.data ?? []} loading={members.isLoading} onOpen={openMember} />
+      </div>
     </div>
+  );
+}
+
+function LoyaltyMembers({ members, loading, onOpen }: { members: LoyaltyMember[]; loading: boolean; onOpen: (m: LoyaltyMember) => void }) {
+  const columns: Column<LoyaltyMember>[] = [
+    {
+      key: "rank", header: "#", width: "48px",
+      cell: (_m, i) => <span className="tabular text-xs font-semibold text-text-subtle">{i + 1}</span>,
+    },
+    {
+      key: "name", header: "Khách hàng",
+      cell: (m) => (
+        <div>
+          <div className="font-medium text-text">{m.fullName ?? "(chưa có tên)"}</div>
+          <div className="font-mono text-[11px] text-text-subtle">{m.occId}</div>
+        </div>
+      ),
+    },
+    { key: "earned", header: "Đã tích", numeric: true, cell: (m) => fmtInt(m.totalEarned), width: "120px" },
+    { key: "available", header: "Khả dụng", numeric: true, cell: (m) => <span className="font-semibold text-accent">{fmtInt(m.available)}</span>, width: "120px" },
+  ];
+  return (
+    <Panel title="Thành viên tích điểm" icon={<Trophy className="size-4" />} subtitle="Bảng xếp hạng theo điểm khả dụng — bấm để xem số dư & thao tác" bodyClassName="p-0">
+      <Table columns={columns} rows={members} rowKey={(m) => m.occId} loading={loading}
+        onRowClick={onOpen} empty={{ title: "Chưa có thành viên tích điểm" }} density="compact" />
+    </Panel>
   );
 }
 

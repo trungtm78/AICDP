@@ -96,6 +96,14 @@ export interface LoyaltyBalance {
   reserved: number;
 }
 
+/** Thành viên tích điểm (leaderboard màn Loyalty). */
+export interface LoyaltyMember {
+  occId: string;
+  fullName: string | null;
+  available: number;
+  totalEarned: number;
+}
+
 export interface LoyaltyResult {
   txnId: string;
   balance: LoyaltyBalance;
