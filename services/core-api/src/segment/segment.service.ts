@@ -14,6 +14,10 @@ export interface SegmentCriteria {
   loyaltyMin?: number | undefined;
   categoryAffinity?: string | undefined;
   consentPurpose?: string | undefined;
+  // ── Tiêu chí dự đoán (customer_prediction — ML hoặc heuristic) ──
+  churnProbGte?: number | undefined; // 0..1
+  propensityGte?: number | undefined; // 0..1
+  clvMin?: number | undefined; // VND
 }
 
 export interface SegmentPreview {
@@ -61,6 +65,21 @@ export async function previewSegment(
     featureConds.push(`cf.favorite_category = $${params.length}`);
   }
 
+  // Điều kiện trên customer_prediction (chỉ JOIN khi có tiêu chí dự đoán).
+  const predConds: string[] = [];
+  if (c.churnProbGte !== undefined) {
+    params.push(c.churnProbGte);
+    predConds.push(`cp.churn_prob >= $${params.length}`);
+  }
+  if (c.propensityGte !== undefined) {
+    params.push(c.propensityGte);
+    predConds.push(`cp.propensity >= $${params.length}`);
+  }
+  if (c.clvMin !== undefined) {
+    params.push(c.clvMin);
+    predConds.push(`cp.predicted_clv >= $${params.length}`);
+  }
+
   const outerConds: string[] = [];
   if (c.consentPurpose !== undefined) {
     params.push(c.consentPurpose);
@@ -81,11 +100,13 @@ export async function previewSegment(
     ${having.length > 0 ? "HAVING " + having.join(" AND ") : ""}`;
 
   const join = featureConds.length > 0 ? "JOIN cdp.customer_feature cf ON cf.occ_id = b.occ_id" : "";
-  const allConds = [...featureConds, ...outerConds];
+  const predJoin = predConds.length > 0 ? "JOIN cdp.customer_prediction cp ON cp.occ_id = b.occ_id" : "";
+  const allConds = [...featureConds, ...predConds, ...outerConds];
   const sql = `
     WITH base AS (${base})
     SELECT b.occ_id FROM base b
     ${join}
+    ${predJoin}
     ${allConds.length > 0 ? "WHERE " + allConds.join(" AND ") : ""}
     ORDER BY b.occ_id`;
 

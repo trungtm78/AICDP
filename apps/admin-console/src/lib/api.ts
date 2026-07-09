@@ -31,6 +31,8 @@ import {
   type Overview,
   type SegmentCriteria,
   type SegmentPreview,
+  type SmartSegment,
+  type LookalikeResult,
   type Recommendation,
   type Journey,
   type JourneyRunResult,
@@ -289,6 +291,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(criteria),
     }),
+
+  lookalikeSegment: (seedOccIds: string[], limit = 50) =>
+    request<LookalikeResult[]>("/v1/segments/lookalike", {
+      method: "POST",
+      body: JSON.stringify({ seedOccIds, limit }),
+    }),
+
+  getSmartSegments: () => request<SmartSegment[]>("/v1/segments/suggestions"),
 
   getRecommendations: (occId: string) =>
     request<{ occId: string; recommendations: Recommendation[] }>(

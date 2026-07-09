@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Send, Users, ShieldX, SlidersHorizontal, History, CheckCircle2 } from "lucide-react";
+import { Send, Users, ShieldX, SlidersHorizontal, History, CheckCircle2, Sparkles } from "lucide-react";
 import { api } from "../lib/api.js";
 import {
   type ActivateResult,
@@ -43,24 +43,60 @@ export function AudiencesScreen() {
   const [segBrand, setSegBrand] = useState("");
   const [segMinSpend, setSegMinSpend] = useState("");
   const [segMinTxn, setSegMinTxn] = useState("");
+  const [segChurn, setSegChurn] = useState("");   // % nguy cơ rời ≥
+  const [segProp, setSegProp] = useState("");     // % khả năng mua ≥
+  const [segClv, setSegClv] = useState("");       // CLV ≥ (VND)
   const [segCount, setSegCount] = useState<number | null>(null);
   const brands = useQuery({ queryKey: ["brands"], queryFn: api.listBrands });
   const runs = useQuery({ queryKey: ["activation-runs"], queryFn: api.listActivationRuns });
+  const smart = useQuery({ queryKey: ["smart-segments"], queryFn: api.getSmartSegments });
 
-  async function previewSegment() {
+  function buildCriteria(): SegmentCriteria {
+    return {
+      ...(segBrand ? { brandId: segBrand } : {}),
+      ...(segMinSpend.trim() ? { minSpend: Number(segMinSpend) } : {}),
+      ...(segMinTxn.trim() ? { minTransactions: Number(segMinTxn) } : {}),
+      ...(segChurn.trim() ? { churnProbGte: Number(segChurn) / 100 } : {}),
+      ...(segProp.trim() ? { propensityGte: Number(segProp) / 100 } : {}),
+      ...(segClv.trim() ? { clvMin: Number(segClv) } : {}),
+    };
+  }
+
+  async function previewSegment(criteria: SegmentCriteria = buildCriteria()) {
     setBusy(true);
     setError(null);
     try {
-      const criteria: SegmentCriteria = {
-        ...(segBrand ? { brandId: segBrand } : {}),
-        ...(segMinSpend.trim() ? { minSpend: Number(segMinSpend) } : {}),
-        ...(segMinTxn.trim() ? { minTransactions: Number(segMinTxn) } : {}),
-      };
       const seg = await api.previewSegment(criteria);
       setRaw(seg.occIds.join("\n"));
       setSegCount(seg.count);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Lỗi segment");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function applySmart(c: SegmentCriteria) {
+    setSegBrand(c.brandId ?? "");
+    setSegMinSpend(c.minSpend != null ? String(c.minSpend) : "");
+    setSegMinTxn(c.minTransactions != null ? String(c.minTransactions) : "");
+    setSegChurn(c.churnProbGte != null ? String(Math.round(c.churnProbGte * 100)) : "");
+    setSegProp(c.propensityGte != null ? String(Math.round(c.propensityGte * 100)) : "");
+    setSegClv(c.clvMin != null ? String(c.clvMin) : "");
+    void previewSegment(c);
+  }
+
+  async function findLookalike() {
+    if (occIds.length === 0) { setError("Cần ≥1 OCH ID làm seed (xem trước segment hoặc dán danh sách)"); return; }
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await api.lookalikeSegment(occIds.slice(0, 200), 50);
+      const merged = Array.from(new Set([...occIds, ...res.map((r) => r.occId)]));
+      setRaw(merged.join("\n"));
+      setSegCount(merged.length);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Lỗi lookalike");
     } finally {
       setBusy(false);
     }
@@ -106,14 +142,42 @@ export function AudiencesScreen() {
             <Field className="w-40" label="Số giao dịch tối thiểu">
               <Input aria-label="Số giao dịch tối thiểu" inputMode="numeric" value={segMinTxn} onChange={(e) => setSegMinTxn(e.target.value)} className="tabular" />
             </Field>
-            <Button variant="secondary" onClick={previewSegment} loading={busy} className="mb-[1px]">Xem trước segment</Button>
+            <Field className="w-36" label="Nguy cơ rời ≥ (%)">
+              <Input aria-label="Nguy cơ rời tối thiểu" inputMode="numeric" value={segChurn} onChange={(e) => setSegChurn(e.target.value)} className="tabular" placeholder="vd 60" />
+            </Field>
+            <Field className="w-36" label="Khả năng mua ≥ (%)">
+              <Input aria-label="Khả năng mua tối thiểu" inputMode="numeric" value={segProp} onChange={(e) => setSegProp(e.target.value)} className="tabular" placeholder="vd 50" />
+            </Field>
+            <Field className="w-40" label="CLV dự đoán ≥ (VND)">
+              <Input aria-label="CLV tối thiểu" inputMode="numeric" value={segClv} onChange={(e) => setSegClv(e.target.value)} className="tabular" />
+            </Field>
+            <Button variant="secondary" onClick={() => previewSegment()} loading={busy} className="mb-[1px]">Xem trước segment</Button>
+            <Button variant="ghost" icon={<Users className="size-3.5" />} onClick={findLookalike} loading={busy} className="mb-[1px]">Mở rộng lookalike</Button>
             {segCount !== null && (
               <span className="mb-2 text-sm text-text-muted">
                 khớp <strong data-testid="segment-count" className="text-accent">{fmtInt(segCount)}</strong> khách
               </span>
             )}
           </div>
+          <p className="mt-2 text-xs text-text-subtle">Tiêu chí dự đoán đọc từ điểm ML/heuristic (workspace Dự đoán). "Mở rộng lookalike" tìm khách tương đồng RFM+hành vi với danh sách hiện tại.</p>
         </Panel>
+
+        {(smart.data?.length ?? 0) > 0 && (
+          <Panel title="Smart segments gợi ý" icon={<Sparkles className="size-4" />} subtitle="Preset dùng điểm dự đoán — bấm để nạp & xem trước">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {smart.data!.map((s) => (
+                <button key={s.key} type="button" onClick={() => applySmart(s.criteria)}
+                  className="rounded-lg border border-border bg-surface p-3 text-left transition-colors hover:border-accent">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-text">{s.name}</span>
+                    <Badge tone="accent">{fmtInt(s.count)}</Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-text-muted">{s.blurb}</p>
+                </button>
+              ))}
+            </div>
+          </Panel>
+        )}
 
         <form onSubmit={(e) => { e.preventDefault(); run(); }}>
           <Panel title="Kích hoạt audience" icon={<Send className="size-4" />}>

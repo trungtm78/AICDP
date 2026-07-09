@@ -46,7 +46,8 @@ export async function nlToSegment(
       "Bạn chuyển mô tả đối tượng khách hàng (tiếng Việt) thành JSON SegmentCriteria. CHỈ trả JSON, " +
       "không markdown. Field cho phép: brandId(string), minSpend(int VND), minTransactions(int), " +
       "maxRecencyDays(int), lifecycleStage(new|active|at_risk|vip|dormant|churned), loyaltyMin(int), " +
-      "categoryAffinity(string), consentPurpose(marketing_email|marketing_sms|marketing_zalo|personalization|data_sharing). " +
+      "categoryAffinity(string), consentPurpose(marketing_email|marketing_sms|marketing_zalo|personalization|data_sharing), " +
+      "churnProbGte(0..1 nguy cơ rời), propensityGte(0..1 khả năng mua), clvMin(int VND giá trị vòng đời dự đoán). " +
       "Bỏ field không liên quan.",
     user: description,
     maxTokens: 400,

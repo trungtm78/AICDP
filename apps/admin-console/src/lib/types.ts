@@ -263,11 +263,35 @@ export interface SegmentCriteria {
   brandId?: string;
   minSpend?: number;
   minTransactions?: number;
+  maxRecencyDays?: number;
+  lifecycleStage?: string;
+  loyaltyMin?: number;
+  categoryAffinity?: string;
+  consentPurpose?: string;
+  churnProbGte?: number;
+  propensityGte?: number;
+  clvMin?: number;
 }
 
 export interface SegmentPreview {
   count: number;
   occIds: string[];
+}
+
+/** Smart segment gợi ý (preset dùng điểm dự đoán). */
+export interface SmartSegment {
+  key: string;
+  name: string;
+  blurb: string;
+  criteria: SegmentCriteria;
+  count: number;
+}
+
+/** Kết quả lookalike (audience expansion). */
+export interface LookalikeResult {
+  occId: string;
+  fullName: string | null;
+  similarity: number;
 }
 
 export interface ActivateArgs {

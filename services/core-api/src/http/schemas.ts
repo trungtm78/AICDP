@@ -140,6 +140,15 @@ export const segmentPreviewSchema = z.object({
   loyaltyMin: z.number().int().nonnegative().safe().optional(),
   categoryAffinity: z.string().min(1).optional(),
   consentPurpose: consentPurposeEnum.optional(),
+  // Tiêu chí dự đoán (customer_prediction)
+  churnProbGte: z.number().min(0).max(1).optional(),
+  propensityGte: z.number().min(0).max(1).optional(),
+  clvMin: z.number().int().nonnegative().safe().optional(),
+});
+
+export const lookalikeSchema = z.object({
+  seedOccIds: z.array(z.string().uuid()).min(1).max(500),
+  limit: z.number().int().positive().max(200).optional(),
 });
 
 export const forecastQuerySchema = z.object({
