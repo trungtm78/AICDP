@@ -18,6 +18,11 @@ export type ErrorCode =
   | "RESERVATION_INVALID_STATE"
   | "LLM_DISABLED"
   | "LLM_NOT_CONFIGURED"
+  | "JOURNEY_NOT_FOUND"
+  | "JOURNEY_NOT_EDITABLE"
+  | "JOURNEY_INVALID"
+  | "JOURNEY_NOT_PUBLISHED"
+  | "JOURNEY_USE_ENROLL"
   | "INTERNAL";
 
 export interface ErrorEnvelope {

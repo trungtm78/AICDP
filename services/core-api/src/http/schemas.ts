@@ -257,3 +257,36 @@ export const lookupQuerySchema = z.object({
   value: z.string().min(1),
   brand_id: z.string().optional(),
 });
+
+// ── Journey engine (M1) ──
+const journeyNodeSchema = z.object({
+  id: z.string().min(1),
+  type: z.enum(["entry", "wait", "condition", "action", "exit"]),
+  config: z.record(z.unknown()).optional(),
+  pos: z.object({ x: z.number(), y: z.number() }).optional(),
+});
+const journeyEdgeSchema = z.object({
+  from: z.string().min(1),
+  to: z.string().min(1),
+  branch: z.enum(["yes", "no"]).optional(),
+});
+export const journeyDefinitionSchema = z.object({
+  nodes: z.array(journeyNodeSchema).min(1).max(200),
+  edges: z.array(journeyEdgeSchema).max(400),
+});
+export const journeyDraftSchema = z.object({
+  name: z.string().min(1).max(200),
+  triggerType: z.enum(["event", "segment", "manual"]).optional(),
+  triggerConfig: z.record(z.unknown()).optional(),
+  definition: journeyDefinitionSchema.optional(),
+});
+export const journeySaveSchema = z.object({
+  name: z.string().min(1).max(200).optional(),
+  triggerType: z.enum(["event", "segment", "manual"]).optional(),
+  triggerConfig: z.record(z.unknown()).optional(),
+  definition: journeyDefinitionSchema.optional(),
+});
+export const journeyEnrollSchema = z.object({
+  occIds: z.array(z.string().uuid()).max(10000).optional(),
+  useSegment: z.boolean().optional(),
+});

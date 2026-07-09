@@ -10,6 +10,8 @@ export interface ActivateArgs {
   channel: string;
   destination: string;
   occIds: string[];
+  /** Nếu có: chống gửi trùng (journey tick replay/crash). ON CONFLICT trả run cũ. */
+  idempotencyKey?: string | undefined;
 }
 
 export interface ActivateResult {
@@ -46,10 +48,13 @@ export async function activate(pool: Pool, a: ActivateArgs): Promise<ActivateRes
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    // Claim run: khi có idempotencyKey, ON CONFLICT DO NOTHING → replay trả run cũ (không gửi trùng).
     const run = await client.query<{ run_id: string }>(
       `INSERT INTO cdp.activation_run
-         (audience_name, purpose, channel, destination, total, allowed_count, suppressed_count)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING run_id`,
+         (audience_name, purpose, channel, destination, total, allowed_count, suppressed_count, idempotency_key)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ${a.idempotencyKey ? "ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING" : ""}
+       RETURNING run_id`,
       [
         a.audienceName,
         a.purpose,
@@ -58,8 +63,25 @@ export async function activate(pool: Pool, a: ActivateArgs): Promise<ActivateRes
         a.occIds.length,
         allowed.length,
         suppressed.length,
+        a.idempotencyKey ?? null,
       ],
     );
+    if (run.rows.length === 0) {
+      // Đã activate trước đó với key này → trả run cũ (idempotent), không ghi member lần 2.
+      await client.query("ROLLBACK");
+      const existing = await pool.query<ActivationRun>(
+        "SELECT * FROM cdp.activation_run WHERE idempotency_key=$1",
+        [a.idempotencyKey],
+      );
+      const e = existing.rows[0]!;
+      return {
+        runId: e.run_id,
+        total: e.total,
+        allowedCount: e.allowed_count,
+        suppressedCount: e.suppressed_count,
+        allowed,
+      };
+    }
     const runId = run.rows[0]!.run_id;
     await insertMembers(client, runId, allowed, "allowed");
     await insertMembers(client, runId, suppressed, "suppressed_no_consent");
