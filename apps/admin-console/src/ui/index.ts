@@ -26,6 +26,7 @@ export type { OverlayProps } from "./Modal.js";
 export { Tooltip } from "./Tooltip.js";
 export { Kbd } from "./Kbd.js";
 export { Logo, LogoMark } from "./Brand.js";
+export { BrandConvergence } from "./BrandConvergence.js";
 export { CommandPalette } from "./CommandPalette.js";
 export type { CommandItem, CommandPaletteProps } from "./CommandPalette.js";
 // Charts

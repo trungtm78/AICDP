@@ -1,13 +1,13 @@
 import { cn } from "./cn.js";
 import { useTheme } from "./ThemeProvider.js";
 
-// Logo OCH thật (tải từ och.vn). Bản tối (navy) cho nền sáng; bản sáng (trắng) cho nền tối.
+// Logo OCH thật (asset gốc och.vn). Bản navy cho nền sáng; bản trắng cho nền tối.
 function ochSrc(theme: string): string {
   return theme === "dark" ? "/och-logo-light.png" : "/och-logo.png";
 }
 
-/** Chỉ logo OCH (dùng cho favicon-like / màn login). */
-export function LogoMark({ size = 32, className }: { size?: number; className?: string }) {
+/** Chỉ logo OCH — topbar/login. */
+export function LogoMark({ size = 30, className }: { size?: number; className?: string }) {
   const { theme } = useTheme();
   return (
     <img src={ochSrc(theme)} alt="OCH" style={{ height: size, width: "auto" }} className={className} draggable={false} />
@@ -15,7 +15,7 @@ export function LogoMark({ size = 32, className }: { size?: number; className?: 
 }
 
 /** Lockup: logo OCH + phụ đề "Customer Data Platform". */
-export function Logo({ markSize = 30, className }: { markSize?: number; className?: string }) {
+export function Logo({ markSize = 28, className }: { markSize?: number; className?: string }) {
   const { theme } = useTheme();
   return (
     <span className={cn("inline-flex items-center gap-2.5", className)}>

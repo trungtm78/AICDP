@@ -127,6 +127,30 @@
   color: transparent;
 }
 
+/* Animation "hội tụ thương hiệu" (login hero): luồng dữ liệu từ các thương hiệu OCH chạy về lõi OCH ID. */
+@keyframes och-travel {
+  from { offset-distance: 0%; opacity: 0; }
+  10%  { opacity: 1; }
+  85%  { opacity: 1; }
+  to   { offset-distance: 100%; opacity: 0; }
+}
+@keyframes och-pulse {
+  from { transform: scale(0.7); opacity: 0.55; }
+  to   { transform: scale(2.1); opacity: 0; }
+}
+@keyframes och-node-in {
+  from { opacity: 0; transform: scale(0.6); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes och-fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes och-core-glow {
+  0%, 100% { opacity: 0.85; }
+  50%      { opacity: 1; }
+}
+
 html,
 body,
 #root {

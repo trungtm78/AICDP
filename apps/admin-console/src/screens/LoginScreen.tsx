@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../lib/api.js";
 import { setSession } from "../lib/auth.js";
 import { ApiError } from "../lib/types.js";
-import { LogoMark, Field, Input, Button } from "../ui/index.js";
+import { LogoMark, Field, Input, Button, BrandConvergence } from "../ui/index.js";
 
 /** Đăng nhập admin-console -> nhận JWT, lưu phiên, vào hệ thống. */
 export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
@@ -53,33 +53,28 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
           }}
         />
         <div className="relative flex h-full flex-col justify-between p-10 xl:p-14">
-          <img src="/och-logo-light.png" alt="OCH" className="h-12 w-auto" draggable={false} />
+          {/* (Logo góc trái tạm bỏ — xử lý sau) */}
+          <div />
 
-          <div className="max-w-md">
-            {/* Vạch gủ vàng điểm nhấn heritage */}
-            <span className="mb-6 block h-1 w-16 rounded-full" style={{ backgroundColor: "#c39851" }} />
-            <h2 className="text-3xl font-bold leading-tight tracking-tight text-white xl:text-4xl">
-              Creating Legacy —<br />Sharing Value
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-white/80">
-              Nền tảng Dữ liệu Khách hàng hợp nhất cho hệ sinh thái đa thương hiệu One Capital
-              Hospitality — một mã khách hàng OCH ID duy nhất xuyên F&amp;B và khách sạn.
-            </p>
-            <ul className="mt-7 space-y-2.5 text-sm text-white/75">
-              {[
-                "Chân dung khách hàng 360° hợp nhất mọi thương hiệu",
-                "Loyalty & marketing tự động cá nhân hoá",
-                "Dữ liệu vận hành trên hạ tầng của OCH tại Việt Nam",
-              ].map((t) => (
-                <li key={t} className="flex items-start gap-2.5">
-                  <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: "#c39851" }} />
-                  <span>{t}</span>
-                </li>
-              ))}
-            </ul>
+          {/* Animation hội tụ thương hiệu — trọng tâm hero (nhiều thương hiệu → 1 OCH ID) */}
+          <div className="flex flex-1 flex-col items-center justify-center py-6">
+            <BrandConvergence />
+            <div
+              className="mt-4 max-w-md text-center"
+              style={{ animation: "och-fade-up 0.7s ease-out 0.2s both" }}
+            >
+              <span className="mx-auto mb-4 block h-1 w-16 rounded-full" style={{ backgroundColor: "#c39851" }} />
+              <h2 className="whitespace-nowrap text-[1.55rem] font-bold leading-tight tracking-tight text-white">
+                Creating Legacy — Sharing Value
+              </h2>
+              <p className="mt-3 text-sm leading-relaxed text-white/80">
+                Sáu thương hiệu F&amp;B và khách sạn của One Capital Hospitality, hợp nhất về
+                một mã khách hàng <span className="font-semibold text-white">OCH ID</span> duy nhất.
+              </p>
+            </div>
           </div>
 
-          <p className="text-xs uppercase tracking-widest text-white/45">
+          <p className="text-xs font-semibold uppercase tracking-widest text-white/70">
             Customer Data Platform • Phát triển bởi AIPOWER
           </p>
         </div>
