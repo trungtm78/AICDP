@@ -4,7 +4,7 @@ WORKDIR /app
 RUN corepack enable
 
 # Cài deps theo lockfile (chỉ core-api)
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY services/core-api/package.json services/core-api/package.json
 RUN pnpm install --frozen-lockfile --filter @occ-cdp/core-api
 

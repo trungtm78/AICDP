@@ -13,7 +13,7 @@ services:
       POSTGRES_PASSWORD: occ_cdp_dev
       POSTGRES_DB: AI_CDP_Pro
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U occ_cdp -d AI_CDP_Pro"]
       interval: 5s
