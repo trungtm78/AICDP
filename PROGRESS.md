@@ -24,7 +24,9 @@
 - Custom primitives (không shadcn/Radix) + ECharts (không Recharts).
 
 ## Task đang làm dở
-- (không) — task rebrand đã hoàn tất, đang ở bước checkpoint (`/review` → `/codex`) + commit.
+- (không) — task rebrand HOÀN TẤT. Checkpoint `/review` + `/codex` (cross-model) đã chạy:
+  codex bắt 2 sót → đã fix (mô tả "chuẩn OCC"→"chuẩn hợp nhất"; neutral chart đồng bộ token).
+  tsc sạch · 25/25 test · build OK · screenshot lại. Commit: fd8f4b3 (rebrand) + follow-up fix.
 
 ## Task kế tiếp (đề xuất, đợt sau)
 - Tree-shake ECharts giảm bundle (hiện ~482KB gzip).
