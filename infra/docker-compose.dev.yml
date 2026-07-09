@@ -38,6 +38,32 @@ services:
       timeout: 5s
       retries: 5
 
+  # ai-service (ML: churn/CLV/propensity/next-purchase). Đọc Postgres native trên host.
+  # core-api gọi qua AI_SERVICE_URL; down/timeout -> tự fallback heuristic (circuit-breaker).
+  ai-service:
+    build:
+      context: ../services/ai-service
+      dockerfile: Dockerfile
+    container_name: occ-cdp-ai-service
+    ports:
+      - "8072:8072"
+    environment:
+      PG_HOST: host.docker.internal
+      PG_PORT: "5433"
+      PG_DB: AI_CDP_Pro
+      PG_USER: occ_cdp
+      PG_PASSWORD: occ_cdp_dev
+      MODELS_DIR: /models
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ai_models:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8072/v1/health').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
   minio:
     image: minio/minio:latest
     container_name: occ-cdp-minio
@@ -58,3 +84,4 @@ services:
 
 volumes:
   clickhouse_data:
+  ai_models:

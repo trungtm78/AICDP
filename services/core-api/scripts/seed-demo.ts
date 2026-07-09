@@ -24,6 +24,8 @@ import { createUser } from "../src/auth/user.service.js";
 import { createApiKey } from "../src/auth/apikey.service.js";
 import { setConfig } from "../src/ai-config/ai-config.service.js";
 import { createConnection, createPipeline } from "../src/connector/connector.service.js";
+import { recomputeAll } from "../src/prediction/prediction.service.js";
+import { HttpPredictionProvider } from "../src/prediction/prediction.provider.js";
 import type { JourneyDefinition } from "../src/journey/journey.types.js";
 
 // ── PRNG tất định (mulberry32) ──
@@ -283,7 +285,8 @@ async function placeOrder(
 // ── Reset sạch + đảm bảo đúng 6 brand OCH ──
 async function resetAll(): Promise<void> {
   await pool.query(
-    `TRUNCATE cdp.ai_llm_usage, cdp.ai_config_audit, cdp.ai_config, cdp.customer_feature,
+    `TRUNCATE cdp.model_feature_importance, cdp.model_card, cdp.ml_model, cdp.customer_prediction,
+              cdp.ai_llm_usage, cdp.ai_config_audit, cdp.ai_config, cdp.customer_feature,
               cdp.journey_step_run, cdp.journey_participant, cdp.journey_version,
               cdp.journey_run, cdp.journey, cdp.cart, cdp.password_reset,
               cdp.pipeline, cdp.connection, cdp.connector,
@@ -630,6 +633,21 @@ async function main(): Promise<void> {
   await setConfig(pool, "features", { recoV2: true, nba: true, forecast: true, assistant: true }, "admin");
   await setConfig(pool, "reco", { topN: 6, diversityWeight: 0.35, enableCrossBrand: true, enableMarketBasket: true, boost: [], bury: [] }, "admin");
   await setConfig(pool, "forecast", { periods: 6, window: 3, granularity: "month" }, "admin");
+  // LLM: nếu chỉ có OPENAI_API_KEY (demo) → chọn OpenAI cho mọi task để trợ lý AI chạy thật.
+  if (process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+    await setConfig(pool, "llm", {
+      defaultProvider: "openai", piiPolicy: "redact",
+      tasks: {
+        ask: { provider: "openai", model: "gpt-4o" },
+        segment: { provider: "openai", model: "gpt-4o-mini" },
+        content: { provider: "openai", model: "gpt-4o" },
+        explain: { provider: "openai", model: "gpt-4o-mini" },
+      },
+    }, "admin");
+  }
+
+  // ── Dự đoán ML (customer_prediction): thử ai-service, không có thì fallback heuristic ──
+  const predRes = await recomputeAll(pool, new HttpPredictionProvider());
 
   // ── Summary ──
   const cnt = await pool.query<{ khach: string; gd: string; brands: string; stores: string; journeys: string; runs: string; users: string; keys: string }>(
@@ -650,6 +668,7 @@ async function main(): Promise<void> {
     `   • ${s.khach} khách · ${s.gd} giao dịch (mục tiêu ~${txnCount}) · ${merges.rows[0]!.c} lần hợp nhất định danh (${mergeCount} ca)\n` +
     `   • Journeys: ${s.journeys} (welcome ${r1.enrolled} · cart ${r2.enrolled} · VIP ${r3.enrolled} · diamond ${r4.enrolled} · winback ${r5.enrolled} · at-risk ${r6.enrolled} · hotel ${r7.enrolled}) · ${s.runs} activation run · ${redeemed} lượt đổi điểm · ${carts} giỏ hàng mở/bỏ quên\n` +
     `   • ${s.users} user · ${s.keys} api-key · ${connsSeed.length} connection · 3 pipeline\n` +
+    `   • Dự đoán: ${predRes.count} khách (nguồn: ${predRes.source})\n` +
     `   Đăng nhập: admin / Och@2026\n`,
   );
   await pool.end();

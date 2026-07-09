@@ -37,6 +37,14 @@ export interface AiConfig {
   decisioning: {
     enabled: boolean;
   };
+  ml: {
+    enabled: boolean; // bật gọi ai-service; tắt -> luôn dùng heuristic
+    useForFeature: boolean; // ghi lifecycle/propensity/churn ML vào customer_feature (ml-v1)
+    useForClv: boolean; // dùng CLV/next-purchase ML trong customer-analytics
+    churnThreshold: number; // 0..1 ngưỡng "churn cao" cho decisioning/segment
+    propensityHorizonDays: number; // horizon nhãn propensity (khớp ai-service)
+    minAuc: number; // ngưỡng tối thiểu để hiển thị model là "tin cậy"
+  };
   features: {
     recoV2: boolean;
     nba: boolean;
@@ -67,6 +75,7 @@ export const DEFAULT_AI_CONFIG: AiConfig = {
   reco: { topN: 10, diversityWeight: 0.3, enableCrossBrand: true, enableMarketBasket: true, boost: [], bury: [] },
   forecast: { periods: 4, window: 4, granularity: "week" },
   decisioning: { enabled: true },
+  ml: { enabled: true, useForFeature: true, useForClv: true, churnThreshold: 0.6, propensityHorizonDays: 30, minAuc: 0.6 },
   features: { recoV2: true, nba: true, forecast: true, assistant: true },
   llm: {
     defaultProvider: "anthropic",

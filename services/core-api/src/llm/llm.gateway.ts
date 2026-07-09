@@ -41,13 +41,41 @@ const anthropicProvider: ProviderFn = async (opts) => {
   return { text, inputTokens: res.usage.input_tokens, outputTokens: res.usage.output_tokens };
 };
 
+// ── OpenAI adapter (Chat Completions qua fetch — không cần SDK) ──
+const openaiProvider: ProviderFn = async (opts) => {
+  const key = process.env.OPENAI_API_KEY;
+  if (!key) throw new AppError({ code: "LLM_NOT_CONFIGURED", httpStatus: 503, message: "Thiếu OPENAI_API_KEY", why: "Provider openai chưa cấu hình key.", fix: "Đặt ENV OPENAI_API_KEY." });
+  const res = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model: opts.model,
+      max_completion_tokens: opts.maxTokens,
+      messages: [
+        { role: "system", content: opts.system },
+        { role: "user", content: opts.user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const detail = await res.text().catch(() => "");
+    throw new AppError({ code: "LLM_NOT_CONFIGURED", httpStatus: 502, message: `OpenAI lỗi ${res.status}`, why: detail.slice(0, 300), fix: "Kiểm tra OPENAI_API_KEY / model trong AI Settings." });
+  }
+  const data = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  const text = data.choices?.[0]?.message?.content ?? "";
+  return { text, inputTokens: data.usage?.prompt_tokens ?? 0, outputTokens: data.usage?.completion_tokens ?? 0 };
+};
+
 const notConfigured = (name: string): ProviderFn => async () => {
   throw new AppError({ code: "LLM_NOT_CONFIGURED", httpStatus: 503, message: `Provider ${name} chưa được tích hợp/cấu hình`, why: "Adapter chưa bật hoặc thiếu key.", fix: `Cấu hình ENV cho ${name} hoặc chọn provider khác trong AI Settings.` });
 };
 
 const providers: Record<LlmProvider, ProviderFn> = {
   anthropic: anthropicProvider,
-  openai: notConfigured("openai"),
+  openai: openaiProvider,
   gemini: notConfigured("gemini"),
 };
 

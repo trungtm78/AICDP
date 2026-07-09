@@ -194,6 +194,7 @@ export const aiConfigSectionEnum = z.enum([
   "reco",
   "forecast",
   "decisioning",
+  "ml",
   "features",
   "llm",
 ]);

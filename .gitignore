@@ -32,3 +32,11 @@ Thumbs.db
 infra/.data/
 *.local
 deploy/admin-dist/
+
+# ai-service (Python) — không commit venv/caches/model artifacts
+services/ai-service/.venv/
+services/ai-service/**/__pycache__/
+services/ai-service/**/*.pyc
+services/ai-service/_models/
+services/ai-service/*.egg-info/
+services/ai-service/.pytest_cache/

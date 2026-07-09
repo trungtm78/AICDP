@@ -34,9 +34,38 @@ services:
       CORE_API_PORT: "8071"
       CORE_API_JWT_SECRET: "och-aicdp-demo-jwt-secret-2026-do-not-use-in-real-prod"
       CORE_API_DEMO_RESET: "1"  # hiện link đặt lại trên màn (demo, không gửi email thật)
+      AI_SERVICE_URL: "http://ai-service:8072"
+      # LLM key truyền từ env host lúc `docker compose up` (KHÔNG hardcode secret trong file).
+      OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
     depends_on:
       postgres:
         condition: service_healthy
+    # KHÔNG depends_on ai-service (cứng): core-api sống khi ai-service down (circuit-breaker).
+
+  # ai-service (ML). Train một lần qua: docker compose ... exec ai-service python -m ai_service.scripts.train_all
+  ai-service:
+    build:
+      context: ../services/ai-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      PG_HOST: postgres
+      PG_PORT: "5432"
+      PG_DB: AI_CDP_Pro
+      PG_USER: occ_cdp
+      PG_PASSWORD: occ_cdp_dev
+      MODELS_DIR: /models
+    volumes:
+      - mldata:/models
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8072/v1/health').status==200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
 
   # Seed demo OCH (chạy tay 1 lần sau khi up): TRUNCATE + dữ liệu đầy đủ mọi màn.
   seed:
@@ -68,3 +97,4 @@ services:
 
 volumes:
   pgdata:
+  mldata:
