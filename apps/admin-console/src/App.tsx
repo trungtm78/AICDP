@@ -14,6 +14,7 @@ import { GovernanceScreen } from "./screens/GovernanceScreen.js";
 import { AudiencesScreen } from "./screens/AudiencesScreen.js";
 import { ControlTowerScreen } from "./screens/ControlTowerScreen.js";
 import { JourneysScreen } from "./screens/JourneysScreen.js";
+import { JourneyDetail } from "./screens/journey/JourneyDetail.js";
 import { PlatformScreen } from "./screens/PlatformScreen.js";
 import { AiGovernanceScreen } from "./screens/AiGovernanceScreen.js";
 import { InsightsScreen } from "./screens/InsightsScreen.js";
@@ -91,6 +92,7 @@ export function App() {
             <Route path="/audiences" element={<AudiencesScreen />} />
             <Route path="/loyalty" element={<LoyaltyScreen />} />
             <Route path="/journeys" element={<JourneysScreen />} />
+            <Route path="/journeys/:id" element={<JourneyDetail />} />
             <Route path="/data-ops" element={<MastersScreen />} />
             <Route path="/governance" element={<GovernanceScreen />} />
             <Route path="/platform" element={<PlatformScreen />} />

@@ -33,19 +33,26 @@ import {
   type NbaDecision,
   type ForecastResult,
   type Insights,
+  type JTrigger,
+  type JourneyDefinition,
+  type JourneyRow,
+  type JourneySummary,
+  type JourneyParticipant,
+  type JourneyReport,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
 
 interface Envelope<T> {
   data: T;
+  meta?: Record<string, unknown>;
 }
 
 // Rỗng (mặc định) = same-origin: dev qua Vite proxy /v1, prod cần reverse-proxy /v1 -> core-api.
 // Đặt VITE_API_BASE_URL khi admin-console và core-api khác origin.
 const BASE = (import.meta.env.VITE_API_BASE_URL ?? "").replace(/\/$/, "");
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function rawRequest<T>(path: string, init?: RequestInit): Promise<Envelope<T>> {
   // JWT từ phiên đăng nhập (không nhúng credential vào bundle). Login là public nên
   // không cần token. 401 -> xoá phiên để App quay về màn đăng nhập.
   const token = getToken();
@@ -68,7 +75,17 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       err.field_path ?? null,
     );
   }
-  return (body as Envelope<T>).data;
+  return body as Envelope<T>;
+}
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  return (await rawRequest<T>(path, init)).data;
+}
+
+/** Như request nhưng trả kèm meta (vd participants: meta.total). */
+async function requestFull<T>(path: string, init?: RequestInit): Promise<{ data: T; meta: { total: number } }> {
+  const env = await rawRequest<T>(path, init);
+  return { data: env.data, meta: { total: Number((env.meta?.total as number) ?? 0) } };
 }
 
 export const api = {
@@ -180,6 +197,31 @@ export const api = {
     request<JourneyRunResult>(`/v1/journeys/${encodeURIComponent(journeyId)}/run`, {
       method: "POST",
     }),
+
+  // ── Journey engine (M1–M5) ──
+  jListJourneys: () => request<JourneySummary[]>("/v1/journeys"),
+  jGetJourney: (id: string) => request<JourneyRow>(`/v1/journeys/${encodeURIComponent(id)}`),
+  jCreateJourney: (dto: { name: string; triggerType?: JTrigger; triggerConfig?: Record<string, unknown>; definition?: JourneyDefinition }) =>
+    request<JourneyRow>("/v1/journeys", { method: "POST", body: JSON.stringify(dto) }),
+  jSaveJourney: (id: string, dto: { name?: string; triggerType?: JTrigger; triggerConfig?: Record<string, unknown>; definition?: JourneyDefinition }) =>
+    request<JourneyRow>(`/v1/journeys/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(dto) }),
+  jPublish: (id: string) => request<{ version: number }>(`/v1/journeys/${encodeURIComponent(id)}/publish`, { method: "POST" }),
+  jActivate: (id: string) => request<JourneyRow>(`/v1/journeys/${encodeURIComponent(id)}/activate`, { method: "POST" }),
+  jPause: (id: string) => request<JourneyRow>(`/v1/journeys/${encodeURIComponent(id)}/pause`, { method: "POST" }),
+  jArchive: (id: string) => request<JourneyRow>(`/v1/journeys/${encodeURIComponent(id)}/archive`, { method: "POST" }),
+  jEnroll: (id: string, body: { occIds?: string[]; useSegment?: boolean }) =>
+    request<{ enrolled: number }>(`/v1/journeys/${encodeURIComponent(id)}/enroll`, { method: "POST", body: JSON.stringify(body) }),
+  jParticipants: (id: string, q: { status?: string; limit?: number; offset?: number } = {}) => {
+    const p = new URLSearchParams();
+    if (q.status) p.set("status", q.status);
+    if (q.limit) p.set("limit", String(q.limit));
+    if (q.offset) p.set("offset", String(q.offset));
+    return requestFull<JourneyParticipant[]>(`/v1/journeys/${encodeURIComponent(id)}/participants?${p.toString()}`);
+  },
+  jRetry: (id: string, pid: string) => request<{ ok: boolean }>(`/v1/journeys/${encodeURIComponent(id)}/participants/${encodeURIComponent(pid)}/retry`, { method: "POST" }),
+  jForceExit: (id: string, pid: string) => request<{ ok: boolean }>(`/v1/journeys/${encodeURIComponent(id)}/participants/${encodeURIComponent(pid)}/force-exit`, { method: "POST" }),
+  jReport: (id: string, windowDays = 7) => request<JourneyReport>(`/v1/journeys/${encodeURIComponent(id)}/report?windowDays=${windowDays}`),
+  jTick: (limit = 100) => request<{ processed: number }>("/v1/journeys/tick", { method: "POST", body: JSON.stringify({ limit }) }),
 
   // Platform (admin): quản lý user + API key.
   listUsers: () => request<UserSummary[]>("/v1/auth/users"),

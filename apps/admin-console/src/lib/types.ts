@@ -134,6 +134,81 @@ export interface CreateJourneyArgs {
   action: JourneyAction;
 }
 
+// ── Journey engine (M1–M5): graph đa bước ──
+export type JNodeType = "entry" | "wait" | "condition" | "action" | "exit";
+export type JTrigger = "event" | "segment" | "manual";
+export type JPredicate =
+  | { kind: "lifecycle"; equals: string }
+  | { kind: "churnRiskGte"; value: number }
+  | { kind: "propensityGte"; value: number }
+  | { kind: "loyaltyMinGte"; value: number }
+  | { kind: "favoriteCategory"; equals: string }
+  | { kind: "consentGranted"; purpose: string };
+export type JActionCfg =
+  | { kind: "activation"; purpose: string; channel: string; destination: string }
+  | { kind: "loyalty_bonus"; points: number };
+export interface JNode {
+  id: string;
+  type: JNodeType;
+  config?: Record<string, unknown>;
+  pos?: { x: number; y: number };
+}
+export interface JEdge {
+  from: string;
+  to: string;
+  branch?: "yes" | "no";
+}
+export interface JourneyDefinition {
+  nodes: JNode[];
+  edges: JEdge[];
+}
+export interface JourneyRow {
+  journey_id: string;
+  name: string;
+  status: "draft" | "active" | "paused" | "archived";
+  trigger_type: JTrigger | null;
+  trigger_config: Record<string, unknown>;
+  definition: JourneyDefinition | null;
+  published_version: number | null;
+  allow_re_enroll: boolean;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+}
+export interface JourneySummary extends JourneyRow {
+  participants: number;
+  completed: number;
+}
+export interface JourneyParticipant {
+  id: string;
+  occ_id: string;
+  status: "active" | "completed" | "exited" | "failed";
+  current_node_id: string | null;
+  attempts: number;
+  enrolled_at: string;
+  completed_at: string | null;
+  exit_reason: string | null;
+}
+export interface JourneyReport {
+  entered: number;
+  active: number;
+  completed: number;
+  exited: number;
+  failed: number;
+  exitReasons: { reason: string; count: number }[];
+  funnel: { nodeId: string; nodeType: string; reached: number }[];
+  attribution: {
+    windowDays: number;
+    orders: number;
+    revenue: number;
+    convertedCustomers: number;
+    loyaltyPointsIssued: number;
+    activationsAllowed: number;
+    activationsSuppressed: number;
+  };
+  enrollmentByDay: { day: string; count: number }[];
+}
+
 export type Role =
   | "admin"
   | "data_steward"
