@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Play, RotateCcw, LogOut, History } from "lucide-react";
+import { Play, RotateCcw, LogOut, History, UserPlus } from "lucide-react";
 import { api } from "../../lib/api.js";
-import { type JourneyParticipant } from "../../lib/types.js";
+import { ApiError, type JourneyParticipant } from "../../lib/types.js";
 import { fmtDateTime } from "../../lib/format.js";
-import { Panel, Table, type Column, Button, StatusPill, Badge, Drawer, Skeleton, SegmentedControl, useToast } from "../../ui/index.js";
+import { Panel, Table, type Column, Button, StatusPill, Badge, Drawer, Field, Textarea, Skeleton, SegmentedControl, useToast } from "../../ui/index.js";
 
 const STEP_TONE: Record<string, "success" | "neutral" | "error"> = { done: "success", skipped: "neutral", failed: "error" };
 const NODE_LABEL: Record<string, string> = { entry: "Vào", wait: "Chờ", condition: "Điều kiện", action: "Hành động", exit: "Hoàn thành" };
@@ -22,6 +22,8 @@ export function JourneyParticipants({ journeyId }: { journeyId: string }) {
   const toast = useToast();
   const [status, setStatus] = useState("");
   const [histPid, setHistPid] = useState<JourneyParticipant | null>(null);
+  const [enrollOpen, setEnrollOpen] = useState(false);
+  const [enrollRaw, setEnrollRaw] = useState("");
 
   const q = useQuery({
     queryKey: ["journey-participants", journeyId, status],
@@ -39,6 +41,16 @@ export function JourneyParticipants({ journeyId }: { journeyId: string }) {
   });
   const retryMut = useMutation({ mutationFn: (pid: string) => api.jRetry(journeyId, pid), onSuccess: refresh });
   const exitMut = useMutation({ mutationFn: (pid: string) => api.jForceExit(journeyId, pid), onSuccess: refresh });
+  const enrollMut = useMutation({
+    mutationFn: (occIds: string[]) => api.jEnroll(journeyId, { occIds }),
+    onSuccess: (r) => { toast.push(`Đã thêm ${r.enrolled} người vào journey`, "success"); setEnrollOpen(false); setEnrollRaw(""); refresh(); },
+    onError: (e) => toast.push(e instanceof ApiError ? e.message : "Lỗi enroll", "error"),
+  });
+  function doEnroll() {
+    const occIds = enrollRaw.split(/[\s,;]+/).map((s) => s.trim()).filter(Boolean);
+    if (occIds.length === 0) { toast.push("Nhập ít nhất 1 OCH ID", "error"); return; }
+    enrollMut.mutate(occIds);
+  }
 
   const columns: Column<JourneyParticipant>[] = [
     { key: "occ", header: "OCC", cell: (p) => <span className="font-mono text-xs text-text-muted">{p.occ_id.slice(0, 8)}…</span>, width: "120px" },
@@ -65,6 +77,7 @@ export function JourneyParticipants({ journeyId }: { journeyId: string }) {
       actions={
         <div className="flex items-center gap-2">
           <SegmentedControl items={FILTERS} value={status} onChange={setStatus} />
+          <Button size="sm" variant="secondary" icon={<UserPlus className="size-3.5" />} onClick={() => setEnrollOpen(true)}>Thêm người</Button>
           <Button size="sm" variant="secondary" icon={<Play className="size-3.5" />} onClick={() => tickMut.mutate()} loading={tickMut.isPending}>Chạy engine</Button>
         </div>
       }
@@ -74,6 +87,20 @@ export function JourneyParticipants({ journeyId }: { journeyId: string }) {
         empty={{ title: "Chưa có người tham gia", description: "Kích hoạt journey hoặc enroll thủ công." }}
         className="rounded-none border-0 shadow-none" density="compact" />
       {histPid && <ParticipantHistoryDrawer journeyId={journeyId} participant={histPid} onClose={() => setHistPid(null)} />}
+
+      <Drawer open={enrollOpen} onClose={() => setEnrollOpen(false)} title="Thêm người vào journey"
+        description="Nhập danh sách OCH ID (mỗi dòng hoặc phân tách bằng dấu phẩy). Dành cho journey trigger thủ công."
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="ghost" onClick={() => setEnrollOpen(false)}>Huỷ</Button>
+            <Button variant="primary" icon={<UserPlus className="size-4" />} onClick={doEnroll} loading={enrollMut.isPending}>Thêm vào journey</Button>
+          </div>
+        }>
+        <Field label="Danh sách OCH ID">
+          <Textarea aria-label="Danh sách OCH ID" rows={8} value={enrollRaw} onChange={(e) => setEnrollRaw(e.target.value)}
+            placeholder={"11111111-1111-1111-1111-111111111111\n22222222-2222-2222-2222-222222222222"} className="font-mono text-xs" />
+        </Field>
+      </Drawer>
     </Panel>
   );
 }

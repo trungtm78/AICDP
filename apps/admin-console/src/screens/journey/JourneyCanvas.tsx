@@ -6,7 +6,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useMutation } from "@tanstack/react-query";
-import { LogIn, Clock, GitBranch, Zap, Flag, Save, Plus } from "lucide-react";
+import { LogIn, Clock, GitBranch, Zap, Flag, Save, Plus, Trash2, AlertTriangle } from "lucide-react";
 import { api } from "../../lib/api.js";
 import { ApiError, type JourneyRow, type JNodeType, type JNode, type JEdge, type JTrigger } from "../../lib/types.js";
 import { Button, Drawer, Field, Input, Select, Badge, useToast } from "../../ui/index.js";
@@ -76,6 +76,51 @@ function toDefinition(nodes: Node[], edges: Edge[]): { nodes: JNode[]; edges: JE
   };
 }
 
+/**
+ * Validate luồng phía client (mirror nhẹ của backend) — hiển thị cảnh báo ngay trên canvas
+ * thay vì chỉ báo lúc Publish. Không chặn Lưu; chặn thật vẫn ở backend khi Publish.
+ */
+function validateFlow(nodes: Node[], edges: Edge[]): string[] {
+  const issues: string[] = [];
+  const entries = nodes.filter((n) => (n.data as NData).jtype === "entry");
+  if (entries.length === 0) issues.push("Thiếu node Vào (entry).");
+  if (entries.length > 1) issues.push(`Có ${entries.length} node Vào — chỉ được 1.`);
+
+  const outByNode = new Map<string, Edge[]>();
+  for (const e of edges) {
+    if (!outByNode.has(e.source)) outByNode.set(e.source, []);
+    outByNode.get(e.source)!.push(e);
+  }
+  for (const n of nodes) {
+    const d = n.data as NData;
+    const outs = outByNode.get(n.id) ?? [];
+    if (d.jtype !== "exit" && outs.length === 0) issues.push(`Node "${TYPE_LABEL[d.jtype]}" chưa nối tới bước tiếp theo.`);
+    if (d.jtype === "condition") {
+      const branches = new Set(outs.map((e) => e.sourceHandle));
+      if (!branches.has("yes") || !branches.has("no")) issues.push(`Node Điều kiện thiếu nhánh ${!branches.has("yes") ? "ĐÚNG" : ""}${!branches.has("yes") && !branches.has("no") ? " & " : ""}${!branches.has("no") ? "SAI" : ""}.`);
+    }
+  }
+
+  // Phát hiện chu trình (DFS) — journey phải là DAG.
+  const adj = new Map<string, string[]>();
+  for (const e of edges) { if (!adj.has(e.source)) adj.set(e.source, []); adj.get(e.source)!.push(e.target); }
+  const state = new Map<string, number>(); // 0=chưa, 1=đang, 2=xong
+  let hasCycle = false;
+  const dfs = (id: string) => {
+    state.set(id, 1);
+    for (const next of adj.get(id) ?? []) {
+      const s = state.get(next) ?? 0;
+      if (s === 1) { hasCycle = true; return; }
+      if (s === 0) dfs(next);
+    }
+    state.set(id, 2);
+  };
+  for (const n of nodes) if ((state.get(n.id) ?? 0) === 0) dfs(n.id);
+  if (hasCycle) issues.push("Luồng có chu trình (vòng lặp) — journey phải đi một chiều.");
+
+  return issues;
+}
+
 function Inner({ journey, onSaved }: { journey: JourneyRow; onSaved: () => void }) {
   const toast = useToast();
   const init = useMemo(() => toFlow(journey.definition), [journey.definition]);
@@ -91,12 +136,26 @@ function Inner({ journey, onSaved }: { journey: JourneyRow; onSaved: () => void 
     const config = jtype === "wait" ? { delayMinutes: 60 }
       : jtype === "condition" ? { predicate: { kind: "lifecycle", equals: "vip" } }
       : jtype === "action" ? { kind: "loyalty_bonus", points: 100 } : {};
-    setNodes((ns) => ns.concat({ id, type: "jnode", position: { x: 260, y: 60 + ns.length * 30 }, data: { jtype, config, label: TYPE_LABEL[jtype] } }));
+    setNodes((ns) => {
+      // Đặt node mới bên phải node xa nhất (đọc trái→phải), lệch nhẹ theo trục Y để không đè.
+      const maxX = ns.reduce((m, n) => Math.max(m, n.position.x), 0);
+      const x = ns.length === 0 ? 60 : maxX + 210;
+      const y = 80 + (ns.length % 3) * 70;
+      return ns.concat({ id, type: "jnode", position: { x, y }, data: { jtype, config, label: TYPE_LABEL[jtype] } });
+    });
   }, [setNodes]);
 
   const patchConfig = useCallback((patch: Record<string, unknown>) => {
     setNodes((ns) => ns.map((n) => (n.id === selId ? { ...n, data: { ...(n.data as NData), config: { ...(n.data as NData).config, ...patch } } } : n)));
   }, [selId, setNodes]);
+
+  const removeNode = useCallback((id: string) => {
+    setNodes((ns) => ns.filter((n) => n.id !== id));
+    setEdges((es) => es.filter((e) => e.source !== id && e.target !== id));
+    setSelId(null);
+  }, [setNodes, setEdges]);
+
+  const issues = validateFlow(nodes, edges);
 
   const saveMut = useMutation({
     mutationFn: () => {
@@ -126,6 +185,19 @@ function Inner({ journey, onSaved }: { journey: JourneyRow; onSaved: () => void 
         <Button size="sm" variant="primary" icon={<Save className="size-3.5" />} onClick={() => saveMut.mutate()} loading={saveMut.isPending} disabled={!editable}>Lưu luồng</Button>
       </div>
 
+      {editable && issues.length > 0 && (
+        <div className="flex items-start gap-2 border-b border-warning/30 bg-warning-subtle/50 px-3 py-2 text-xs text-warning">
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          <div>
+            <span className="font-semibold">Cần sửa trước khi Publish:</span>
+            <ul className="mt-0.5 list-disc pl-4">{issues.map((it, i) => <li key={i}>{it}</li>)}</ul>
+          </div>
+        </div>
+      )}
+      {editable && issues.length === 0 && nodes.length > 0 && (
+        <div className="border-b border-success/30 bg-success-subtle/40 px-3 py-1.5 text-xs text-success">✓ Luồng hợp lệ — sẵn sàng Publish.</div>
+      )}
+
       <div className="relative min-h-0 flex-1">
         <ReactFlow
           nodes={nodes} edges={edges}
@@ -142,8 +214,20 @@ function Inner({ journey, onSaved }: { journey: JourneyRow; onSaved: () => void 
       </div>
 
       <Drawer open={!!sel} onClose={() => setSelId(null)} title={sel ? `Cấu hình: ${TYPE_LABEL[(sel.data as NData).jtype]}` : ""}
-        footer={<Button variant="primary" onClick={() => setSelId(null)}>Xong</Button>}>
-        {sel && <ConfigForm jtype={(sel.data as NData).jtype} config={(sel.data as NData).config} onChange={patchConfig} editable={editable} />}
+        footer={
+          <div className="flex items-center justify-between gap-2">
+            {sel && editable && (sel.data as NData).jtype !== "entry"
+              ? <Button variant="ghost" icon={<Trash2 className="size-4" />} onClick={() => removeNode(sel.id)}>Xoá bước này</Button>
+              : <span />}
+            <Button variant="primary" onClick={() => setSelId(null)}>Xong</Button>
+          </div>
+        }>
+        {sel && (
+          <>
+            <ConfigForm jtype={(sel.data as NData).jtype} config={(sel.data as NData).config} onChange={patchConfig} editable={editable} />
+            {editable && <p className="mt-4 text-xs text-text-subtle">Mẹo: bấm một cạnh (mũi tên) rồi nhấn phím Delete/Backspace để xoá liên kết.</p>}
+          </>
+        )}
       </Drawer>
     </div>
   );
