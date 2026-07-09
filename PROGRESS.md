@@ -32,9 +32,23 @@
 - Custom primitives (không shadcn/Radix) + ECharts (không Recharts).
 
 ## Task đang làm dở
-- (không) — task **Dark theme + toggle** HOÀN TẤT. Checkpoint `/review` (tự soát: sửa Badge violet hardcode)
-  + `/codex` (cross-model): bắt 2 sót contrast nhãn Funnel/Heatmap trên dark → đã fix (chữ trắng + halo).
-  tsc sạch · 28/28 test · build OK · screenshot Dark + Light. (Trước đó: rebrand AICDP + Indigo — đã commit.)
+- (không) — Dark theme HOÀN TẤT & commit. **Trụ mới đã CHỐT plan (ENG CLEARED): Journey Builder.**
+
+## ▶ NEXT (bắt đầu ngay sau /clear): Journey Builder — M1 (Engine backend)
+> Plan đầy đủ đã duyệt (qua /plan-eng-review + codex, 0 unresolved): `~/.claude/plans/h-y-ph-n-t-ch-research-delightful-spindle.md`. ĐỌC PLAN ĐÓ TRƯỚC.
+> Nghiệp vụ backend hiện có (bản kiểm kê): identity atomic · loyalty double-entry · consent append-only · segment.previewSegment · activation (consent gate) · analytics/AI Phase A. Journey hiện chỉ 1-step (migration 007).
+
+**Kiến trúc đã chốt:** engine = máy trạng thái BỀN VỮNG trong Postgres + tick worker (`@nestjs/schedule @Interval`, single-flight `pg_try_advisory_lock`, `FOR UPDATE SKIP LOCKED`). KHÔNG thêm Redis/queue. Effectively-once = `journey_step_run UNIQUE(participant_id,node_id)` ghi CÙNG transaction advance + action idempotency key `journey:{pid}:{nodeId}`. Trigger Event+Segment+Manual. Re-enrollment = once-ever (`UNIQUE(journey_id,occ_id)`, cột `allow_re_enroll` default false). Versioning qua `journey_version` snapshot. Publish↔activate TÁCH. Retry transient (attempts≤3 backoff) vs permanent. Canvas react-flow (`@xyflow/react`) ở M4.
+
+**M1 việc cụ thể (TDD RED→GREEN, PG18 @5433 thật):**
+1. `db/migrations/013_journey_engine.sql`: mở rộng `cdp.journey` (definition jsonb, trigger_type, trigger_config, status, published_version, allow_re_enroll, updated_at, published_at); `journey_version`; `journey_participant` (+attempts, next_run_at, UNIQUE(journey_id,occ_id), partial index `(next_run_at) WHERE status='active'`); `journey_step_run` (UNIQUE(participant_id,node_id)). Backward-compat: journey 007 cũ → status='draft', definition=null.
+2. `services/core-api/src/journey/journey.types.ts` (node/edge/definition/predicate types) + `journey-engine.service.ts` (enroll, tick, advance, validatePublish). Tái sử dụng segment/activation(consent gate)/loyalty.earn/consent.isAllowed/feature.
+3. `http/journey.controller.ts`: thêm GET/POST/PUT + publish/activate/pause/archive/enroll/participants(+pagination)/retry/force-exit. Giữ legacy `run()` chỉ cho journey definition=null.
+4. Tests `journey-engine.spec.ts`: mọi nhánh advance (wait/condition yes-no/action activation+consent suppress/loyalty/exit/failed), enroll once-ever idempotent, tick SKIP LOCKED, restart-safe, action-replay không gửi trùng, validate reject graph xấu.
+5. Checkpoint M1: verification (pnpm test + tsc) → /review → /codex → commit → cập nhật PROGRESS.md → sang M2 (report).
+
+**Dep cần thêm:** `@nestjs/schedule` (core-api), `@xyflow/react` (admin-console, cho M4).
+**Lưu ý môi trường:** seed-demo lại sau khi test truncate DB; core-api tsx KHÔNG emit decorator metadata → DI phải @Inject tường minh (verify boot thật).
 
 ## Task kế tiếp (đề xuất, đợt sau)
 - Tree-shake ECharts giảm bundle (hiện ~482KB gzip).
