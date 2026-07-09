@@ -53,11 +53,13 @@ CREATE TABLE IF NOT EXISTS cdp.sku_mapping (
   CONSTRAINT uq_sku UNIQUE (brand_id, pos_sku)
 );
 
--- Seed 5 thương hiệu OCC làm REFERENCE DATA trong DB (không phải hardcode frontend).
+-- Seed 6 thương hiệu OCH (One Capital Hospitality) làm REFERENCE DATA — hệ sinh thái
+-- F&B (Givral/Kem Tràng Tiền/Fuji) + Khách sạn (Sunrise/StarCity/Dusit). Không hardcode FE.
 INSERT INTO cdp.brand (brand_id, name, industry, brand_accent) VALUES
-  ('givral',           'Givral',            'bakery',    '#C8102E'),
-  ('kem_trang_tien',   'Kem Tràng Tiền',    'ice_cream', '#0EA5A4'),
-  ('hai_ha_kotobuki',  'Hải Hà Kotobuki',   'bakery',    '#E4572E'),
-  ('fuji',             'Fuji Foods',        'fmcg',      '#2563EB'),
-  ('origato',          'Origato',           'bakery',    '#7C3AED')
+  ('givral',              'Givral',                        'bakery',    '#C8102E'),
+  ('kem_trang_tien',      'Kem Tràng Tiền',                'ice_cream', '#0EA5A4'),
+  ('fuji',                'Fuji',                          'fmcg',      '#2563EB'),
+  ('sunrise_nha_trang',   'Sunrise Nha Trang',             'hotel',     '#E9A23B'),
+  ('starcity_nha_trang',  'StarCity Nha Trang',            'hotel',     '#6D4C91'),
+  ('dusit_hanoi',         'Dusit Le Palais Tu Hoa',        'hotel',     '#B08D57')
 ON CONFLICT (brand_id) DO NOTHING;

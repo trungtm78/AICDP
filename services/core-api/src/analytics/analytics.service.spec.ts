@@ -19,12 +19,12 @@ beforeEach(async () => {
 });
 
 describe("analytics — Control Tower overview", () => {
-  it("trống: 0 khách/giao dịch nhưng giữ 5 brand seed", async () => {
+  it("trống: 0 khách/giao dịch nhưng giữ 6 brand seed", async () => {
     const o = await getOverview(pool);
     expect(o.customers).toBe(0);
     expect(o.transactions).toBe(0);
     expect(o.revenue).toBe(0);
-    expect(o.brands).toBe(5);
+    expect(o.brands).toBe(6);
   });
 
   it("tổng hợp khách, doanh thu, điểm loyalty, activation từ dữ liệu thật", async () => {

@@ -20,16 +20,17 @@ beforeEach(async () => {
 });
 
 describe("master.repo — brand (reference data seed)", () => {
-  it("seed sẵn 5 thương hiệu OCC", async () => {
+  it("seed sẵn 6 thương hiệu OCH", async () => {
     const brands = await listBrands(pool);
     const ids = brands.map((b) => b.brand_id);
     expect(ids).toEqual(
       expect.arrayContaining([
         "givral",
         "kem_trang_tien",
-        "hai_ha_kotobuki",
         "fuji",
-        "origato",
+        "sunrise_nha_trang",
+        "starcity_nha_trang",
+        "dusit_hanoi",
       ]),
     );
     const givral = brands.find((b) => b.brand_id === "givral");

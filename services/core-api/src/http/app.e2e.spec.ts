@@ -40,11 +40,11 @@ describe("health", () => {
 });
 
 describe("masters", () => {
-  it("GET /v1/brands trả 5 brand seed", async () => {
+  it("GET /v1/brands trả 6 brand seed", async () => {
     const res = await http().get("/v1/brands");
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body.data)).toBe(true);
-    expect(res.body.data.length).toBe(5);
+    expect(res.body.data.length).toBe(6);
     expect(res.body.data[0]).toHaveProperty("brand_id");
   });
 

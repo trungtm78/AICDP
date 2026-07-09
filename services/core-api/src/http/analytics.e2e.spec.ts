@@ -21,12 +21,12 @@ beforeEach(async () => {
 });
 
 describe("analytics HTTP", () => {
-  it("GET /v1/analytics/overview trả KPI (brands seed = 5)", async () => {
+  it("GET /v1/analytics/overview trả KPI (brands seed = 6)", async () => {
     const res = await request(app.getHttpServer())
       .get("/v1/analytics/overview")
       .set("Authorization", `Bearer ${ADMIN_KEY}`);
     expect(res.status).toBe(200);
-    expect(res.body.data.brands).toBe(5);
+    expect(res.body.data.brands).toBe(6);
     expect(res.body.data).toHaveProperty("customers");
     expect(res.body.data).toHaveProperty("revenue");
     expect(res.body.data).toHaveProperty("loyaltyAvailable");
