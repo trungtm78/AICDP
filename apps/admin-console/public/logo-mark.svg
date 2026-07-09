@@ -1,26 +1,28 @@
-<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="OCC CDP">
+<svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="AICDP">
   <defs>
-    <linearGradient id="occ" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#2563EB"/>
-      <stop offset="0.5" stop-color="#06B6D4"/>
-      <stop offset="1" stop-color="#7C3AED"/>
+    <linearGradient id="aicdp" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5"/>
+      <stop offset="0.55" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#A855F7"/>
     </linearGradient>
   </defs>
-  <rect width="48" height="48" rx="12" fill="url(#occ)"/>
+  <rect width="48" height="48" rx="12" fill="url(#aicdp)"/>
   <g stroke="#fff" stroke-width="1.5" stroke-opacity="0.8" stroke-linecap="round">
-    <line x1="24" y1="24" x2="24" y2="11"/>
-    <line x1="24" y1="24" x2="36.4" y2="20"/>
-    <line x1="24" y1="24" x2="31.6" y2="34.5"/>
-    <line x1="24" y1="24" x2="16.4" y2="34.5"/>
-    <line x1="24" y1="24" x2="11.6" y2="20"/>
+    <line x1="24" y1="24" x2="38" y2="24"/>
+    <line x1="24" y1="24" x2="31" y2="36.1"/>
+    <line x1="24" y1="24" x2="17" y2="36.1"/>
+    <line x1="24" y1="24" x2="10" y2="24"/>
+    <line x1="24" y1="24" x2="17" y2="11.9"/>
+    <line x1="24" y1="24" x2="31" y2="11.9"/>
   </g>
   <g fill="#fff">
-    <circle cx="24" cy="11" r="2.5"/>
-    <circle cx="36.4" cy="20" r="2.5"/>
-    <circle cx="31.6" cy="34.5" r="2.5"/>
-    <circle cx="16.4" cy="34.5" r="2.5"/>
-    <circle cx="11.6" cy="20" r="2.5"/>
+    <circle cx="38" cy="24" r="2.4"/>
+    <circle cx="31" cy="36.1" r="2.4"/>
+    <circle cx="17" cy="36.1" r="2.4"/>
+    <circle cx="10" cy="24" r="2.4"/>
+    <circle cx="17" cy="11.9" r="2.4"/>
+    <circle cx="31" cy="11.9" r="2.4"/>
   </g>
-  <circle cx="24" cy="24" r="5.6" fill="#fff"/>
-  <circle cx="24" cy="24" r="2.7" fill="#2563EB"/>
+  <circle cx="24" cy="24" r="6" fill="#fff"/>
+  <circle cx="24" cy="24" r="2.8" fill="#4F46E5"/>
 </svg>

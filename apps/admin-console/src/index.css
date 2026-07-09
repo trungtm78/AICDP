@@ -6,41 +6,41 @@
 @import "@fontsource/geist-mono/500.css";
 
 /*
-  Design tokens OCC-CDP — "Airy modern SaaS" + thương hiệu AIPOWER (xem DESIGN.md).
+  Design tokens AICDP — "Airy modern SaaS" + bảng màu INDIGO AI (xem DESIGN.md).
   Nguyên tắc: KHÔNG hardcode hex trong component — chỉ dùng utility map từ @theme
-  (bg-surface, text-muted, text-accent, border-border, ...). Gradient blue→cyan→violet
-  chỉ dùng ở ĐIỂM NHẤN (.brand-gradient / .brand-text). Blue #2563EB = accent chính.
+  (bg-surface, text-muted, text-accent, border-border, ...). Gradient indigo→violet
+  chỉ dùng ở ĐIỂM NHẤN (.brand-gradient / .brand-text). Indigo #4F46E5 = accent chính.
 */
 @theme {
-  /* Nền & bề mặt — sáng, thoáng */
-  --color-bg: #f4f8fd;            /* nền plane xanh-lam rất nhạt (AI-tech) */
+  /* Nền & bề mặt — sáng, mát (cool indigo-slate) */
+  --color-bg: #f6f7fb;            /* nền plane xám-indigo rất nhạt */
   --color-surface: #ffffff;
-  --color-surface-alt: #f1f6fd;  /* card phụ / vùng chìm */
-  --color-surface-hover: #f8fafc;
+  --color-surface-alt: #f2f4f9;  /* card phụ / vùng chìm */
+  --color-surface-hover: #f7f8fc;
 
   /* Viền — hairline nhạt */
-  --color-border: #e6ebf2;
-  --color-border-strong: #cbd5e1;
+  --color-border: #e6e8f0;
+  --color-border-strong: #cbd0de;
 
   /* Chữ */
   --color-text: #0f172a;         /* slate-900 */
-  --color-text-muted: #566076;
-  --color-text-subtle: #94a3b8;
+  --color-text-muted: #565e73;
+  --color-text-subtle: #98a0b3;
 
-  /* Accent AIPOWER blue */
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-accent-strong: #1d4ed8;
-  --color-accent-subtle: #eaf1fe; /* nền accent nhạt (badge/active) */
+  /* Accent Indigo AI */
+  --color-accent: #4f46e5;        /* indigo-600 */
+  --color-accent-hover: #4338ca;  /* indigo-700 */
+  --color-accent-strong: #4338ca;
+  --color-accent-subtle: #eef2ff; /* indigo-50 — nền accent nhạt (badge/active) */
   --color-accent-fg: #ffffff;
   --color-secondary: #334155;
 
-  /* Hue biểu đồ (data-viz) — CVD-safe, thứ tự cố định */
-  --color-viz-blue: #2a78d6;
+  /* Hue biểu đồ (data-viz) — CVD-safe, thứ tự cố định (đầu = indigo) */
+  --color-viz-blue: #4f46e5;
   --color-viz-aqua: #1baf7a;
   --color-viz-amber: #eda100;
   --color-viz-green: #008300;
-  --color-viz-violet: #4a3aa7;
+  --color-viz-violet: #7c3aed;
   --color-cyan: #06b6d4;
   --color-violet: #7c3aed;
 
@@ -51,8 +51,8 @@
   --color-warning-subtle: #fdf3e7;
   --color-error: #dc2626;
   --color-error-subtle: #fdecec;
-  --color-info: #2563eb;
-  --color-info-subtle: #eaf1fe;
+  --color-info: #4f46e5;
+  --color-info-subtle: #eef2ff;
 
   /* Bán kính — bo mềm (airy) */
   --radius-sm: 6px;
@@ -71,13 +71,13 @@
   --font-mono: "Geist Mono", ui-monospace, "Cascadia Code", "Consolas", monospace;
 }
 
-/* Gradient thương hiệu AIPOWER (blue → cyan → violet) — CHỈ điểm nhấn: logo, hero, nút primary. */
+/* Gradient thương hiệu AICDP (indigo → violet) — CHỈ điểm nhấn: logo, hero, nút primary. */
 .brand-gradient {
-  background-image: linear-gradient(135deg, #2563eb 0%, #06b6d4 50%, #7c3aed 100%);
+  background-image: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #a855f7 100%);
 }
 /* Chữ gradient (tiêu đề hero) */
 .brand-text {
-  background-image: linear-gradient(135deg, #2563eb 0%, #06b6d4 55%, #7c3aed 100%);
+  background-image: linear-gradient(135deg, #4f46e5 0%, #7c3aed 55%, #a855f7 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

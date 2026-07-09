@@ -149,7 +149,7 @@ export function ForecastLine({
         data: histVals,
         lineStyle: { width: 2.5, color: ACCENT },
         itemStyle: { color: ACCENT },
-        areaStyle: { color: "rgba(37,99,235,0.10)" },
+        areaStyle: { color: "rgba(79,70,229,0.10)" },
       },
       {
         name: "Dự báo",
@@ -223,7 +223,7 @@ export function Heatmap({
       orient: "horizontal",
       left: "center",
       bottom: 4,
-      inRange: { color: ["#eaf1fe", "#2563eb", "#4a3aa7"] },
+      inRange: { color: ["#eef2ff", "#4f46e5", "#3730a3"] },
       textStyle: { color: "#94a3b8", fontSize: 10, fontFamily: FONT },
     },
     series: [

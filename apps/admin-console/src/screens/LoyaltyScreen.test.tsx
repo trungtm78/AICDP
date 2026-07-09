@@ -26,7 +26,7 @@ beforeEach(() => {
 async function showBalance(available: number, reserved: number) {
   m.getLoyaltyBalance.mockResolvedValue({ available, reserved });
   renderWithProviders(<LoyaltyScreen />);
-  await userEvent.type(screen.getByLabelText(/occ id/i), OCC);
+  await userEvent.type(screen.getByLabelText(/aicdp id/i), OCC);
   await userEvent.click(screen.getByRole("button", { name: /xem số dư/i }));
   await waitFor(() => expect(screen.getByTestId("bal-available")).toBeInTheDocument());
 }

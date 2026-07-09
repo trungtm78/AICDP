@@ -1,14 +1,14 @@
-# Design System — OCC-CDP
+# Design System — AICDP
 
 ## Product Context
-- **What this is:** Admin console enterprise + exec war-room cho OCC Customer Data Platform (CDP đa thương hiệu F&B self-host).
+- **What this is:** Admin console enterprise + exec war-room cho **AICDP** — AI Customer Data Platform (CDP đa thương hiệu F&B self-host). (Tên cũ "OCC-CDP" đã đổi thành AICDP, 2026-07-09.)
 - **Who it's for:** Data steward, marketer, CSKH, analyst, compliance/DPO, executive (Ban điều hành). Người vận hành 8h/ngày.
 - **Space/industry:** Customer Data Platform / MarTech (peers: Segment, Tealium, Hightouch, Amplitude). Tham chiếu UX: Linear, Vercel.
 - **Project type:** Data-dense admin web app + realtime executive dashboard.
 - **Memorable thing:** "Kiểm soát toàn cục, tức thì" — control tower: mọi số liệu 5 brand realtime, đáng tin, tra cứu 1 khách trong 2 giây.
 
 ## Aesthetic Direction
-> **Cập nhật triển khai (2026-07-09):** hướng thực thi dịch sang **"Airy modern SaaS + thương hiệu AIPOWER"** (khớp aipower.vn, kiểu Segment/Hightouch) — nhiều khoảng thở, card bo góc + shadow nhẹ, nền sáng; vẫn giữ độ chính xác (số căn phải `tabular-nums`, bảng hairline gọn) ở khu dữ liệu. Accent = **AIPOWER blue `#2563EB`**; gradient blue→cyan→violet chỉ ở **điểm nhấn** (logo, hero KPI, nút primary, header, active nav). Component = **custom primitives (Tailwind thuần)**; chart = **ECharts**; icon = **lucide**. Xem "Color", "Stack", "Logo" bên dưới.
+> **Cập nhật triển khai (2026-07-09, rev.2 — rebrand AICDP + Indigo AI):** hướng thực thi = **"Airy modern SaaS + bảng màu Indigo AI"** (kiểu Segment/Hightouch/Linear) — nhiều khoảng thở, card bo góc + shadow nhẹ, nền sáng mát; vẫn giữ độ chính xác (số căn phải `tabular-nums`, bảng hairline gọn) ở khu dữ liệu. Accent = **Indigo `#4F46E5`**; gradient **indigo→violet** (`#4F46E5→#7C3AED→#A855F7`) chỉ ở **điểm nhấn** (logo, hero KPI, nút primary, header, active nav). Component = **custom primitives (Tailwind thuần)**; chart = **ECharts**; icon = **lucide**. Xem "Color", "Stack", "Logo" bên dưới.
 
 - **Direction:** Industrial/Utilitarian × Minimal (instrument-panel precision).
 - **Decoration level:** minimal — typography + token + hairline borders; KHÔNG bubble/gradient/blob.
@@ -25,10 +25,10 @@
 - **Lý do single-family:** coherence khí cụ + đảm bảo diacritics tiếng Việt + perf; rủi ro đã chấp nhận.
 
 ## Color
-> **Cập nhật 2026-07-09:** accent hệ thống đổi **Signal Teal → AIPOWER blue `#2563EB`** (khớp aipower.vn). Nền sáng `#f4f8fd`. Gradient blue→cyan→violet (`.brand-gradient`/`.brand-text`) chỉ dùng ở điểm nhấn. Hue biểu đồ (data-viz) CVD-safe: blue `#2a78d6` · aqua `#1baf7a` · amber `#eda100` · green `#008300` · violet `#4a3aa7`. Token thực tế xem `apps/admin-console/src/index.css`.
+> **Cập nhật 2026-07-09 (rev.2):** accent hệ thống = **Indigo `#4F46E5`** (indigo-600; hover `#4338CA`, subtle `#EEF2FF`). Nền sáng mát `#F6F7FB`, surface-alt `#F2F4F9`, border `#E6E8F0`. Gradient **indigo→violet** `#4F46E5→#7C3AED→#A855F7` (`.brand-gradient`/`.brand-text`) chỉ ở điểm nhấn. Hue biểu đồ (data-viz) CVD-safe: indigo `#4F46E5` · aqua `#1baf7a` · amber `#eda100` · green `#008300` · violet `#7c3aed`. Token thực tế xem `apps/admin-console/src/index.css`. (Lịch sử: Signal Teal → AIPOWER blue → Indigo.)
 
 - **Approach:** restrained — neutral foundation + 1 accent + semantic; gradient chỉ cho brand/điểm nhấn.
-- **Primary (accent):** `#2563EB` (AIPOWER blue) — action chính, focus, selection, link. (Signal Teal `#0EA5A4` là bản gốc, đã thay.)
+- **Primary (accent):** `#4F46E5` (Indigo AI) — action chính, focus, selection, link.
 - **Secondary:** neutral đậm `#334155` cho action phụ; KHÔNG thêm accent thứ 2 (giữ "tín hiệu" hiếm & có nghĩa).
 - **Neutrals (cool slate):** bg `#FBFBFC` · surface `#FFFFFF` · surface-alt `#F4F5F7` · border `#E7E9EE` · border-strong `#CBD2DC` · text `#0B0E14` · text-muted `#5B6573` · text-subtle `#8A93A2`.
 - **Semantic:** success `#16A34A` · warning `#D97706` · error `#DC2626` · info `#2563EB`.
@@ -66,9 +66,9 @@
 > **Triển khai thực tế (2026-07-09):** React + TypeScript · Tailwind v4 · **custom primitives (`src/ui/*`, ~18 component — KHÔNG shadcn/Radix)** · **ECharts** (`echarts` + `echarts-for-react`) cho mọi biểu đồ (bar/donut/line-forecast/funnel/heatmap/sankey/sparkline) · **lucide-react** (icon) · **Geist + Geist Mono** (@fontsource, self-host). TanStack Table (virtualized) + WebSocket/SSE = đợt sau. (Bản gốc dự kiến shadcn/Radix + Recharts/visx — đã thay bằng custom + ECharts.)
 
 ## Logo
-- **Tên hiển thị:** **OCC CDP** (OCC đậm · CDP nhạt), Geist tracking chặt.
-- **Mark "Convergence Node":** 5 điểm (thương hiệu) hội tụ về 1 node trung tâm (OCC ID hợp nhất) — đúng bản chất CDP identity resolution. Tile bo góc gradient blue→cyan→violet; dùng được 16px (favicon) → lớn.
-- **File:** `apps/admin-console/public/logo.svg` (lockup), `public/logo-mark.svg` (favicon), component `src/ui/Brand.tsx` (`Logo`, `LogoMark`).
+- **Tên hiển thị:** **AICDP** (AI đậm · CDP nhạt), Geist tracking chặt.
+- **Mark "Channel Hub":** lõi trung tâm (AI/CDP) + 6 node quanh = các kênh (email/SMS/Zalo/POS/web/app) kết nối vào lõi — thể hiện **hợp nhất dữ liệu đa kênh**. Tile bo góc gradient indigo→violet; dùng được 16px (favicon) → lớn.
+- **File:** `apps/admin-console/public/logo.svg` (lockup), `public/logo-mark.svg` (favicon), component `src/ui/Brand.tsx` (`Logo`, `LogoMark`). (Bản trước: "OCC CDP" + Convergence Node — đã thay.)
 
 ## Decisions Log
 | Date | Decision | Rationale |
@@ -81,3 +81,6 @@
 | 2026-07-09 | Personality: Airy modern SaaS (light-first) thay war-room dày đặc | Người dùng chọn cảm giác thoáng/sáng kiểu Segment/Hightouch |
 | 2026-07-09 | Custom primitives (Tailwind) + ECharts + lucide + Geist thay shadcn/Recharts | Kiểm soát trực tiếp, ECharts mạnh Sankey/heatmap; brainstorming chốt |
 | 2026-07-09 | Logo "OCC CDP" + mark Convergence Node (gradient tile) | Thể hiện hợp nhất định danh xuyên thương hiệu |
+| 2026-07-09 | **Rebrand sản phẩm OCC-CDP → AICDP** (bỏ OCC khỏi UI; nhãn "OCC ID"→"AICDP ID"; `occId`/API giữ) | Sản phẩm bán ra dưới tên AICDP; yêu cầu người dùng |
+| 2026-07-09 | **Đổi accent → Indigo AI #4F46E5** (gradient indigo→violet), nền mát hơn | "Hiện đại, chuyên nghiệp hơn"; hợp định vị AI của AICDP |
+| 2026-07-09 | **Logo mới "Channel Hub"** (lõi + 6 kênh kết nối) | Thể hiện kết nối/hợp nhất nhiều kênh dữ liệu |

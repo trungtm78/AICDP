@@ -1,4 +1,4 @@
-// Hệ component OCC-CDP (custom primitives — Tailwind thuần). Xem DESIGN.md.
+// Hệ component AICDP (custom primitives — Tailwind thuần). Xem DESIGN.md.
 export { cn } from "./cn.js";
 export { Button, IconButton } from "./Button.js";
 export type { ButtonProps, IconButtonProps } from "./Button.js";

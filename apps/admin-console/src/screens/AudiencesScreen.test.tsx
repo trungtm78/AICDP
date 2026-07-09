@@ -32,7 +32,7 @@ describe("AudiencesScreen — activation consent-gated", () => {
 
     renderWithProviders(<AudiencesScreen />);
     await userEvent.type(screen.getByLabelText(/tên audience/i), "KH thân thiết");
-    await userEvent.type(screen.getByLabelText(/danh sách occ id/i), `${A}\n${B}`);
+    await userEvent.type(screen.getByLabelText(/danh sách aicdp id/i), `${A}\n${B}`);
     await userEvent.click(screen.getByRole("button", { name: /kích hoạt/i }));
 
     await waitFor(() =>
@@ -54,7 +54,7 @@ describe("AudiencesScreen — activation consent-gated", () => {
     expect(screen.getByRole("button", { name: /kích hoạt/i })).toBeDisabled();
   });
 
-  it("xem trước segment điền danh sách OCC ID vào textarea", async () => {
+  it("xem trước segment điền danh sách aicdp id vào textarea", async () => {
     m.previewSegment.mockResolvedValue({ count: 2, occIds: [A, B] });
     renderWithProviders(<AudiencesScreen />);
 
@@ -68,7 +68,7 @@ describe("AudiencesScreen — activation consent-gated", () => {
     );
     // textarea OCC ID được điền từ segment
     await waitFor(() =>
-      expect(screen.getByLabelText(/danh sách occ id/i)).toHaveValue(`${A}\n${B}`),
+      expect(screen.getByLabelText(/danh sách aicdp id/i)).toHaveValue(`${A}\n${B}`),
     );
     expect(screen.getByTestId("segment-count")).toHaveTextContent("2");
   });

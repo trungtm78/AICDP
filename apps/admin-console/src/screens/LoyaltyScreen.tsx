@@ -107,8 +107,8 @@ export function LoyaltyScreen() {
 
       <Panel>
         <div className="flex flex-wrap items-end gap-3">
-          <Field className="min-w-[280px] flex-1" label="OCC ID">
-            <Input aria-label="OCC ID" value={occId} onChange={(e) => setOccId(e.target.value)} placeholder="uuid khách hàng" className="font-mono" icon={<Search className="size-4" />} />
+          <Field className="min-w-[280px] flex-1" label="AICDP ID">
+            <Input aria-label="AICDP ID" value={occId} onChange={(e) => setOccId(e.target.value)} placeholder="uuid khách hàng" className="font-mono" icon={<Search className="size-4" />} />
           </Field>
           <Button variant="primary" onClick={loadBalance} disabled={!occId.trim() || busy} loading={busy} className="mb-[1px]">Xem số dư</Button>
         </div>

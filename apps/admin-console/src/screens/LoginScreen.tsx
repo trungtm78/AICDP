@@ -39,9 +39,9 @@ export function LoginScreen({ onLoggedIn }: { onLoggedIn: () => void }) {
         <div className="mb-6 flex flex-col items-center text-center">
           <LogoMark size={52} className="mb-3" />
           <h1 className="text-lg font-bold tracking-tight text-text">
-            OCC<span className="font-medium text-text-muted"> CDP</span>
+            AI<span className="font-medium text-text-muted">CDP</span>
           </h1>
-          <p className="mt-0.5 text-sm text-text-muted">Customer Data Platform · OCC Group</p>
+          <p className="mt-0.5 text-sm text-text-muted">AI Customer Data Platform</p>
         </div>
 
         <form onSubmit={submit} className="space-y-4 rounded-xl border border-border bg-surface p-6 shadow-sm">

@@ -1,6 +1,6 @@
-// Theme biểu đồ dùng chung — đồng bộ token DESIGN.md. Palette CVD-safe, thứ tự cố định.
-export const VIZ_PALETTE = ["#2a78d6", "#1baf7a", "#eda100", "#008300", "#4a3aa7", "#06b6d4"];
-export const ACCENT = "#2563eb";
+// Theme biểu đồ dùng chung — đồng bộ token DESIGN.md (Indigo AI). Palette CVD-safe, thứ tự cố định.
+export const VIZ_PALETTE = ["#4f46e5", "#1baf7a", "#eda100", "#008300", "#7c3aed", "#06b6d4"];
+export const ACCENT = "#4f46e5";
 export const CYAN = "#06b6d4";
 export const VIOLET = "#7c3aed";
 
