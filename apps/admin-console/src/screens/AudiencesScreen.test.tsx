@@ -66,7 +66,7 @@ describe("AudiencesScreen — activation consent-gated", () => {
         expect.objectContaining({ minSpend: 250000 }),
       ),
     );
-    // textarea OCC ID được điền từ segment
+    // textarea AICDP ID được điền từ segment
     await waitFor(() =>
       expect(screen.getByLabelText(/danh sách aicdp id/i)).toHaveValue(`${A}\n${B}`),
     );

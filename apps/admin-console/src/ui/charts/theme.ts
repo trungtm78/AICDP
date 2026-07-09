@@ -5,9 +5,9 @@ export const CYAN = "#06b6d4";
 export const VIOLET = "#7c3aed";
 
 const FONT = "'Geist Variable', system-ui, sans-serif";
-const AXIS_LINE = "#e6ebf2";
-const TEXT = "#566076";
-const TEXT_SUBTLE = "#94a3b8";
+const AXIS_LINE = "#e6e8f0";   // đồng bộ --color-border (index.css)
+const TEXT = "#565e73";        // đồng bộ --color-text-muted
+const TEXT_SUBTLE = "#98a0b3"; // đồng bộ --color-text-subtle
 
 /** Style trục chung (hairline, chữ nhạt). */
 export function axisStyle(opts: { numeric?: boolean } = {}) {

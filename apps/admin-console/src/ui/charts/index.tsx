@@ -1,6 +1,6 @@
 import type { EChartsOption } from "echarts";
 import { EChart } from "./EChart.js";
-import { VIZ_PALETTE, ACCENT, VIOLET, CYAN, TOOLTIP, axisStyle, FONT } from "./theme.js";
+import { VIZ_PALETTE, ACCENT, VIOLET, CYAN, TOOLTIP, axisStyle, FONT, TEXT, TEXT_SUBTLE } from "./theme.js";
 
 type Fmt = (n: number) => string;
 const idFmt: Fmt = (n) => String(n);
@@ -45,7 +45,7 @@ export function BarChart({
           show: true,
           position: horizontal ? "right" : "top",
           formatter: (p) => valueFormatter(Number(p.value)),
-          color: "#566076",
+          color: TEXT,
           fontSize: 11,
           fontFamily: FONT,
         },
@@ -83,7 +83,7 @@ export function Donut({
       icon: "circle",
       itemWidth: 8,
       itemHeight: 8,
-      textStyle: { color: "#566076", fontSize: 12, fontFamily: FONT },
+      textStyle: { color: TEXT, fontSize: 12, fontFamily: FONT },
     },
     series: [
       {
@@ -93,7 +93,7 @@ export function Donut({
         avoidLabelOverlap: true,
         itemStyle: { borderColor: "#fff", borderWidth: 2 },
         label: centerLabel
-          ? { show: true, position: "center", formatter: centerLabel, fontSize: 12, color: "#566076", fontFamily: FONT }
+          ? { show: true, position: "center", formatter: centerLabel, fontSize: 12, color: TEXT, fontFamily: FONT }
           : { show: false },
         labelLine: { show: false },
         data: data.map((d) => ({ name: d.name, value: d.value, ...(d.color ? { itemStyle: { color: d.color } } : {}) })),
@@ -134,7 +134,7 @@ export function ForecastLine({
       icon: "roundRect",
       itemWidth: 12,
       itemHeight: 4,
-      textStyle: { color: "#566076", fontSize: 11, fontFamily: FONT },
+      textStyle: { color: TEXT, fontSize: 11, fontFamily: FONT },
       data: ["Thực tế", "Dự báo"],
     },
     xAxis: { type: "category", boundaryGap: false, data: periods, ...axisStyle() },
@@ -214,8 +214,8 @@ export function Heatmap({
   const option: EChartsOption = {
     grid: { left: 8, right: 16, top: 8, bottom: 48, containLabel: true },
     tooltip: { ...TOOLTIP, position: "top", valueFormatter: (v) => valueFormatter(Number(v)) },
-    xAxis: { type: "category", data: xLabels, splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "#94a3b8", fontSize: 11, fontFamily: FONT } },
-    yAxis: { type: "category", data: yLabels, splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: "#94a3b8", fontSize: 11, fontFamily: FONT } },
+    xAxis: { type: "category", data: xLabels, splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: TEXT_SUBTLE, fontSize: 11, fontFamily: FONT } },
+    yAxis: { type: "category", data: yLabels, splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: TEXT_SUBTLE, fontSize: 11, fontFamily: FONT } },
     visualMap: {
       min: 0,
       max: max || 1,
@@ -224,7 +224,7 @@ export function Heatmap({
       left: "center",
       bottom: 4,
       inRange: { color: ["#eef2ff", "#4f46e5", "#3730a3"] },
-      textStyle: { color: "#94a3b8", fontSize: 10, fontFamily: FONT },
+      textStyle: { color: TEXT_SUBTLE, fontSize: 10, fontFamily: FONT },
     },
     series: [
       {

@@ -11,7 +11,7 @@ export function MastersScreen() {
     <div className="mx-auto max-w-[1200px] space-y-6 p-6">
       <PageHeader
         title="Master Data"
-        description="Thương hiệu, cửa hàng, sản phẩm chuẩn OCC (xuyên thương hiệu)."
+        description="Thương hiệu, cửa hàng, sản phẩm chuẩn hợp nhất (xuyên thương hiệu)."
         breadcrumb={["Vận hành", "Data Ops"]}
       />
       <BrandsPanel />
