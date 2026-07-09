@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, UserRound, Gift, Database, ChartColumnBig, Target, Waypoints,
   Sparkles, BrainCircuit, ShieldCheck, Server, Search, Bell, LogOut, Command as CommandIcon,
-  Sun, Moon, Plug, Gauge, TriangleAlert, type LucideIcon,
+  Sun, Moon, Plug, Gauge, TriangleAlert, Scale, type LucideIcon,
 } from "lucide-react";
 import { getToken, getName, getRole, clearSession } from "./lib/auth.js";
 import { LoginScreen } from "./screens/LoginScreen.js";
@@ -23,6 +23,7 @@ import { ConnectorsScreen } from "./screens/ConnectorsScreen.js";
 import { PipelineCanvas } from "./screens/connector/PipelineCanvas.js";
 import { PredictionsScreen } from "./screens/PredictionsScreen.js";
 import { AlertsScreen } from "./screens/AlertsScreen.js";
+import { DecisioningScreen } from "./screens/DecisioningScreen.js";
 import { Logo, Kbd, CommandPalette, useTheme, type CommandItem } from "./ui/index.js";
 import { cn } from "./ui/cn.js";
 
@@ -52,7 +53,8 @@ const GROUPS: NavGroup[] = [
   {
     label: "AI",
     items: [
-      { to: "/assistant", label: "Trợ lý AI", icon: Sparkles, kw: "chat hỏi đáp generative llm" },
+      { to: "/assistant", label: "Trợ lý AI", icon: Sparkles, kw: "chat hỏi đáp generative llm nlq truy vấn" },
+      { to: "/decisioning", label: "Quyết định", icon: Scale, kw: "decisioning nba offer arbitration thử nghiệm ab uplift" },
       { to: "/ai-governance", label: "AI & Governance", icon: BrainCircuit, kw: "cấu hình llm model audit usage" },
     ],
   },
@@ -111,6 +113,7 @@ export function App() {
             <Route path="/governance" element={<GovernanceScreen />} />
             <Route path="/platform" element={<PlatformScreen />} />
             <Route path="/assistant" element={<AssistantScreen />} />
+            <Route path="/decisioning" element={<DecisioningScreen />} />
             <Route path="/ai-governance" element={<AiGovernanceScreen />} />
             <Route path="/connectors" element={<ConnectorsScreen />} />
             <Route path="/connectors/pipelines/:id" element={<PipelineCanvas />} />

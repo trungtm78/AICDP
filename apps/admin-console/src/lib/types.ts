@@ -174,6 +174,50 @@ export interface AnalyticsNarrative {
   source: "llm" | "fallback";
   facts: Record<string, unknown>;
 }
+/** Offer catalog (AI Decisioning). */
+export interface Offer {
+  id: string;
+  name: string;
+  kind: "loyalty_bonus" | "discount" | "content" | "activation";
+  purpose: string | null;
+  channel: string | null;
+  baseValue: number;
+  eligibility: string | null;
+  status: "active" | "paused";
+  createdAt: string;
+}
+export interface OfferCandidate {
+  offerId: string;
+  name: string;
+  kind: string;
+  baseValue: number;
+  propensity: number;
+  consentOk: boolean;
+  expectedValue: number;
+  eligible: boolean;
+  reason: string;
+}
+export interface ArbitrationResult {
+  occId: string;
+  winner: OfferCandidate | null;
+  candidates: OfferCandidate[];
+  lifecycleStage: string | null;
+}
+export interface Experiment {
+  id: string;
+  name: string;
+  kind: "ab" | "holdout";
+  holdoutPct: number;
+  status: "running" | "stopped";
+  createdAt: string;
+}
+export interface Uplift {
+  experimentId: string;
+  treatment: { n: number; converted: number; rate: number };
+  holdout: { n: number; converted: number; rate: number };
+  upliftPct: number;
+}
+
 /** Kết quả NL Analytics "hỏi dữ liệu". */
 export interface NlqResult {
   plan: Record<string, unknown>;

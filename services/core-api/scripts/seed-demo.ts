@@ -26,6 +26,8 @@ import { setConfig } from "../src/ai-config/ai-config.service.js";
 import { createConnection, createPipeline } from "../src/connector/connector.service.js";
 import { recomputeAll } from "../src/prediction/prediction.service.js";
 import { HttpPredictionProvider } from "../src/prediction/prediction.provider.js";
+import { createOffer } from "../src/decisioning/offer.service.js";
+import { createExperiment, assignAll } from "../src/decisioning/experiment.service.js";
 import type { JourneyDefinition } from "../src/journey/journey.types.js";
 
 // ── PRNG tất định (mulberry32) ──
@@ -285,7 +287,8 @@ async function placeOrder(
 // ── Reset sạch + đảm bảo đúng 6 brand OCH ──
 async function resetAll(): Promise<void> {
   await pool.query(
-    `TRUNCATE cdp.analytics_alert, cdp.model_feature_importance, cdp.model_card, cdp.ml_model, cdp.customer_prediction,
+    `TRUNCATE cdp.experiment_assignment, cdp.experiment, cdp.offer_catalog,
+              cdp.analytics_alert, cdp.model_feature_importance, cdp.model_card, cdp.ml_model, cdp.customer_prediction,
               cdp.ai_llm_usage, cdp.ai_config_audit, cdp.ai_config, cdp.customer_feature,
               cdp.journey_step_run, cdp.journey_participant, cdp.journey_version,
               cdp.journey_run, cdp.journey, cdp.cart, cdp.password_reset,
@@ -647,6 +650,16 @@ async function main(): Promise<void> {
 
   // ── Dự đoán ML (customer_prediction): thử ai-service, không có thì fallback heuristic ──
   const predRes = await recomputeAll(pool, new HttpPredictionProvider());
+
+  // ── Decisioning: offer catalog + 1 experiment A/B (gán biến thể để đo uplift) ──
+  await createOffer(pool, { name: "Thưởng 200đ tri ân VIP", kind: "loyalty_bonus", baseValue: 200000, eligibility: "vip" });
+  await createOffer(pool, { name: "Win-back email -20%", kind: "activation", purpose: "marketing_email", channel: "email", baseValue: 150000, eligibility: "at_risk" });
+  await createOffer(pool, { name: "Cross-sell nhóm hàng", kind: "content", baseValue: 80000 }); // phổ quát (fallback)
+  await createOffer(pool, { name: "Zalo ZNS ưu đãi", kind: "activation", purpose: "marketing_zalo", channel: "zalo", baseValue: 120000 });
+  const exp = await createExperiment(pool, { name: "Win-back email A/B", holdoutPct: 20 });
+  await assignAll(pool, exp.id);
+  // Backdate thời điểm gán để "chuyển đổi = giao dịch sau khi gán" có dữ liệu (demo uplift).
+  await pool.query("UPDATE cdp.experiment_assignment SET assigned_at = now() - interval '120 days' WHERE experiment_id=$1", [exp.id]);
 
   // ── Summary ──
   const cnt = await pool.query<{ khach: string; gd: string; brands: string; stores: string; journeys: string; runs: string; users: string; keys: string }>(

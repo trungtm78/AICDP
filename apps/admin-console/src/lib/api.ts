@@ -19,6 +19,10 @@ import {
   type MetricSeries,
   type AnalyticsNarrative,
   type NlqResult,
+  type Offer,
+  type ArbitrationResult,
+  type Experiment,
+  type Uplift,
   type LoyaltyBalance,
   type LoyaltyMember,
   type LoyaltyLedgerEntry,
@@ -297,6 +301,18 @@ export const api = {
   ackAlert: (id: string) => request<{ ok: boolean }>(`/v1/analytics/alerts/${encodeURIComponent(id)}/ack`, { method: "POST" }),
   getNarrative: () => request<AnalyticsNarrative>("/v1/analytics/narrative"),
   askData: (question: string) => request<NlqResult>("/v1/ai/assistant/query", { method: "POST", body: JSON.stringify({ question }) }),
+
+  // ── AI Decisioning + Experimentation ──
+  listOffers: () => request<Offer[]>("/v1/decisioning/offers"),
+  createOffer: (o: { name: string; kind: string; purpose?: string; channel?: string; baseValue: number; eligibility?: string }) =>
+    request<Offer>("/v1/decisioning/offers", { method: "POST", body: JSON.stringify(o) }),
+  deleteOffer: (id: string) => request<{ deleted: boolean }>(`/v1/decisioning/offers/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  arbitrate: (occId: string) => request<ArbitrationResult>(`/v1/decisioning/arbitrate/${encodeURIComponent(occId)}`),
+  listExperiments: () => request<Experiment[]>("/v1/decisioning/experiments"),
+  createExperiment: (name: string, holdoutPct?: number) =>
+    request<Experiment>("/v1/decisioning/experiments", { method: "POST", body: JSON.stringify({ name, ...(holdoutPct != null ? { holdoutPct } : {}) }) }),
+  assignExperiment: (id: string) => request<{ assigned: number }>(`/v1/decisioning/experiments/${encodeURIComponent(id)}/assign`, { method: "POST" }),
+  getUplift: (id: string) => request<Uplift>(`/v1/decisioning/experiments/${encodeURIComponent(id)}/uplift`),
 
   previewSegment: (criteria: SegmentCriteria) =>
     request<SegmentPreview>("/v1/segments/preview", {

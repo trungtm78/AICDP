@@ -24,6 +24,7 @@ import { JourneyController } from "./journey.controller.js";
 import { AuthController } from "./auth.controller.js";
 import { ConnectorController } from "./connector.controller.js";
 import { PredictionController } from "./prediction.controller.js";
+import { DecisioningController } from "./decisioning.controller.js";
 import { JourneyScheduler } from "../journey/journey-scheduler.js";
 
 @Module({
@@ -45,6 +46,7 @@ import { JourneyScheduler } from "../journey/journey-scheduler.js";
     JourneyController,
     ConnectorController,
     PredictionController,
+    DecisioningController,
   ],
   providers: [
     pgPoolProvider,

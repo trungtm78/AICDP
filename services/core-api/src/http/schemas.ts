@@ -151,6 +151,20 @@ export const lookalikeSchema = z.object({
   limit: z.number().int().positive().max(200).optional(),
 });
 
+export const offerCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  kind: z.enum(["loyalty_bonus", "discount", "content", "activation"]),
+  purpose: z.string().min(1).optional(),
+  channel: z.string().min(1).optional(),
+  baseValue: z.number().int().nonnegative().safe(),
+  eligibility: z.string().min(1).optional(),
+});
+
+export const experimentCreateSchema = z.object({
+  name: z.string().min(1).max(120),
+  holdoutPct: z.number().int().min(0).max(100).optional(),
+});
+
 export const forecastQuerySchema = z.object({
   brandId: z.string().min(1).optional(),
   storeId: z.string().min(1).optional(),

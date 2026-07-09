@@ -16,7 +16,8 @@ export async function setupTestDb(): Promise<void> {
 export async function truncateAll(): Promise<void> {
   // Giữ cdp.brand (reference data seed sẵn); truncate phần còn lại.
   await pool.query(
-    `TRUNCATE cdp.analytics_alert, cdp.model_feature_importance, cdp.model_card, cdp.ml_model, cdp.customer_prediction,
+    `TRUNCATE cdp.experiment_assignment, cdp.experiment, cdp.offer_catalog,
+              cdp.analytics_alert, cdp.model_feature_importance, cdp.model_card, cdp.ml_model, cdp.customer_prediction,
               cdp.ai_llm_usage, cdp.ai_config_audit, cdp.ai_config, cdp.customer_feature,
               cdp.journey_step_run, cdp.journey_participant, cdp.journey_version,
               cdp.journey_run, cdp.journey, cdp.cart, cdp.password_reset,
