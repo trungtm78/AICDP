@@ -27,9 +27,32 @@ export const LIFECYCLE_LABEL: Record<string, string> = {
   dormant: "Ngủ đông", churned: "Đã rời", unknown: "Chưa rõ",
 };
 export const BRAND_LABEL: Record<string, string> = {
-  givral: "Givral", kem_trang_tien: "Kem Tràng Tiền", hai_ha_kotobuki: "Hải Hà Kotobuki",
-  fuji: "Fuji Foods", origato: "Origato",
+  givral: "Givral", kem_trang_tien: "Kem Tràng Tiền", fuji: "Fuji",
+  sunrise_nha_trang: "Sunrise Nha Trang", starcity_nha_trang: "StarCity Nha Trang",
+  dusit_hanoi: "Dusit Le Palais Tu Hoa",
 };
 export const CAT_LABEL: Record<string, string> = {
   banh: "Bánh", kem: "Kem", do_uong: "Đồ uống", qua_tang: "Quà tặng",
+  dong_lanh: "Thực phẩm đông lạnh", luu_tru: "Lưu trú", am_thuc_dv: "Ẩm thực & Dịch vụ",
 };
+
+/**
+ * Hạng khách hàng (loyalty tier) suy từ TỔNG CHI TIÊU tích luỹ (VND).
+ * Kim cương ≥ 50tr · Vàng ≥ 15tr · Bạc ≥ 3tr · Đồng < 3tr (hiệu chỉnh theo phân bố thực tế).
+ */
+export type TierKey = "diamond" | "gold" | "silver" | "bronze";
+export interface Tier { key: TierKey; label: string; color: string; min: number }
+const TIERS: Tier[] = [
+  { key: "diamond", label: "Kim cương", color: "#22b8cf", min: 50_000_000 },
+  { key: "gold", label: "Vàng", color: "#c39851", min: 15_000_000 },
+  { key: "silver", label: "Bạc", color: "#8a929e", min: 3_000_000 },
+  { key: "bronze", label: "Đồng", color: "#b87333", min: 0 },
+];
+export function customerTier(totalSpend: number): Tier {
+  return TIERS.find((t) => totalSpend >= t.min) ?? TIERS[TIERS.length - 1]!;
+}
+/** Ngưỡng chi tiêu để lên hạng kế tiếp (null nếu đã cao nhất). */
+export function nextTier(totalSpend: number): Tier | null {
+  const idx = TIERS.findIndex((t) => totalSpend >= t.min);
+  return idx > 0 ? TIERS[idx - 1]! : null;
+}

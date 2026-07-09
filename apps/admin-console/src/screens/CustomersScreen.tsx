@@ -6,13 +6,15 @@ import {
   ApiError,
   type Customer360,
   type CustomerListItem,
+  type CustomerAnalytics,
   type IdentifierType,
   type Recommendation,
   type CustomerFeature,
   type NbaDecision,
   type LifecycleStage,
 } from "../lib/types.js";
-import { fmtInt, fmtVndFull, LIFECYCLE_LABEL } from "../lib/format.js";
+import { CustomerDeepAnalytics } from "./CustomerAnalyticsPanels.js";
+import { fmtInt, fmtVndFull, LIFECYCLE_LABEL, customerTier } from "../lib/format.js";
 import {
   PageHeader, Toolbar, Panel, Button, Field, Select, Input, Badge, StatusPill,
   EmptyState, Table, type Column, Skeleton,
@@ -44,6 +46,7 @@ export function CustomersScreen() {
   const [view, setView] = useState<ViewState>({ kind: "idle" });
   const [recs, setRecs] = useState<Recommendation[]>([]);
   const [feature, setFeature] = useState<CustomerFeature | null>(null);
+  const [analytics, setAnalytics] = useState<CustomerAnalytics | null>(null);
   const [nba, setNba] = useState<NbaDecision | null>(null);
   const [explain, setExplain] = useState<string | null>(null);
   const [explainBusy, setExplainBusy] = useState(false);
@@ -54,12 +57,17 @@ export function CustomersScreen() {
     setView({ kind: "loading" });
     setRecs([]);
     setFeature(null);
+    setAnalytics(null);
     setNba(null);
     setExplain(null);
     try {
       const data = await fetcher();
       if (myReq !== reqId.current) return;
       setView({ kind: "success", data });
+      try {
+        const an = await api.getCustomerAnalytics(data.occId);
+        if (myReq === reqId.current) setAnalytics(an);
+      } catch { /* bỏ qua */ }
       try {
         const r = await api.getRecommendations(data.occId);
         if (myReq === reqId.current) setRecs(r.recommendations);
@@ -156,6 +164,9 @@ export function CustomersScreen() {
                 }}
               />
             )}
+            {analytics && feature && (
+              <CustomerDeepAnalytics analytics={analytics} feature={feature} totalSpend={analytics.summary.totalSpend} />
+            )}
             {recs.length > 0 && <CrossSell recs={recs} />}
           </div>
         )}
@@ -173,6 +184,21 @@ const LIFECYCLE_FILTER: { value: string; label: string }[] = [
   { value: "dormant", label: "Ngủ đông" },
   { value: "churned", label: "Đã rời" },
 ];
+
+/** Huy hiệu hạng khách hàng (Kim cương/Vàng/Bạc/Đồng) theo tổng chi tiêu. */
+function TierBadge({ spend }: { spend: number }) {
+  const t = customerTier(spend);
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+      style={{ backgroundColor: `${t.color}1f`, color: t.color, border: `1px solid ${t.color}66` }}
+      title={`Hạng ${t.label} · tổng chi tiêu ${fmtVndFull(spend)}`}
+    >
+      <span className="size-2 rounded-full" style={{ backgroundColor: t.color }} />
+      {t.label}
+    </span>
+  );
+}
 
 /** Danh bạ khách hàng — duyệt + lọc + phân trang; click 1 dòng để mở Customer 360. */
 function CustomerDirectory({ onOpen }: { onOpen: (occId: string) => void }) {
@@ -219,7 +245,8 @@ function CustomerDirectory({ onOpen }: { onOpen: (occId: string) => void }) {
         </div>
       ),
     },
-    { key: "city", header: "Thành phố", cell: (c) => c.city ?? "—", width: "130px" },
+    { key: "city", header: "Thành phố", cell: (c) => c.city ?? "—", width: "120px" },
+    { key: "tier", header: "Hạng", width: "120px", cell: (c) => <TierBadge spend={c.monetary} /> },
     {
       key: "lifecycle", header: "Vòng đời", width: "130px",
       cell: (c) => c.lifecycleStage
@@ -272,13 +299,17 @@ function CustomerDirectory({ onOpen }: { onOpen: (occId: string) => void }) {
 function CustomerCard({ data }: { data: Customer360 }) {
   const fullName = (data.profile.full_name as string | undefined) ?? "(chưa có tên)";
   const initials = fullName.trim().slice(0, 1).toUpperCase();
+  const totalSpend = data.transactions.reduce((s, t) => s + Number(t.total ?? 0), 0);
   return (
     <Panel bodyClassName="p-0">
       <div className="flex flex-wrap items-center justify-between gap-4 p-5">
         <div className="flex items-center gap-3.5">
           <span className="grid size-12 shrink-0 place-items-center rounded-xl brand-gradient text-lg font-bold text-white">{initials}</span>
           <div>
-            <p className="text-base font-semibold text-text">{fullName}</p>
+            <div className="flex items-center gap-2.5">
+              <p className="text-base font-semibold text-text">{fullName}</p>
+              <TierBadge spend={totalSpend} />
+            </div>
             <p className="font-mono text-xs text-text-muted">{data.occId}</p>
           </div>
         </div>

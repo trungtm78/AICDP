@@ -5,6 +5,7 @@ import {
   type Store,
   type Product,
   type Customer360,
+  type CustomerAnalytics,
   type CustomerListItem,
   type IdentifierType,
   type LoyaltyBalance,
@@ -157,6 +158,9 @@ export const api = {
 
   getCustomerByOcc: (occId: string) =>
     request<Customer360>(`/v1/customers/by-id/${encodeURIComponent(occId)}`),
+
+  getCustomerAnalytics: (occId: string) =>
+    request<CustomerAnalytics>(`/v1/customers/by-id/${encodeURIComponent(occId)}/analytics`),
 
   getLoyaltyBalance: (occId: string) =>
     request<LoyaltyBalance>(`/v1/loyalty/balance?occId=${encodeURIComponent(occId)}`),

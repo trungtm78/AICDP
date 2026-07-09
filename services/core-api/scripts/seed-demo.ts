@@ -164,9 +164,20 @@ function buildCustomers(n: number): Customer[] {
     const slug = noAccent(`${ten}.${ho}`).toLowerCase().replace(/\s+/g, "");
     const phone = `0${pick(["9", "8", "7", "3", "5"])}${String(10_000_000 + i * 97 + rint(0, 90)).padStart(8, "0").slice(0, 8)}`;
     const email = `${slug}${i}@${pick(["gmail.com", "yahoo.com", "outlook.com", "icloud.com"])}`;
-    // Số brand: đa số 1, ~40% cross-brand 2-3
-    const nBrands = chance(0.4) ? rint(2, 3) : 1;
-    const brands = [...OCH_BRANDS].sort(() => r() - 0.5).slice(0, nBrands);
+    // Phân bổ thương hiệu THỰC TẾ: F&B chiếm ~90% doanh thu OCH → đa số khách F&B
+    // (chi tiêu vừa phải), khách sạn là thiểu số (chi tiêu cao), một nhóm nhỏ cross F&B+KS
+    // (giá trị cao nhất). Tạo phân bố hạng tự nhiên (Đồng nhiều → Kim cương hiếm).
+    const FNB = ["givral", "kem_trang_tien", "fuji"];
+    const HOTELS = ["sunrise_nha_trang", "starcity_nha_trang", "dusit_hanoi"];
+    const seg = r();
+    let brands: string[];
+    if (seg < 0.7) {
+      brands = chance(0.28) ? [...FNB].sort(() => r() - 0.5).slice(0, 2) : [pick(FNB)];
+    } else if (seg < 0.9) {
+      brands = chance(0.35) ? [pick(HOTELS), pick(FNB)] : [pick(HOTELS)];
+    } else {
+      brands = [pick(FNB), pick(HOTELS)];
+    }
     // Lifecycle spread (ngưỡng mặc định: at_risk≥60, dormant≥90, churned≥180 ngày):
     //   bucket 0: mới · 1-4: active · 5-6: at_risk · 7-8: dormant · 9: churned
     const bucket = i % 10;
@@ -195,14 +206,22 @@ function buildCustomers(n: number): Customer[] {
   return list;
 }
 
+// Pool sản phẩm khách sạn CÓ TRỌNG SỐ: chủ yếu lưu trú/ẩm thực thường ngày; SUITE thi thoảng;
+// HTL-HALL (sự kiện 15M) rất hiếm (không để 1 đơn tiệc làm lệch toàn bộ chi tiêu).
+const HOTEL_POOL: string[] = [
+  ...Array(6).fill("HTL-BUFFET"), ...Array(5).fill("HTL-DELUXE"), ...Array(4).fill("HTL-SETMENU"),
+  ...Array(3).fill("HTL-SPA"), ...Array(2).fill("HTL-SUITE"), "HTL-HALL",
+];
+const isHotel = (brand: string): boolean => brand.startsWith("sunrise") || brand.startsWith("starcity") || brand.startsWith("dusit");
+
 interface OrderItem { sku: string; name: string; quantity: number; unit_price: number }
 function orderItems(brand: string): { items: OrderItem[]; total: number } {
-  const skus = BRAND_SKUS[brand]!;
+  const pool = isHotel(brand) ? HOTEL_POOL : BRAND_SKUS[brand]!;
   const nItems = rint(1, 3);
   let total = 0;
   const items: OrderItem[] = [];
   for (let k = 0; k < nItems; k++) {
-    const sku = pick(skus);
+    const sku = pick(pool);
     const meta = PRODUCTS.find((p) => p[0] === sku)!;
     const qty = sku.startsWith("HTL-") ? rint(1, 2) : rint(1, 4);
     const up = PRICE.get(sku)!;

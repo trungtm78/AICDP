@@ -6,6 +6,7 @@ import { lookupQuerySchema, customerListQuerySchema } from "./schemas.js";
 import { AppError } from "./errors.js";
 import { getCustomer360, getCustomer360ByOccId } from "../ingestion/ingestion.service.js";
 import { listCustomers } from "../customers/customers.repo.js";
+import { getCustomerAnalytics } from "../customers/customer-analytics.js";
 import { Roles } from "./auth/roles.js";
 
 /** Tra cứu Customer 360 theo một identifier (phone/email/...). */
@@ -57,5 +58,11 @@ export class CustomersController {
       });
     }
     return { data: c360 };
+  }
+
+  /** Phân tích hành vi mua chuyên sâu theo occId (CLV, nhịp mua, ưa thích thương hiệu…). */
+  @Get("by-id/:occId/analytics")
+  async analytics(@Param("occId") occId: string) {
+    return { data: await getCustomerAnalytics(this.pool, occId) };
   }
 }

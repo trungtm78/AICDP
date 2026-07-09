@@ -41,6 +41,19 @@ export interface Customer360 {
 
 export type LifecycleStage = "new" | "active" | "at_risk" | "vip" | "dormant" | "churned";
 
+/** Phân tích hành vi mua chuyên sâu (Customer 360). */
+export interface CustomerAnalytics {
+  summary: { orderCount: number; totalSpend: number; aov: number; firstOrderAt: string | null; lastOrderAt: string | null; tenureDays: number | null };
+  cadence: { avgIntervalDays: number | null; predictedNextPurchaseAt: string | null; daysUntilNext: number | null };
+  predictedClv: number;
+  monthlySpend: { month: string; spend: number; orders: number }[];
+  brandBreakdown: { brandId: string; spend: number; orders: number; pct: number }[];
+  categoryBreakdown: { categoryId: string | null; spend: number; pct: number }[];
+  topStores: { storeId: string; orders: number; spend: number }[];
+  dow: number[];
+  paymentMix: { method: string; count: number }[];
+}
+
 /** Một dòng trong danh sách khách hàng (Customer Directory). */
 export interface CustomerListItem {
   occId: string;
