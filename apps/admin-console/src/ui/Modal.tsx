@@ -30,7 +30,7 @@ export function Modal({ open, onClose, title, description, children, footer, cla
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-text/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-scrim backdrop-blur-sm" onClick={onClose} />
       <div className={cn("relative z-10 w-full max-w-lg rounded-xl border border-border bg-surface shadow-lg", className)}>
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-3.5">
           <div>
@@ -54,7 +54,7 @@ export function Drawer({ open, onClose, title, description, children, footer, cl
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
-      <div className="absolute inset-0 bg-text/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-scrim backdrop-blur-sm" onClick={onClose} />
       <div className={cn("absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-border bg-surface shadow-lg", className)}>
         <header className="flex items-start justify-between gap-3 border-b border-border px-5 py-3.5">
           <div>

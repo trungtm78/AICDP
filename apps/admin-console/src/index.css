@@ -54,6 +54,9 @@
   --color-info: #4f46e5;
   --color-info-subtle: #eef2ff;
 
+  /* Scrim overlay (modal/drawer/palette) — luôn tối để nội dung nổi */
+  --color-scrim: rgb(15 23 42 / 0.4);
+
   /* Bán kính — bo mềm (airy) */
   --radius-sm: 6px;
   --radius-md: 8px;
@@ -69,6 +72,42 @@
 
   --font-sans: "Geist Variable", "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: "Geist Mono", ui-monospace, "Cascadia Code", "Consolas", monospace;
+}
+
+/*
+  Theme TỐI "Slate sâu" (Linear/Vercel) — mặc định của AICDP (chất kỹ thuật/war-room).
+  Override GIÁ TRỊ biến (không đổi tên) → mọi utility token tự đổi màu, không sửa component.
+*/
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-bg: #0b0f1a;            /* nền slate rất sâu */
+  --color-surface: #141a28;
+  --color-surface-alt: #1b2333;
+  --color-surface-hover: #1e2740;
+
+  --color-border: #232c40;
+  --color-border-strong: #354056;
+
+  --color-text: #e6e9f0;
+  --color-text-muted: #98a2b8;
+  --color-text-subtle: #5c6784;
+
+  --color-accent: #818cf8;        /* indigo-400 — sáng, đọc rõ trên nền tối */
+  --color-accent-hover: #a5b4fc;
+  --color-accent-strong: #a5b4fc;
+  --color-accent-subtle: #1b2140; /* nền badge/active tối */
+  --color-accent-fg: #0b0f1a;     /* chữ TỐI trên nút indigo sáng (kiểu Linear) */
+
+  --color-cyan: #22d3ee;
+  --color-violet: #a78bfa;
+
+  --color-success: #34d399; --color-success-subtle: #10231c;
+  --color-warning: #fbbf24; --color-warning-subtle: #2a2010;
+  --color-error: #f87171;   --color-error-subtle: #2a1418;
+  --color-info: #818cf8;    --color-info-subtle: #1b2140;
+
+  --color-scrim: rgb(2 4 10 / 0.6);
 }
 
 /* Gradient thương hiệu AICDP (indigo → violet) — CHỈ điểm nhấn: logo, hero, nút primary. */

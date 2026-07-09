@@ -19,6 +19,8 @@ export { EmptyState } from "./EmptyState.js";
 export type { EmptyStateProps } from "./EmptyState.js";
 export { Skeleton, SkeletonRows, Spinner } from "./Skeleton.js";
 export { ToastProvider, useToast } from "./Toast.js";
+export { ThemeProvider, useTheme } from "./ThemeProvider.js";
+export type { Theme } from "./ThemeProvider.js";
 export { Modal, Drawer } from "./Modal.js";
 export type { OverlayProps } from "./Modal.js";
 export { Tooltip } from "./Tooltip.js";

@@ -32,7 +32,7 @@
 - **Secondary:** neutral đậm `#334155` cho action phụ; KHÔNG thêm accent thứ 2 (giữ "tín hiệu" hiếm & có nghĩa).
 - **Neutrals (cool slate):** bg `#FBFBFC` · surface `#FFFFFF` · surface-alt `#F4F5F7` · border `#E7E9EE` · border-strong `#CBD2DC` · text `#0B0E14` · text-muted `#5B6573` · text-subtle `#8A93A2`.
 - **Semantic:** success `#16A34A` · warning `#D97706` · error `#DC2626` · info `#2563EB`.
-- **Dark mode (exec war-room, dark-first):** bg `#0A0C10` · surface `#12151C` · surface-alt `#181C24` · border `#232A35` · text `#E6E8EC` · text-muted `#9AA4B2` · accent `#2DD4BF`. Data-viz dark palette RIÊNG (không tái dùng màu chart light); giảm saturation ~12%.
+- **Dark mode (mặc định, "Slate sâu" Linear/Vercel — chất kỹ thuật):** bg `#0B0F1A` · surface `#141A28` · surface-alt `#1B2333` · border `#232C40` · text `#E6E9F0` · text-muted `#98A2B8` · accent `#818CF8` (indigo-400) · accent-fg `#0B0F1A` (nút indigo sáng, chữ tối). Data-viz palette sáng hơn cho dark. **Toggle Light/Dark** (Sun/Moon ở topbar), lưu `localStorage["aicdp-theme"]` (mặc định dark), set `:root[data-theme]`; token override tại `:root[data-theme="dark"]` (index.css) → component tự đổi. Overlay dùng token `--color-scrim` (tối cả 2 theme). ECharts đọc CSS var lúc render → tự đổi theme.
 - **Brand-kit:** 5 thương hiệu map vào `--brand-accent` token; brand context badge dùng màu này, KHÔNG ghi đè Signal Teal của hệ thống.
 - **Tokens:** semantic (`--color-text-primary`, `--color-surface`, `--color-accent`...), OKLCH-based (Tailwind v4), không hardcode hex trong component.
 
@@ -84,3 +84,4 @@
 | 2026-07-09 | **Rebrand sản phẩm OCC-CDP → AICDP** (bỏ OCC khỏi UI; nhãn "OCC ID"→"AICDP ID"; `occId`/API giữ) | Sản phẩm bán ra dưới tên AICDP; yêu cầu người dùng |
 | 2026-07-09 | **Đổi accent → Indigo AI #4F46E5** (gradient indigo→violet), nền mát hơn | "Hiện đại, chuyên nghiệp hơn"; hợp định vị AI của AICDP |
 | 2026-07-09 | **Logo mới "Channel Hub"** (lõi + 6 kênh kết nối) | Thể hiện kết nối/hợp nhất nhiều kênh dữ liệu |
+| 2026-07-09 | **Dark-first "Slate sâu" + toggle Light/Dark** (mặc định dark, accent indigo #818CF8) | "Tông sậm thể hiện tính kỹ thuật"; ThemeProvider + token override + ECharts runtime |

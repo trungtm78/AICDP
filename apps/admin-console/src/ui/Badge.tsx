@@ -10,7 +10,7 @@ const TONE: Record<Tone, string> = {
   warning: "bg-warning-subtle text-warning border-transparent",
   error: "bg-error-subtle text-error border-transparent",
   info: "bg-info-subtle text-info border-transparent",
-  violet: "bg-[#f2edfb] text-violet border-transparent",
+  violet: "bg-violet/10 text-violet border-transparent",
 };
 
 export interface BadgeProps {

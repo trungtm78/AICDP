@@ -68,7 +68,7 @@ export function CommandPalette({ open, onClose, items, placeholder = "Tìm works
 
   return (
     <div className="fixed inset-0 z-[70] flex items-start justify-center px-4 pt-[12vh]">
-      <div className="absolute inset-0 bg-text/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-scrim backdrop-blur-sm" onClick={onClose} />
       <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-lg" onKeyDown={onKey}>
         <div className="flex items-center gap-2.5 border-b border-border px-4">
           <Search className="size-4 text-text-subtle" />

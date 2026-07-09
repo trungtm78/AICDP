@@ -1,6 +1,7 @@
 import type { EChartsOption } from "echarts";
 import { EChart } from "./EChart.js";
-import { VIZ_PALETTE, ACCENT, VIOLET, CYAN, TOOLTIP, axisStyle, FONT, TEXT, TEXT_SUBTLE } from "./theme.js";
+import { useTheme } from "../ThemeProvider.js";
+import { chartTokens, tooltip, vizPalette, axisStyle, areaColor, heatmapRange, FONT } from "./theme.js";
 
 type Fmt = (n: number) => string;
 const idFmt: Fmt = (n) => String(n);
@@ -17,7 +18,7 @@ export function BarChart({
   height = 260,
   horizontal = true,
   valueFormatter = idFmt,
-  color = ACCENT,
+  color,
 }: {
   data: BarDatum[];
   height?: number;
@@ -25,14 +26,17 @@ export function BarChart({
   valueFormatter?: Fmt;
   color?: string;
 }) {
+  useTheme();
+  const T = chartTokens();
+  const barColor = color ?? T.accent;
   const labels = data.map((d) => d.label);
   const values = data.map((d) => ({ value: d.value, ...(d.color ? { itemStyle: { color: d.color } } : {}) }));
   const catAxis = { type: "category" as const, data: labels, ...axisStyle() };
   const valAxis = { type: "value" as const, ...axisStyle({ numeric: true }), axisLabel: { ...axisStyle().axisLabel, formatter: (v: number) => valueFormatter(v) } };
 
   const option: EChartsOption = {
-    grid: { left: horizontal ? 8 : 8, right: 16, top: 12, bottom: 8, containLabel: true },
-    tooltip: { trigger: "item", ...TOOLTIP, valueFormatter: (v) => valueFormatter(Number(v)) },
+    grid: { left: 8, right: 16, top: 12, bottom: 8, containLabel: true },
+    tooltip: { trigger: "item", ...tooltip(), valueFormatter: (v) => valueFormatter(Number(v)) },
     xAxis: horizontal ? valAxis : catAxis,
     yAxis: horizontal ? { ...catAxis, inverse: true } : valAxis,
     series: [
@@ -40,12 +44,12 @@ export function BarChart({
         type: "bar",
         data: values,
         barMaxWidth: 22,
-        itemStyle: { color, borderRadius: horizontal ? [0, 5, 5, 0] : [5, 5, 0, 0] },
+        itemStyle: { color: barColor, borderRadius: horizontal ? [0, 5, 5, 0] : [5, 5, 0, 0] },
         label: {
           show: true,
           position: horizontal ? "right" : "top",
           formatter: (p) => valueFormatter(Number(p.value)),
-          color: TEXT,
+          color: T.text,
           fontSize: 11,
           fontFamily: FONT,
         },
@@ -73,9 +77,11 @@ export function Donut({
   valueFormatter?: Fmt;
   centerLabel?: string;
 }) {
+  useTheme();
+  const T = chartTokens();
   const option: EChartsOption = {
-    color: VIZ_PALETTE,
-    tooltip: { trigger: "item", ...TOOLTIP, valueFormatter: (v) => valueFormatter(Number(v)) },
+    color: vizPalette(),
+    tooltip: { trigger: "item", ...tooltip(), valueFormatter: (v) => valueFormatter(Number(v)) },
     legend: {
       orient: "vertical",
       right: 0,
@@ -83,7 +89,7 @@ export function Donut({
       icon: "circle",
       itemWidth: 8,
       itemHeight: 8,
-      textStyle: { color: TEXT, fontSize: 12, fontFamily: FONT },
+      textStyle: { color: T.text, fontSize: 12, fontFamily: FONT },
     },
     series: [
       {
@@ -91,9 +97,9 @@ export function Donut({
         radius: ["58%", "82%"],
         center: ["34%", "50%"],
         avoidLabelOverlap: true,
-        itemStyle: { borderColor: "#fff", borderWidth: 2 },
+        itemStyle: { borderColor: T.surface, borderWidth: 2 },
         label: centerLabel
-          ? { show: true, position: "center", formatter: centerLabel, fontSize: 12, color: TEXT, fontFamily: FONT }
+          ? { show: true, position: "center", formatter: centerLabel, fontSize: 12, color: T.text, fontFamily: FONT }
           : { show: false },
         labelLine: { show: false },
         data: data.map((d) => ({ name: d.name, value: d.value, ...(d.color ? { itemStyle: { color: d.color } } : {}) })),
@@ -103,7 +109,7 @@ export function Donut({
   return <EChart option={option} height={height} />;
 }
 
-/** Line + Area cho forecast: phần lịch sử (liền) + dự báo (đứt), có vùng band. */
+/** Line + Area cho forecast: phần lịch sử (liền) + dự báo (đứt). */
 export function ForecastLine({
   history,
   forecast,
@@ -115,26 +121,24 @@ export function ForecastLine({
   height?: number;
   valueFormatter?: Fmt;
 }) {
+  useTheme();
+  const T = chartTokens();
   const periods = [...history.map((h) => h.period), ...forecast.map((f) => f.period)];
   const histVals: (number | null)[] = history.map((h) => h.value);
-  // nối liền: điểm cuối lịch sử cũng là điểm đầu forecast
   const lastHist = history.length ? history[history.length - 1]!.value : null;
-  const foreVals: (number | null)[] = [
-    ...history.map(() => null),
-    ...forecast.map((f) => f.value),
-  ];
+  const foreVals: (number | null)[] = [...history.map(() => null), ...forecast.map((f) => f.value)];
   if (history.length > 0) foreVals[history.length - 1] = lastHist;
 
   const option: EChartsOption = {
     grid: { left: 8, right: 16, top: 16, bottom: 8, containLabel: true },
-    tooltip: { trigger: "axis", ...TOOLTIP, valueFormatter: (v) => (v == null ? "" : valueFormatter(Number(v))) },
+    tooltip: { trigger: "axis", ...tooltip(), valueFormatter: (v) => (v == null ? "" : valueFormatter(Number(v))) },
     legend: {
       right: 0,
       top: 0,
       icon: "roundRect",
       itemWidth: 12,
       itemHeight: 4,
-      textStyle: { color: TEXT, fontSize: 11, fontFamily: FONT },
+      textStyle: { color: T.text, fontSize: 11, fontFamily: FONT },
       data: ["Thực tế", "Dự báo"],
     },
     xAxis: { type: "category", boundaryGap: false, data: periods, ...axisStyle() },
@@ -147,9 +151,9 @@ export function ForecastLine({
         symbol: "circle",
         symbolSize: 6,
         data: histVals,
-        lineStyle: { width: 2.5, color: ACCENT },
-        itemStyle: { color: ACCENT },
-        areaStyle: { color: "rgba(79,70,229,0.10)" },
+        lineStyle: { width: 2.5, color: T.accent },
+        itemStyle: { color: T.accent },
+        areaStyle: { color: areaColor("accent") },
       },
       {
         name: "Dự báo",
@@ -158,9 +162,9 @@ export function ForecastLine({
         symbol: "circle",
         symbolSize: 6,
         data: foreVals,
-        lineStyle: { width: 2.5, type: "dashed", color: VIOLET },
-        itemStyle: { color: VIOLET },
-        areaStyle: { color: "rgba(124,58,237,0.08)" },
+        lineStyle: { width: 2.5, type: "dashed", color: T.violet },
+        itemStyle: { color: T.violet },
+        areaStyle: { color: areaColor("violet") },
       },
     ],
   };
@@ -174,9 +178,11 @@ export interface FunnelStage {
 
 /** Funnel — phễu chuyển đổi (journey). */
 export function Funnel({ data, height = 260, valueFormatter = idFmt }: { data: FunnelStage[]; height?: number; valueFormatter?: Fmt }) {
+  useTheme();
+  const T = chartTokens();
   const option: EChartsOption = {
-    color: VIZ_PALETTE,
-    tooltip: { trigger: "item", ...TOOLTIP, valueFormatter: (v) => valueFormatter(Number(v)) },
+    color: vizPalette(),
+    tooltip: { trigger: "item", ...tooltip(), valueFormatter: (v) => valueFormatter(Number(v)) },
     series: [
       {
         type: "funnel",
@@ -186,8 +192,9 @@ export function Funnel({ data, height = 260, valueFormatter = idFmt }: { data: F
         bottom: 8,
         minSize: "24%",
         gap: 3,
-        label: { color: "#fff", fontSize: 12, fontFamily: FONT, formatter: "{b}: {c}" },
-        itemStyle: { borderColor: "#fff", borderWidth: 1 },
+        // Chữ trắng + halo tối → đọc được trên mọi màu segment (light lẫn dark palette).
+        label: { color: "#fff", textBorderColor: "rgba(2,6,23,0.6)", textBorderWidth: 2, fontSize: 12, fontFamily: FONT, formatter: "{b}: {c}" },
+        itemStyle: { borderColor: T.surface, borderWidth: 1 },
         data,
       },
     ],
@@ -210,12 +217,14 @@ export function Heatmap({
   height?: number;
   valueFormatter?: Fmt;
 }) {
+  useTheme();
+  const T = chartTokens();
   const max = cells.reduce((m, c) => Math.max(m, c[2]), 0);
   const option: EChartsOption = {
     grid: { left: 8, right: 16, top: 8, bottom: 48, containLabel: true },
-    tooltip: { ...TOOLTIP, position: "top", valueFormatter: (v) => valueFormatter(Number(v)) },
-    xAxis: { type: "category", data: xLabels, splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: TEXT_SUBTLE, fontSize: 11, fontFamily: FONT } },
-    yAxis: { type: "category", data: yLabels, splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: TEXT_SUBTLE, fontSize: 11, fontFamily: FONT } },
+    tooltip: { ...tooltip(), position: "top", valueFormatter: (v) => valueFormatter(Number(v)) },
+    xAxis: { type: "category", data: xLabels, splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: T.subtle, fontSize: 11, fontFamily: FONT } },
+    yAxis: { type: "category", data: yLabels, splitArea: { show: true }, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: T.subtle, fontSize: 11, fontFamily: FONT } },
     visualMap: {
       min: 0,
       max: max || 1,
@@ -223,16 +232,19 @@ export function Heatmap({
       orient: "horizontal",
       left: "center",
       bottom: 4,
-      inRange: { color: ["#eef2ff", "#4f46e5", "#3730a3"] },
-      textStyle: { color: TEXT_SUBTLE, fontSize: 10, fontFamily: FONT },
+      inRange: { color: heatmapRange() },
+      textStyle: { color: T.subtle, fontSize: 10, fontFamily: FONT },
     },
     series: [
       {
         type: "heatmap",
         data: cells,
+        // Chữ trắng + halo tối → đọc được trên mọi ô (thang màu từ nhạt→đậm, cả 2 theme).
         label: {
           show: true,
-          color: "#0f172a",
+          color: "#fff",
+          textBorderColor: "rgba(2,6,23,0.65)",
+          textBorderWidth: 2,
           fontSize: 10,
           fontFamily: FONT,
           formatter: (p) => {
@@ -240,7 +252,7 @@ export function Heatmap({
             return arr && arr[2] ? valueFormatter(arr[2]) : "";
           },
         },
-        itemStyle: { borderColor: "#fff", borderWidth: 2, borderRadius: 4 },
+        itemStyle: { borderColor: T.surface, borderWidth: 2, borderRadius: 4 },
       },
     ],
   };
@@ -268,9 +280,11 @@ export function Sankey({
   height?: number;
   valueFormatter?: Fmt;
 }) {
+  useTheme();
+  const T = chartTokens();
   const option: EChartsOption = {
-    color: VIZ_PALETTE,
-    tooltip: { trigger: "item", ...TOOLTIP, valueFormatter: (v) => valueFormatter(Number(v)) },
+    color: vizPalette(),
+    tooltip: { trigger: "item", ...tooltip(), valueFormatter: (v) => valueFormatter(Number(v)) },
     series: [
       {
         type: "sankey",
@@ -284,7 +298,7 @@ export function Sankey({
         emphasis: { focus: "adjacency" },
         data: nodes,
         links,
-        label: { color: "#0f172a", fontSize: 11, fontFamily: FONT },
+        label: { color: T.text, fontSize: 11, fontFamily: FONT },
         lineStyle: { color: "gradient", opacity: 0.35, curveness: 0.5 },
         itemStyle: { borderWidth: 0 },
       },
@@ -294,7 +308,10 @@ export function Sankey({
 }
 
 /** Sparkline nhỏ cho StatTile. */
-export function Sparkline({ data, color = CYAN, height = 36 }: { data: number[]; color?: string; height?: number }) {
+export function Sparkline({ data, color, height = 36 }: { data: number[]; color?: string; height?: number }) {
+  useTheme();
+  const T = chartTokens();
+  const line = color ?? T.cyan;
   const option: EChartsOption = {
     grid: { left: 0, right: 0, top: 2, bottom: 2 },
     xAxis: { type: "category", show: false, boundaryGap: false, data: data.map((_, i) => i) },
@@ -306,8 +323,8 @@ export function Sparkline({ data, color = CYAN, height = 36 }: { data: number[];
         data,
         smooth: true,
         symbol: "none",
-        lineStyle: { width: 2, color },
-        areaStyle: { color: "rgba(6,182,212,0.12)" },
+        lineStyle: { width: 2, color: line },
+        areaStyle: { color: "rgba(34,211,238,0.12)" },
       },
     ],
   };

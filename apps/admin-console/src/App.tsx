@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, UserRound, Gift, Database, ChartColumnBig, Target, Waypoints,
   Sparkles, BrainCircuit, ShieldCheck, Server, Search, Bell, LogOut, Command as CommandIcon,
-  type LucideIcon,
+  Sun, Moon, type LucideIcon,
 } from "lucide-react";
 import { getToken, getName, getRole, clearSession } from "./lib/auth.js";
 import { LoginScreen } from "./screens/LoginScreen.js";
@@ -18,7 +18,7 @@ import { PlatformScreen } from "./screens/PlatformScreen.js";
 import { AiGovernanceScreen } from "./screens/AiGovernanceScreen.js";
 import { InsightsScreen } from "./screens/InsightsScreen.js";
 import { AssistantScreen } from "./screens/AssistantScreen.js";
-import { Logo, Kbd, CommandPalette, type CommandItem } from "./ui/index.js";
+import { Logo, Kbd, CommandPalette, useTheme, type CommandItem } from "./ui/index.js";
 import { cn } from "./ui/cn.js";
 
 type NavItem = { to: string; label: string; icon: LucideIcon; kw: string };
@@ -182,11 +182,28 @@ function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
         </span>
       </button>
       <div className="flex items-center gap-1">
+        <ThemeToggle />
         <button type="button" aria-label="Thông báo" className="grid size-9 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-alt hover:text-text">
           <Bell className="size-4" />
         </button>
       </div>
     </header>
+  );
+}
+
+function ThemeToggle() {
+  const { theme, toggle } = useTheme();
+  const dark = theme === "dark";
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={dark ? "Chuyển sang chế độ sáng" : "Chuyển sang chế độ tối"}
+      title={dark ? "Chế độ sáng" : "Chế độ tối"}
+      className="grid size-9 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-alt hover:text-text"
+    >
+      {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+    </button>
   );
 }
 
