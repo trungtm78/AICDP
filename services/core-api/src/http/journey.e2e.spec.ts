@@ -101,6 +101,33 @@ describe("journey HTTP (engine)", () => {
     expect(res.body.error.code).toBe("JOURNEY_INVALID");
   });
 
+  it("event trigger: ingest order_completed → enroll journey event", async () => {
+    const eventDef = {
+      nodes: [
+        { id: "e", type: "entry", config: { trigger: "event", eventName: "order_completed" } },
+        { id: "a", type: "action", config: { kind: "loyalty_bonus", points: 50 } },
+        { id: "x", type: "exit" },
+      ],
+      edges: [{ from: "e", to: "a" }, { from: "a", to: "x" }],
+    };
+    const create = await http().post("/v1/journeys").send({ name: "welcome", triggerType: "event", triggerConfig: { eventName: "order_completed" }, definition: eventDef });
+    const jid = create.body.data.journey_id;
+    await http().post(`/v1/journeys/${jid}/publish`);
+    await http().post(`/v1/journeys/${jid}/activate`);
+
+    await buy("0906000009", 120000, "ev-1"); // ingest → event hook enroll (fire-and-forget)
+
+    // Poll vì hook chạy nền không chặn 202.
+    let total = 0;
+    for (let i = 0; i < 20 && total !== 1; i++) {
+      total = (await http().get(`/v1/journeys/${jid}/participants`)).body.meta.total;
+      if (total !== 1) await new Promise((r) => setTimeout(r, 50));
+    }
+    expect(total).toBe(1);
+    await http().post("/v1/journeys/tick").send({ limit: 100 });
+    expect((await http().get(`/v1/journeys/${jid}/participants`)).body.data[0].status).toBe("completed");
+  });
+
   it("activate khi chưa publish -> 409", async () => {
     const create = await http().post("/v1/journeys").send({ name: "np", triggerType: "manual", definition: segLoyaltyDef });
     const res = await http().post(`/v1/journeys/${create.body.data.journey_id}/activate`);

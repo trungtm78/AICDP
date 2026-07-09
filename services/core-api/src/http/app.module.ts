@@ -21,6 +21,7 @@ import { FeatureController } from "./feature.controller.js";
 import { AssistantController } from "./assistant.controller.js";
 import { JourneyController } from "./journey.controller.js";
 import { AuthController } from "./auth.controller.js";
+import { JourneyScheduler } from "../journey/journey-scheduler.js";
 
 @Module({
   controllers: [
@@ -43,6 +44,7 @@ import { AuthController } from "./auth.controller.js";
   providers: [
     pgPoolProvider,
     chClientProvider,
+    JourneyScheduler,
     // Thứ tự guard: rate-limit IP PRE-AUTH (shed flood trước khi tốn JWT/DB) -> xác thực
     // (AuthGuard) -> rate-limit theo principal/login (RateLimitGuard) -> phân quyền (RolesGuard).
     { provide: APP_GUARD, useClass: IpRateLimitGuard },

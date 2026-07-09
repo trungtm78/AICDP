@@ -16,6 +16,7 @@ import {
   type OrderCompletedEvent,
   type IdentifyEvent,
 } from "../ingestion/ingestion.service.js";
+import { enrollEventJourneys } from "../journey/journey-triggers.service.js";
 
 const SUPPORTED = new Set(["order_completed", "identify"]);
 
@@ -56,6 +57,12 @@ export class IngestController {
       // Chỉ project bản ghi MỚI (không idempotent-replay). Lỗi CH đã nuốt trong helper.
       if (!result.idempotent) {
         void projectOrderBestEffort(this.ch, orderEvent, result.messageId, result.occId);
+        // Journey event-trigger: enroll khách vào journey kiểu event khớp 'order_completed'.
+        // FIRE-AND-FORGET — KHÔNG chặn 202 (giống projection CH). Lỗi nuốt; miss enroll thì
+        // segment-scan/lần mua sau bắt lại (PG là SoR).
+        if (result.occId) {
+          void enrollEventJourneys(this.pool, result.occId, "order_completed").catch(() => undefined);
+        }
       }
       return { data: result };
     }
