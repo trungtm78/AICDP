@@ -3,7 +3,7 @@ import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { CH_CLIENT } from "./ch.provider.js";
 import type { Ch } from "../clickhouse/client.js";
-import { getOverview, getBrandRevenue } from "../analytics/analytics.service.js";
+import { getOverview, getBrandRevenue, getInsights } from "../analytics/analytics.service.js";
 import { forecastRevenue } from "../forecast/forecast.service.js";
 import { validate } from "./validate.js";
 import { forecastQuerySchema } from "./schemas.js";
@@ -33,5 +33,11 @@ export class AnalyticsController {
   async forecast(@Query() query: Record<string, string>) {
     const q = validate(forecastQuerySchema, query, "analytics_forecast");
     return { data: await forecastRevenue(this.pool, q) };
+  }
+
+  /** Phân tích chuyên sâu (PG): vòng đời, doanh thu brand, nhóm hàng, synergy cross-brand. */
+  @Get("insights")
+  async insights() {
+    return { data: await getInsights(this.pool) };
   }
 }

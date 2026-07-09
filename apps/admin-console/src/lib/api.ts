@@ -32,6 +32,7 @@ import {
   type RecommendationV2,
   type NbaDecision,
   type ForecastResult,
+  type Insights,
 } from "./types.js";
 
 // Client gọi core-api qua proxy /v1. Mọi data hiển thị đều lấy từ đây (không hardcode).
@@ -234,6 +235,7 @@ export const api = {
     if (params.periods) q.set("periods", String(params.periods));
     return request<ForecastResult>(`/v1/analytics/forecast?${q.toString()}`);
   },
+  getInsights: () => request<Insights>("/v1/analytics/insights"),
 
   assistantAsk: (question: string) =>
     request<{ text: string }>("/v1/ai/assistant/ask", { method: "POST", body: JSON.stringify({ question }) }),

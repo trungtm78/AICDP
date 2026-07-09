@@ -11,10 +11,12 @@ import { ControlTowerScreen } from "./screens/ControlTowerScreen.js";
 import { JourneysScreen } from "./screens/JourneysScreen.js";
 import { PlatformScreen } from "./screens/PlatformScreen.js";
 import { AiGovernanceScreen } from "./screens/AiGovernanceScreen.js";
+import { InsightsScreen } from "./screens/InsightsScreen.js";
 
-// IA workspace (DESIGN.md). + AI & Governance (Phase A).
+// IA workspace (DESIGN.md). + Phân tích + AI & Governance (Phase A).
 const NAV = [
   { to: "/control-tower", label: "Control Tower", ready: true },
+  { to: "/insights", label: "Phân tích", ready: true },
   { to: "/customers", label: "Customers", ready: true },
   { to: "/audiences", label: "Audiences", ready: true },
   { to: "/journeys", label: "Journeys", ready: true },
@@ -75,6 +77,7 @@ export function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/control-tower" replace />} />
           <Route path="/control-tower" element={<ControlTowerScreen />} />
+          <Route path="/insights" element={<InsightsScreen />} />
           <Route path="/customers" element={<CustomersScreen />} />
           <Route path="/audiences" element={<AudiencesScreen />} />
           <Route path="/loyalty" element={<LoyaltyScreen />} />

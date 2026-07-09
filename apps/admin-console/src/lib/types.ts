@@ -254,6 +254,14 @@ export interface ForecastResult {
   forecast: { period: string; revenue: number }[];
   method: string;
 }
+export interface Insights {
+  lifecycle: { stage: string; count: number }[];
+  revenueByBrand: { brandId: string; revenue: number; transactions: number }[];
+  topCategories: { category: string; orders: number }[];
+  crossBrandCustomers: number;
+  totalWithFeature: number;
+  avgChurnRisk: number;
+}
 
 /** Lỗi chuẩn hóa từ error envelope của core-api. */
 export class ApiError extends Error {
