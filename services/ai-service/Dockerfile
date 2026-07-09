@@ -4,12 +4,10 @@ FROM python:3.12-slim
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 
-# Cài deps trước (tận dụng layer cache)
+# Copy pyproject + src rồi cài (build backend cần src/ để find packages)
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install .
-
-# Mã nguồn
 COPY src ./src
+RUN pip install --upgrade pip && pip install .
 
 # Model artifact lưu ở volume /models
 RUN mkdir -p /models && useradd -m app && chown -R app /app /models

@@ -5,11 +5,11 @@ import os
 from pathlib import Path
 from typing import Any
 
-import joblib
+import cloudpickle  # xử lý được closure/lambda (lifetimes BG/NBD) mà joblib/pickle không pickle được
 
 from .config import settings
 
-BUNDLE_NAME = "bundle.joblib"
+BUNDLE_NAME = "bundle.pkl"
 
 
 def _dir() -> Path:
@@ -20,7 +20,8 @@ def _dir() -> Path:
 
 def save_bundle(bundle: dict[str, Any]) -> str:
     path = _dir() / BUNDLE_NAME
-    joblib.dump(bundle, path)
+    with open(path, "wb") as f:
+        cloudpickle.dump(bundle, f)
     return str(path)
 
 
@@ -29,7 +30,8 @@ def load_bundle() -> dict[str, Any] | None:
     if not path.exists():
         return None
     try:
-        return joblib.load(path)
+        with open(path, "rb") as f:
+            return cloudpickle.load(f)
     except Exception:  # noqa: BLE001
         return None
 
