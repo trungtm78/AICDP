@@ -33,6 +33,7 @@ services:
       PGPASSWORD: occ_cdp_dev
       CORE_API_PORT: "8071"
       CORE_API_JWT_SECRET: "och-aicdp-demo-jwt-secret-2026-do-not-use-in-real-prod"
+      CORE_API_DEMO_RESET: "1"  # hiện link đặt lại trên màn (demo, không gửi email thật)
     depends_on:
       postgres:
         condition: service_healthy

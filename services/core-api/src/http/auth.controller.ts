@@ -8,6 +8,8 @@ import {
   userStatusSchema,
   userUpdateSchema,
   apiKeyCreateSchema,
+  passwordResetRequestSchema,
+  passwordResetConfirmSchema,
 } from "./schemas.js";
 import { AppError } from "./errors.js";
 import { Public, Roles } from "./auth/roles.js";
@@ -20,6 +22,7 @@ import {
   deleteUser,
 } from "../auth/user.service.js";
 import { listApiKeys, createApiKey, revokeApiKey, deleteApiKey } from "../auth/apikey.service.js";
+import { requestReset, confirmReset, PasswordResetError } from "../auth/password-reset.service.js";
 
 // Lỗi 404 khi không tìm thấy bản ghi cần cập nhật/xoá.
 function notFoundError(entity: string, id: string): AppError {
@@ -55,6 +58,41 @@ export class AuthController {
       });
     }
     return { data: res };
+  }
+
+  /** Quên mật khẩu — luôn 200 ok:true (chống dò tài khoản). resetToken CHỈ lộ khi CORE_API_DEMO_RESET=1. */
+  @Public()
+  @Post("password-reset/request")
+  @HttpCode(200)
+  async passwordResetRequest(@Body() body: unknown) {
+    const dto = validate(passwordResetRequestSchema, body, "password_reset_request");
+    const res = await requestReset(this.pool, dto.username);
+    const demo = process.env.CORE_API_DEMO_RESET === "1";
+    return { data: { ok: true, ...(demo && res.token ? { resetToken: res.token } : {}) } };
+  }
+
+  /** Đặt mật khẩu mới theo token (một lần, hết hạn 30 phút). */
+  @Public()
+  @Post("password-reset/confirm")
+  @HttpCode(200)
+  async passwordResetConfirm(@Body() body: unknown) {
+    const dto = validate(passwordResetConfirmSchema, body, "password_reset_confirm");
+    try {
+      await confirmReset(this.pool, dto.token, dto.newPassword);
+    } catch (err) {
+      if (err instanceof PasswordResetError) {
+        throw new AppError({
+          code: err.code,
+          httpStatus: 400,
+          message: err.message,
+          why: "Token không khớp, đã hết hạn 30 phút hoặc đã được sử dụng.",
+          fix: "Thực hiện lại bước Quên mật khẩu để nhận link mới.",
+          retryable: false,
+        });
+      }
+      throw err;
+    }
+    return { data: { ok: true } };
   }
 
   @Roles("admin")

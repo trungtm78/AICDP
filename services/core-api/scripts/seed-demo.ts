@@ -284,7 +284,7 @@ async function resetAll(): Promise<void> {
   await pool.query(
     `TRUNCATE cdp.ai_llm_usage, cdp.ai_config_audit, cdp.ai_config, cdp.customer_feature,
               cdp.journey_step_run, cdp.journey_participant, cdp.journey_version,
-              cdp.journey_run, cdp.journey, cdp.cart,
+              cdp.journey_run, cdp.journey, cdp.cart, cdp.password_reset,
               cdp.activation_member, cdp.activation_run, cdp.consent_record,
               cdp.loyalty_entry, cdp.loyalty_reservation, cdp.loyalty_txn,
               cdp.canonical_transaction, cdp.ingest_event, cdp.identity_edge,

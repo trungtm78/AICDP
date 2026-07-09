@@ -105,6 +105,19 @@ export const api = {
       body: JSON.stringify({ username, password }),
     }),
 
+  /** Quên mật khẩu — resetToken chỉ có ở chế độ demo (CORE_API_DEMO_RESET=1). */
+  requestPasswordReset: (username: string) =>
+    request<{ ok: true; resetToken?: string }>("/v1/auth/password-reset/request", {
+      method: "POST",
+      body: JSON.stringify({ username }),
+    }),
+
+  confirmPasswordReset: (token: string, newPassword: string) =>
+    request<{ ok: true }>("/v1/auth/password-reset/confirm", {
+      method: "POST",
+      body: JSON.stringify({ token, newPassword }),
+    }),
+
   listBrands: () => request<Brand[]>("/v1/brands"),
 
   listStores: (brandId?: string) =>
