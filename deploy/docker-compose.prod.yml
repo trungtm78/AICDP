@@ -35,6 +35,7 @@ services:
       CORE_API_JWT_SECRET: "och-aicdp-demo-jwt-secret-2026-do-not-use-in-real-prod"
       CORE_API_DEMO_RESET: "1"  # hiện link đặt lại trên màn (demo, không gửi email thật)
       AI_SERVICE_URL: "http://ai-service:8072"
+      REDIS_URL: "redis://redis:6379"
       # LLM key truyền từ env host lúc `docker compose up` (KHÔNG hardcode secret trong file).
       OPENAI_API_KEY: "${OPENAI_API_KEY:-}"
       ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
@@ -42,6 +43,12 @@ services:
       postgres:
         condition: service_healthy
     # KHÔNG depends_on ai-service (cứng): core-api sống khi ai-service down (circuit-breaker).
+
+  # Redis — cache Real-time Personalization (Profile/Reco API). core-api fallback PG khi down.
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
 
   # ai-service (ML). Train một lần qua: docker compose ... exec ai-service python -m ai_service.scripts.train_all
   ai-service:
