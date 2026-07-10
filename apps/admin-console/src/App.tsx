@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, UserRound, Gift, Database, ChartColumnBig, Target, Waypoints,
   Sparkles, BrainCircuit, ShieldCheck, Server, Search, Bell, LogOut, Command as CommandIcon,
-  Sun, Moon, Plug, Gauge, TriangleAlert, Scale, Zap, type LucideIcon,
+  Sun, Moon, Plug, Gauge, TriangleAlert, Scale, Zap, Menu, X, type LucideIcon,
 } from "lucide-react";
 import { getToken, getName, getRole, clearSession } from "./lib/auth.js";
 import { LoginScreen } from "./screens/LoginScreen.js";
@@ -80,6 +80,7 @@ const FLAT = GROUPS.flatMap((g) => g.items);
 export function App() {
   const [authed, setAuthed] = useState<boolean>(() => getToken() !== null);
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -94,11 +95,23 @@ export function App() {
 
   if (!authed) return <LoginScreen onLoggedIn={() => setAuthed(true)} />;
 
+  const logout = () => { clearSession(); setAuthed(false); };
+
   return (
     <div className="flex h-full">
-      <Sidebar onLogout={() => { clearSession(); setAuthed(false); }} />
+      {/* Sidebar cố định trên desktop */}
+      <Sidebar className="hidden lg:flex" onLogout={logout} />
+
+      {/* Drawer điều hướng trên mobile */}
+      {navOpen && (
+        <div className="fixed inset-0 z-40 lg:hidden">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setNavOpen(false)} />
+          <Sidebar className="absolute inset-y-0 left-0 shadow-2xl" onLogout={logout} onNavigate={() => setNavOpen(false)} />
+        </div>
+      )}
+
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar onOpenPalette={() => setPaletteOpen(true)} />
+        <Topbar onOpenPalette={() => setPaletteOpen(true)} onOpenNav={() => setNavOpen(true)} />
         <main className="min-h-0 flex-1 overflow-auto">
           <Routes>
             <Route path="/" element={<Navigate to="/control-tower" replace />} />
@@ -129,11 +142,16 @@ export function App() {
   );
 }
 
-function Sidebar({ onLogout }: { onLogout: () => void }) {
+function Sidebar({ onLogout, className, onNavigate }: { onLogout: () => void; className?: string; onNavigate?: () => void }) {
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-surface">
-      <div className="flex h-14 items-center px-4">
+    <aside className={cn("flex w-60 shrink-0 flex-col border-r border-border bg-surface", className)}>
+      <div className="flex h-14 items-center justify-between px-4">
         <Logo />
+        {onNavigate && (
+          <button type="button" aria-label="Đóng menu" onClick={onNavigate} className="grid size-8 place-items-center rounded-md text-text-muted hover:bg-surface-alt lg:hidden">
+            <X className="size-4" />
+          </button>
+        )}
       </div>
       <nav className="flex-1 space-y-4 overflow-auto px-3 py-2">
         {GROUPS.map((g) => (
@@ -146,6 +164,7 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
                   <NavLink
                     key={it.to}
                     to={it.to}
+                    onClick={onNavigate}
                     className={({ isActive }) =>
                       cn(
                         "group flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors",
@@ -190,17 +209,25 @@ function Sidebar({ onLogout }: { onLogout: () => void }) {
   );
 }
 
-function Topbar({ onOpenPalette }: { onOpenPalette: () => void }) {
+function Topbar({ onOpenPalette, onOpenNav }: { onOpenPalette: () => void; onOpenNav: () => void }) {
   return (
-    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-3 border-b border-border bg-surface/90 px-6 backdrop-blur">
+    <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center justify-between gap-2 border-b border-border bg-surface/90 px-3 backdrop-blur sm:px-6">
+      <button
+        type="button"
+        aria-label="Mở menu"
+        onClick={onOpenNav}
+        className="grid size-9 shrink-0 place-items-center rounded-md text-text-muted transition-colors hover:bg-surface-alt hover:text-text lg:hidden"
+      >
+        <Menu className="size-5" />
+      </button>
       <button
         type="button"
         onClick={onOpenPalette}
-        className="flex h-9 w-72 items-center gap-2 rounded-md border border-border bg-surface-alt px-3 text-sm text-text-subtle transition-colors hover:border-border-strong"
+        className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-surface-alt px-3 text-sm text-text-subtle transition-colors hover:border-border-strong sm:max-w-72"
       >
-        <Search className="size-4" />
-        <span className="flex-1 text-left">Tìm kiếm…</span>
-        <span className="flex items-center gap-0.5">
+        <Search className="size-4 shrink-0" />
+        <span className="flex-1 truncate text-left">Tìm kiếm…</span>
+        <span className="hidden items-center gap-0.5 sm:flex">
           <Kbd><CommandIcon className="size-2.5" /></Kbd>
           <Kbd>K</Kbd>
         </span>
