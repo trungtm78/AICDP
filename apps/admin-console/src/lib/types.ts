@@ -174,6 +174,22 @@ export interface AnalyticsNarrative {
   source: "llm" | "fallback";
   facts: Record<string, unknown>;
 }
+/** Marketing Copilot (Phase 7). */
+export interface CopilotStep {
+  key: string;
+  title: string;
+  status: "ok" | "skipped" | "error";
+  summary: string;
+  artifact?: unknown;
+}
+export interface CopilotResult {
+  brief: string;
+  steps: CopilotStep[];
+  proposedJourney: { name: string; segmentCriteria: Record<string, unknown>; action: string } | null;
+}
+export interface McpTool { name: string; description: string; input: Record<string, unknown> }
+export interface McpManifest { name: string; version: string; tools: McpTool[] }
+
 /** Real-time Personalization (Phase 6). */
 export interface RtProfile {
   occId: string;

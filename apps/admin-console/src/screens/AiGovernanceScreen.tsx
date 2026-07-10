@@ -170,8 +170,36 @@ export function AiGovernanceScreen() {
         </Panel>
       </div>
 
+      <McpPanel />
+
       {diff && <AuditDiffDrawer entry={diff} onClose={() => setDiff(null)} />}
     </div>
+  );
+}
+
+/** MCP gateway: tool CDP expose cho AI agent ngoài (read-only/aggregate phi-PII). */
+function McpPanel() {
+  const q = useQuery({ queryKey: ["mcp-manifest"], queryFn: api.getMcpManifest });
+  return (
+    <Panel className="mt-6" title="MCP gateway (AI agent ngoài)" icon={<BrainCircuit className="size-4" />}
+      subtitle="Tool đọc/aggregate phi-PII cho agent ngoài truy vấn CDP — gate API key + RBAC">
+      {q.isLoading ? <p className="text-sm text-text-muted">Đang tải…</p> : (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-text-subtle">
+            <Badge tone="neutral">{q.data?.name} v{q.data?.version}</Badge>
+            <span>POST /v1/mcp/invoke · GET /v1/mcp/manifest</span>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(q.data?.tools ?? []).map((t) => (
+              <div key={t.name} className="rounded-lg border border-border bg-surface p-3">
+                <div className="font-mono text-xs font-semibold text-accent">{t.name}</div>
+                <p className="mt-1 text-xs text-text-muted">{t.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </Panel>
   );
 }
 

@@ -29,6 +29,8 @@ import {
   type Uplift,
   type RtProfile,
   type RedisStatus,
+  type CopilotResult,
+  type McpManifest,
   type LoyaltyBalance,
   type LoyaltyMember,
   type LoyaltyLedgerEntry,
@@ -316,6 +318,12 @@ export const api = {
   rtReco: (occId: string) => requestEnvelope<RecommendationV2[]>(`/v1/rt/reco/${encodeURIComponent(occId)}`),
   rtStatus: () => request<RedisStatus>("/v1/rt/status"),
   rtWarm: () => request<{ warmed: number; redisUp: boolean }>("/v1/rt/warm", { method: "POST" }),
+
+  // ── Marketing Copilot + MCP gateway ──
+  runCopilot: (brief: string) => request<CopilotResult>("/v1/ai/assistant/copilot", { method: "POST", body: JSON.stringify({ brief }) }),
+  getMcpManifest: () => request<McpManifest>("/v1/mcp/manifest"),
+  mcpInvoke: (tool: string, args?: Record<string, unknown>) =>
+    request<unknown>("/v1/mcp/invoke", { method: "POST", body: JSON.stringify({ tool, args: args ?? {} }) }),
   askData: (question: string) => request<NlqResult>("/v1/ai/assistant/query", { method: "POST", body: JSON.stringify({ question }) }),
 
   // ── AI Decisioning + Experimentation ──

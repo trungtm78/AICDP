@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { MessageSquare, Target, PenLine, Sparkles, ShieldAlert, Database } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { MessageSquare, Target, PenLine, Sparkles, ShieldAlert, Database, Bot, Wand2, CheckCircle2, SkipForward, XCircle } from "lucide-react";
 import { api } from "../lib/api.js";
-import { ApiError, type SegmentPreview, type NlqResult } from "../lib/types.js";
+import { ApiError, type SegmentPreview, type NlqResult, type CopilotResult } from "../lib/types.js";
 import { fmtInt } from "../lib/format.js";
-import { PageHeader, Panel, SegmentedControl, Textarea, Button, EmptyState, Badge, Table, BarChart, AnomalyLine, type Column } from "../ui/index.js";
+import { PageHeader, Panel, SegmentedControl, Textarea, Button, EmptyState, Badge, Table, BarChart, AnomalyLine, StatusPill, useToast, type Column } from "../ui/index.js";
 
-type Mode = "ask" | "query" | "segment" | "content";
+type Mode = "ask" | "query" | "segment" | "content" | "copilot";
 const MODES: { value: Mode; label: string; icon: React.ReactNode; ph: string }[] = [
   { value: "ask", label: "Hỏi (tóm tắt)", icon: <MessageSquare className="size-3.5" />, ph: "vd: Hệ thống có bao nhiêu khách VIP?" },
   { value: "query", label: "Truy vấn dữ liệu", icon: <Database className="size-3.5" />, ph: "vd: doanh thu theo thương hiệu 90 ngày qua" },
   { value: "segment", label: "Tạo segment", icon: <Target className="size-3.5" />, ph: "vd: khách VIP chi tiêu trên 5 triệu, đã đồng ý email" },
   { value: "content", label: "Sinh nội dung", icon: <PenLine className="size-3.5" />, ph: "vd: viết tin nhắn khuyến mãi bánh trung thu cho khách thân thiết" },
+  { value: "copilot", label: "Copilot chiến dịch", icon: <Bot className="size-3.5" />, ph: "vd: chiến dịch win-back khách VIP sắp rời, tặng ưu đãi qua email" },
 ];
 
 /** Trợ lý AI (generative, LLM). Gọi /v1/ai/assistant/*. Cần ANTHROPIC_API_KEY (ENV) để dùng thật. */
@@ -21,9 +23,10 @@ export function AssistantScreen() {
   const [text, setText] = useState<string | null>(null);
   const [seg, setSeg] = useState<{ criteria: Record<string, unknown>; preview: SegmentPreview } | null>(null);
   const [nlq, setNlq] = useState<NlqResult | null>(null);
+  const [copilot, setCopilot] = useState<CopilotResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  function reset() { setText(null); setSeg(null); setNlq(null); setError(null); }
+  function reset() { setText(null); setSeg(null); setNlq(null); setCopilot(null); setError(null); }
 
   async function run() {
     if (!input.trim()) return;
@@ -32,6 +35,7 @@ export function AssistantScreen() {
       if (mode === "ask") setText((await api.assistantAsk(input.trim())).text);
       else if (mode === "content") setText((await api.assistantContent(input.trim())).text);
       else if (mode === "query") setNlq(await api.askData(input.trim()));
+      else if (mode === "copilot") setCopilot(await api.runCopilot(input.trim()));
       else {
         const r = await api.assistantSegment(input.trim());
         setSeg({ criteria: r.criteria as unknown as Record<string, unknown>, preview: r.preview });
@@ -100,7 +104,64 @@ export function AssistantScreen() {
       )}
 
       {nlq && <NlqResultView nlq={nlq} />}
+
+      {copilot && <CopilotView result={copilot} />}
     </div>
+  );
+}
+
+const STEP_ICON = {
+  ok: <CheckCircle2 className="size-4 text-success" />,
+  skipped: <SkipForward className="size-4 text-text-subtle" />,
+  error: <XCircle className="size-4 text-error" />,
+};
+function CopilotView({ result }: { result: CopilotResult }) {
+  const nav = useNavigate();
+  const toast = useToast();
+  const [creating, setCreating] = useState(false);
+
+  async function createDraft() {
+    if (!result.proposedJourney) return;
+    setCreating(true);
+    try {
+      const j = await api.jCreateJourney({ name: result.proposedJourney.name });
+      toast.push("Đã tạo journey nháp — hoàn thiện trên canvas", "success");
+      nav(`/journeys/${j.journey_id}`);
+    } catch (e) {
+      toast.push(e instanceof ApiError ? e.message : "Lỗi tạo journey", "error");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <Panel className="mt-4" title="Copilot — chuỗi chiến dịch" icon={<Bot className="size-4" />}
+      actions={<Badge tone="violet">human-in-the-loop</Badge>}>
+      <ol className="relative space-y-4 border-l border-border pl-6">
+        {result.steps.map((s) => (
+          <li key={s.key} className="relative">
+            <span className="absolute -left-[31px] top-0.5 grid size-5 place-items-center rounded-full border-2 border-surface bg-surface">{STEP_ICON[s.status]}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-text">{s.title}</span>
+              <StatusPill tone={s.status === "ok" ? "success" : s.status === "skipped" ? "neutral" : "error"}>{s.status}</StatusPill>
+            </div>
+            <p className="mt-0.5 text-sm text-text-muted">{s.summary}</p>
+            {s.key === "content" && s.status === "ok" && (s.artifact as { text?: string })?.text && (
+              <pre className="mt-2 whitespace-pre-wrap rounded-lg bg-surface-alt p-3 text-xs text-text">{(s.artifact as { text: string }).text}</pre>
+            )}
+          </li>
+        ))}
+      </ol>
+      {result.proposedJourney && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-surface-alt px-4 py-3">
+          <div>
+            <div className="text-sm font-semibold text-text">{result.proposedJourney.name}</div>
+            <div className="text-xs text-text-muted">Đề xuất: {result.proposedJourney.action} · cần người duyệt</div>
+          </div>
+          <Button variant="primary" icon={<Wand2 className="size-4" />} onClick={createDraft} loading={creating}>Tạo journey nháp</Button>
+        </div>
+      )}
+    </Panel>
   );
 }
 

@@ -11,6 +11,7 @@ import {
 } from "./schemas.js";
 import { askAssistant, nlToSegment, generateContent, explainCustomer } from "../llm/assistant.service.js";
 import { askData } from "../llm/nlq.service.js";
+import { runCopilot } from "../llm/copilot.service.js";
 import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
@@ -64,5 +65,13 @@ export class AssistantController {
   async query(@Body() body: unknown, @Req() req: Request) {
     const q = validate(assistantAskSchema, body, "ai_assistant_query");
     return { data: await askData(this.pool, q.question, this.pid(req)) };
+  }
+
+  /** Marketing Copilot: chuỗi research→segment→content→đề xuất journey (human-in-the-loop). */
+  @Post("copilot")
+  @HttpCode(200)
+  async copilot(@Body() body: unknown, @Req() req: Request) {
+    const q = validate(assistantContentSchema, body, "ai_assistant_copilot");
+    return { data: await runCopilot(this.pool, q.brief, this.pid(req)) };
   }
 }
