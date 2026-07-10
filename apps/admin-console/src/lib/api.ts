@@ -27,6 +27,8 @@ import {
   type ArbitrationResult,
   type Experiment,
   type Uplift,
+  type RtProfile,
+  type RedisStatus,
   type LoyaltyBalance,
   type LoyaltyMember,
   type LoyaltyLedgerEntry,
@@ -308,6 +310,12 @@ export const api = {
   getCohorts: () => request<CohortRetention>("/v1/analytics/cohorts"),
   getAttribution: (model: string) => request<Attribution>(`/v1/analytics/attribution?model=${encodeURIComponent(model)}`),
   getFunnel: (steps?: string[]) => request<Funnel>("/v1/analytics/funnel", { method: "POST", body: JSON.stringify(steps ? { steps } : {}) }),
+
+  // ── Real-time Personalization (Redis cache-aside, fallback PG) ──
+  rtProfile: (occId: string) => requestEnvelope<RtProfile | null>(`/v1/rt/profile/${encodeURIComponent(occId)}`),
+  rtReco: (occId: string) => requestEnvelope<RecommendationV2[]>(`/v1/rt/reco/${encodeURIComponent(occId)}`),
+  rtStatus: () => request<RedisStatus>("/v1/rt/status"),
+  rtWarm: () => request<{ warmed: number; redisUp: boolean }>("/v1/rt/warm", { method: "POST" }),
   askData: (question: string) => request<NlqResult>("/v1/ai/assistant/query", { method: "POST", body: JSON.stringify({ question }) }),
 
   // ── AI Decisioning + Experimentation ──

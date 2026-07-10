@@ -174,6 +174,20 @@ export interface AnalyticsNarrative {
   source: "llm" | "fallback";
   facts: Record<string, unknown>;
 }
+/** Real-time Personalization (Phase 6). */
+export interface RtProfile {
+  occId: string;
+  fullName: string | null;
+  lifecycleStage: string | null;
+  monetary: number;
+  loyaltyAvailable: number;
+  churnProb: number | null;
+  propensity: number | null;
+  predictedClv: number | null;
+}
+export interface RtMeta { cacheHit: boolean; latencyMs: number }
+export interface RedisStatus { up: boolean; keys: number }
+
 /** Advanced Analytics (Phase 5). */
 export interface RfmMatrix {
   cells: [number, number, number][];

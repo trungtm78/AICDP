@@ -3,7 +3,7 @@ import { NavLink, Navigate, Route, Routes, useNavigate } from "react-router-dom"
 import {
   LayoutDashboard, UserRound, Gift, Database, ChartColumnBig, Target, Waypoints,
   Sparkles, BrainCircuit, ShieldCheck, Server, Search, Bell, LogOut, Command as CommandIcon,
-  Sun, Moon, Plug, Gauge, TriangleAlert, Scale, type LucideIcon,
+  Sun, Moon, Plug, Gauge, TriangleAlert, Scale, Zap, type LucideIcon,
 } from "lucide-react";
 import { getToken, getName, getRole, clearSession } from "./lib/auth.js";
 import { LoginScreen } from "./screens/LoginScreen.js";
@@ -24,6 +24,7 @@ import { PipelineCanvas } from "./screens/connector/PipelineCanvas.js";
 import { PredictionsScreen } from "./screens/PredictionsScreen.js";
 import { AlertsScreen } from "./screens/AlertsScreen.js";
 import { DecisioningScreen } from "./screens/DecisioningScreen.js";
+import { PersonalizationScreen } from "./screens/PersonalizationScreen.js";
 import { Logo, Kbd, CommandPalette, useTheme, type CommandItem } from "./ui/index.js";
 import { cn } from "./ui/cn.js";
 
@@ -62,6 +63,7 @@ const GROUPS: NavGroup[] = [
     label: "Tích hợp",
     items: [
       { to: "/connectors", label: "Kết nối", icon: Plug, kw: "connector pipeline etl rudderstack tích hợp nguồn đích zalo" },
+      { to: "/personalization", label: "Cá nhân hoá", icon: Zap, kw: "personalization realtime redis profile reco widget storefront" },
     ],
   },
   {
@@ -117,6 +119,7 @@ export function App() {
             <Route path="/ai-governance" element={<AiGovernanceScreen />} />
             <Route path="/connectors" element={<ConnectorsScreen />} />
             <Route path="/connectors/pipelines/:id" element={<PipelineCanvas />} />
+            <Route path="/personalization" element={<PersonalizationScreen />} />
             <Route path="*" element={<Placeholder />} />
           </Routes>
         </main>

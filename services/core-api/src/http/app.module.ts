@@ -3,6 +3,7 @@ import { APP_GUARD } from "@nestjs/core";
 import { pgPoolProvider } from "./pg.provider.js";
 import { chClientProvider } from "./ch.provider.js";
 import { predictionProviderProvider } from "../prediction/prediction.provider.js";
+import { redisProvider } from "./redis.provider.js";
 import { AuthGuard } from "./auth/auth.guard.js";
 import { RolesGuard } from "./auth/roles.guard.js";
 import { IpRateLimitGuard } from "./rate-limit/ip-rate-limit.guard.js";
@@ -25,6 +26,7 @@ import { AuthController } from "./auth.controller.js";
 import { ConnectorController } from "./connector.controller.js";
 import { PredictionController } from "./prediction.controller.js";
 import { DecisioningController } from "./decisioning.controller.js";
+import { RtController } from "./rt.controller.js";
 import { JourneyScheduler } from "../journey/journey-scheduler.js";
 
 @Module({
@@ -47,11 +49,13 @@ import { JourneyScheduler } from "../journey/journey-scheduler.js";
     ConnectorController,
     PredictionController,
     DecisioningController,
+    RtController,
   ],
   providers: [
     pgPoolProvider,
     chClientProvider,
     predictionProviderProvider,
+    redisProvider,
     JourneyScheduler,
     // Thứ tự guard: rate-limit IP PRE-AUTH (shed flood trước khi tốn JWT/DB) -> xác thực
     // (AuthGuard) -> rate-limit theo principal/login (RateLimitGuard) -> phân quyền (RolesGuard).
