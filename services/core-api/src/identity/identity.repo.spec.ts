@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { pool } from "../db/pool.js";
 import { setupTestDb, truncateAll } from "../test-helpers/db.js";
 import { resolveOccId } from "./identity.repo.js";
+import { earn, getBalance } from "../loyalty/loyalty.service.js";
+import { recordConsent, isAllowed } from "../consent/consent.service.js";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -66,6 +68,31 @@ describe("resolveOccId — deterministic", () => {
     expect(r.rows.length).toBe(1);
     const log = await pool.query("SELECT count(*)::int AS n FROM cdp.identity_merge_log");
     expect(log.rows[0].n).toBe(1);
+  });
+
+  it("MERGE re-point TIỀN + CONSENT (R1.1): điểm của occ bị gộp không mất, consent thu hồi được tôn trọng", async () => {
+    // P (phone) tạo trước -> survivor; E (email) tạo sau -> bị gộp vào P.
+    const p = await resolveOccId(pool, [{ type: "phone", value: "0901234567" }]);
+    await earn(pool, { occId: p, points: 300, idempotencyKey: "p-earn" });
+    await recordConsent(pool, { occId: p, purpose: "marketing_email", status: "granted", source: "web" });
+
+    const e = await resolveOccId(pool, [{ type: "email", value: "a@example.com" }]);
+    await earn(pool, { occId: e, points: 200, idempotencyKey: "e-earn" });
+    // E cấp rồi THU HỒI marketing_email (quyết định mới nhất = withdrawn).
+    await recordConsent(pool, { occId: e, purpose: "marketing_email", status: "granted", source: "web" });
+    await recordConsent(pool, { occId: e, purpose: "marketing_email", status: "withdrawn", source: "csr" });
+
+    const survivor = await resolveOccId(pool, [
+      { type: "phone", value: "0901234567" },
+      { type: "email", value: "a@example.com" },
+    ]);
+    expect(survivor).toBe(p); // P là survivor (tạo trước)
+
+    // TIỀN: điểm của E (200) chuyển sang P -> tổng 500, KHÔNG mất.
+    const bal = await getBalance(pool, survivor);
+    expect(bal.available).toBe(500);
+    // CONSENT: E đã thu hồi (mới nhất) -> survivor KHÔNG được gửi marketing (tôn trọng withdraw).
+    expect(await isAllowed(pool, survivor, "marketing_email")).toBe(false);
   });
 
   it("bỏ qua identifier không hợp lệ (phone sai) nhưng vẫn dùng email hợp lệ", async () => {
