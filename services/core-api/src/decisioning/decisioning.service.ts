@@ -36,8 +36,17 @@ export async function decideNBA(
   }
 
   const feature = (await getFeature(pool, occId)) ?? (await recomputeFeature(pool, occId));
-  const stage = feature.lifecycleStage;
-  const reasons: string[] = [`lifecycle=${stage ?? "?"}`, `churnRisk=${feature.churnRisk ?? "?"}`];
+  const stage = feature.lifecycleStage; // lifecycle: nguồn = customer_feature
+  // churn/propensity: nguồn DUY NHẤT = customer_prediction (ml|heuristic) — nhất quán với
+  // Predictions/Segment/Customer360; fallback feature.churnRisk nếu chưa có prediction row.
+  const pred = await pool.query<{ churn_prob: string | null; propensity: string | null; score_source: string }>(
+    "SELECT churn_prob, propensity, score_source FROM cdp.customer_prediction WHERE occ_id=$1",
+    [occId],
+  );
+  const p = pred.rows[0];
+  const churn = p?.churn_prob != null ? Number(p.churn_prob) : feature.churnRisk;
+  const source = p ? p.score_source : "heuristic";
+  const reasons: string[] = [`lifecycle=${stage ?? "?"}`, `churn=${churn ?? "?"} (${source})`];
 
   // VIP -> thưởng điểm giữ chân (không cần consent).
   if (stage === "vip") {

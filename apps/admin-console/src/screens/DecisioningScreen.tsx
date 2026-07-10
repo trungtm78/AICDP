@@ -20,7 +20,7 @@ export function DecisioningScreen() {
         title="Quyết định (AI Decisioning)"
         description="Chọn hành động tốt nhất cho từng khách bằng arbitration (giá trị kỳ vọng = khả năng mua × giá trị ưu đãi) + thử nghiệm A/B đo uplift."
         breadcrumb={["AI", "Quyết định"]}
-        badge={<Badge tone="violet" icon={<Sparkles className="size-3" />}>ML-scored</Badge>}
+        badge={<Badge tone="violet" icon={<Sparkles className="size-3" />}>ML propensity + luật</Badge>}
       />
       <Tabs className="mb-4" value={tab} onChange={setTab} items={[
         { value: "offers", label: "Danh mục ưu đãi" },
