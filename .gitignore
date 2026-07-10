@@ -40,3 +40,4 @@ services/ai-service/**/*.pyc
 services/ai-service/_models/
 services/ai-service/*.egg-info/
 services/ai-service/.pytest_cache/
+.gstack/
