@@ -33,6 +33,25 @@ describe("consent hash-chain (tamper-evident)", () => {
     expect(rows.rows[2]!.prev_hash).toBe(rows.rows[1]!.row_hash);
   });
 
+  it("chuỗi hợp lệ với >=11 bản ghi (chống hồi quy: ORDER BY id phải NUMERIC, không TEXT)", async () => {
+    // Lỗi cũ: SELECT id::text AS id ... ORDER BY id -> sort '1','10','11','2' (text) làm duyệt
+    // chuỗi SAI thứ tự khi >=10 dòng. Test này tạo 12 dòng để id vượt 1 chữ số.
+    const a = await newOcc();
+    const purposes = ["marketing_email", "marketing_sms", "marketing_zalo"];
+    for (let i = 0; i < 12; i++) {
+      await recordConsent(pool, {
+        occId: a,
+        purpose: purposes[i % purposes.length]!,
+        status: i % 2 === 0 ? "granted" : "withdrawn",
+        source: "web",
+      });
+    }
+    const v = await verifyConsentChain(pool);
+    expect(v.valid).toBe(true);
+    expect(v.total).toBe(12);
+    expect(v.brokenAtId).toBeNull();
+  });
+
   it("PHÁT HIỆN sửa lịch sử: tắt trigger + UPDATE 1 dòng -> verify báo gãy chuỗi", async () => {
     const a = await newOcc();
     await recordConsent(pool, { occId: a, purpose: "marketing_email", status: "granted", source: "web" });

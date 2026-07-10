@@ -41,10 +41,12 @@ export interface ConsentChainResult {
 /** Duyệt chuỗi băm consent theo id tăng dần, tính lại row_hash — phát hiện sửa/xoá. */
 export async function verifyConsentChain(pool: Pool): Promise<ConsentChainResult> {
   const rows = await pool.query<{
-    id: string; occ_id: string; purpose: string; status: string; source: string;
+    id_text: string; occ_id: string; purpose: string; status: string; source: string;
     recorded_at: string; prev_hash: string | null; row_hash: string | null;
   }>(
-    `SELECT id::text, occ_id::text, purpose, status, source, recorded_at, prev_hash, row_hash
+    // LƯU Ý: alias id::text AS id_text (KHÔNG đặt tên 'id') — nếu đặt output 'id' sẽ CHE cột
+    // bảng và ORDER BY id sort theo TEXT (1,10,100,...) làm duyệt chuỗi SAI thứ tự. Cần numeric.
+    `SELECT id::text AS id_text, occ_id::text, purpose, status, source, recorded_at, prev_hash, row_hash
        FROM cdp.consent_record ORDER BY id ASC`,
   );
   let prevHash = "";
@@ -53,7 +55,7 @@ export async function verifyConsentChain(pool: Pool): Promise<ConsentChainResult
     const content = [prevHash, r.occ_id, r.purpose, r.status, r.source, new Date(r.recorded_at).toISOString()].join("|");
     const expected = createHash("sha256").update(content).digest("hex");
     if (expected !== r.row_hash || (r.prev_hash ?? "") !== prevHash) {
-      return { valid: false, total: rows.rows.length, brokenAtId: r.id };
+      return { valid: false, total: rows.rows.length, brokenAtId: r.id_text };
     }
     prevHash = r.row_hash;
   }
