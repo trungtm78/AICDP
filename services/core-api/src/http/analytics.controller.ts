@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Req, Inject } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, Req, Inject } from "@nestjs/common";
 import type { Request } from "express";
 import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
@@ -7,6 +7,7 @@ import type { Ch } from "../clickhouse/client.js";
 import { getOverview, getBrandRevenue, getInsights } from "../analytics/analytics.service.js";
 import { detectAnomalies, listAlerts, getMetricSeries, acknowledgeAlert } from "../analytics/anomaly.service.js";
 import { generateNarrative } from "../analytics/narrative.service.js";
+import { rfmMatrix, cohortRetention, journeyAttribution, conversionFunnel, type AttributionModel } from "../analytics/advanced.service.js";
 import { forecastRevenue } from "../forecast/forecast.service.js";
 import { validate } from "./validate.js";
 import { forecastQuerySchema } from "./schemas.js";
@@ -72,5 +73,30 @@ export class AnalyticsController {
   async narrative(@Req() req: Request) {
     const pid = (req as Request & { auth?: AuthContext }).auth?.principalId;
     return { data: await generateNarrative(this.pool, pid) };
+  }
+
+  /** RFM matrix (ngũ phân vị R × F). */
+  @Get("rfm")
+  async rfm() {
+    return { data: await rfmMatrix(this.pool) };
+  }
+
+  /** Cohort retention (cohort = tháng đầu mua). */
+  @Get("cohorts")
+  async cohorts() {
+    return { data: await cohortRetention(this.pool) };
+  }
+
+  /** Attribution journey → doanh thu (first/last/linear). */
+  @Get("attribution")
+  async attribution(@Query("model") model = "last") {
+    const m: AttributionModel = model === "first" || model === "linear" ? model : "last";
+    return { data: await journeyAttribution(this.pool, m) };
+  }
+
+  /** Conversion funnel (bước tuỳ chọn từ whitelist). */
+  @Post("funnel")
+  async funnel(@Body() body: { steps?: string[] } = {}) {
+    return { data: await conversionFunnel(this.pool, body?.steps) };
   }
 }

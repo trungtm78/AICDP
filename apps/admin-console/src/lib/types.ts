@@ -174,6 +174,26 @@ export interface AnalyticsNarrative {
   source: "llm" | "fallback";
   facts: Record<string, unknown>;
 }
+/** Advanced Analytics (Phase 5). */
+export interface RfmMatrix {
+  cells: [number, number, number][];
+  rLabels: string[];
+  fLabels: string[];
+  total: number;
+}
+export interface CohortRetention {
+  cohorts: { cohort: string; size: number; retention: (number | null)[] }[];
+  maxOffset: number;
+}
+export interface Attribution {
+  model: "first" | "last" | "linear";
+  journeys: { journeyId: string; name: string; conversions: number; attributedRevenue: number }[];
+  totalRevenue: number;
+}
+export interface Funnel {
+  steps: { key: string; label: string; count: number; pct: number }[];
+}
+
 /** Offer catalog (AI Decisioning). */
 export interface Offer {
   id: string;

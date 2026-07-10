@@ -19,6 +19,10 @@ import {
   type MetricSeries,
   type AnalyticsNarrative,
   type NlqResult,
+  type RfmMatrix,
+  type CohortRetention,
+  type Attribution,
+  type Funnel,
   type Offer,
   type ArbitrationResult,
   type Experiment,
@@ -300,6 +304,10 @@ export const api = {
   getMetricSeries: (metric: string) => request<MetricSeries>(`/v1/analytics/series?metric=${encodeURIComponent(metric)}`),
   ackAlert: (id: string) => request<{ ok: boolean }>(`/v1/analytics/alerts/${encodeURIComponent(id)}/ack`, { method: "POST" }),
   getNarrative: () => request<AnalyticsNarrative>("/v1/analytics/narrative"),
+  getRfmMatrix: () => request<RfmMatrix>("/v1/analytics/rfm"),
+  getCohorts: () => request<CohortRetention>("/v1/analytics/cohorts"),
+  getAttribution: (model: string) => request<Attribution>(`/v1/analytics/attribution?model=${encodeURIComponent(model)}`),
+  getFunnel: (steps?: string[]) => request<Funnel>("/v1/analytics/funnel", { method: "POST", body: JSON.stringify(steps ? { steps } : {}) }),
   askData: (question: string) => request<NlqResult>("/v1/ai/assistant/query", { method: "POST", body: JSON.stringify({ question }) }),
 
   // ── AI Decisioning + Experimentation ──

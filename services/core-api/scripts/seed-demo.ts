@@ -648,6 +648,9 @@ async function main(): Promise<void> {
     },
   }, "admin");
 
+  // Backdate enroll journey ~100 ngày để attribution (doanh thu sau enroll) có dữ liệu demo.
+  await pool.query("UPDATE cdp.journey_participant SET enrolled_at = now() - interval '100 days'");
+
   // ── Dự đoán ML (customer_prediction): thử ai-service, không có thì fallback heuristic ──
   const predRes = await recomputeAll(pool, new HttpPredictionProvider());
 
