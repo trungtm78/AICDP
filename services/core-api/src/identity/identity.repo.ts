@@ -4,6 +4,7 @@ import {
   type IdentifierType,
   type NormalizedIdentifier,
 } from "./normalize.js";
+import { appendConsentRecord } from "../consent/consent.service.js";
 
 export interface RawIdentifier {
   type: IdentifierType;
@@ -30,13 +31,14 @@ export async function resolveOccIdTx(
   client: PoolClient,
   raw: RawIdentifier[],
   opts: ResolveOptions = {},
+  mergedSink?: string[], // occ bị gộp (để caller invalidate cache Redis)
 ): Promise<string | null> {
   const normalized = raw
     .map((r) => normalizeIdentifier(r.type, r.value, opts))
     .filter((x): x is NormalizedIdentifier => x !== null);
   if (normalized.length === 0) return null;
   await acquireLocks(client, normalized);
-  return resolveWithinTx(client, normalized, opts);
+  return resolveWithinTx(client, normalized, opts, mergedSink);
 }
 
 export async function resolveOccId(
@@ -75,6 +77,7 @@ async function resolveWithinTx(
   client: PoolClient,
   normalized: NormalizedIdentifier[],
   opts: ResolveOptions,
+  mergedSink?: string[],
 ): Promise<string> {
   const tuples = normalized.map((_, i) => `($${i * 2 + 1}, $${i * 2 + 2})`);
   const params = normalized.flatMap((n) => [n.type, n.valueNormalized]);
@@ -90,7 +93,7 @@ async function resolveWithinTx(
     occId = await createIdentity(client);
   } else {
     occId = await pickSurvivor(client, occIds);
-    await mergeOthers(client, occId, occIds);
+    await mergeOthers(client, occId, occIds, mergedSink);
   }
 
   await upsertEdges(client, occId, normalized, opts);
@@ -131,8 +134,10 @@ async function mergeOthers(
   client: PoolClient,
   survivor: string,
   occIds: string[],
+  mergedSink?: string[],
 ): Promise<void> {
   for (const other of occIds.filter((id) => id !== survivor)) {
+    mergedSink?.push(other); // để caller invalidate cache Redis profile:{other}/reco:{other}
     // Lock loyalty của cả hai theo thứ tự tất định (sort) — tránh deadlock với op loyalty.
     for (const id of [survivor, other].sort()) {
       await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`loyalty:${id}`]);
@@ -250,11 +255,11 @@ async function mergeConsent(client: PoolClient, from: string, to: string): Promi
   );
   for (const r of rows.rows) {
     if (r.owner === from) {
-      await client.query(
-        `INSERT INTO cdp.consent_record (occ_id, purpose, status, source, evidence)
-         VALUES ($1,$2,$3,'import',$4)`,
-        [to, r.purpose, r.status, `identity-merge-from:${from}`],
-      );
+      // Append VÀO CHUỖI BĂM (tamper-evident) — không insert thô để tránh gãy chuỗi consent.
+      await appendConsentRecord(client, {
+        occId: to, purpose: r.purpose, status: r.status as "granted" | "withdrawn",
+        source: "import", evidence: `identity-merge-from:${from}`,
+      });
     }
   }
 }

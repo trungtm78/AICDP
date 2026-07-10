@@ -1,15 +1,18 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   TrendingUp, CalendarClock, Wallet, Store as StoreIcon, Layers, Sparkles, Lightbulb, AlertTriangle, Gift, ShoppingCart,
 } from "lucide-react";
 import type { CustomerAnalytics, CustomerFeature } from "../lib/types.js";
 import { fmtInt, fmtVnd, fmtVndFull, BRAND_LABEL, CAT_LABEL, customerTier, nextTier } from "../lib/format.js";
+import { api } from "../lib/api.js";
 import { Panel, StatTile, Badge } from "../ui/index.js";
 import { BarChart, Donut } from "../ui/charts/index.js";
 import { vizPalette } from "../ui/charts/theme.js";
 
 const DOW = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
-const HOTELS = new Set(["sunrise_nha_trang", "starcity_nha_trang", "dusit_hanoi"]);
-const FNB = new Set(["givral", "kem_trang_tien", "fuji"]);
+// Fallback khi brands API chưa tải (suy ngành từ brand.industry — không hardcode cứng nữa).
+const HOTELS_FALLBACK = new Set(["sunrise_nha_trang", "starcity_nha_trang", "dusit_hanoi"]);
+const FNB_FALLBACK = new Set(["givral", "kem_trang_tien", "fuji"]);
 
 function fmtDate(iso: string | null): string {
   if (!iso) return "—";
@@ -20,7 +23,10 @@ function fmtDate(iso: string | null): string {
 // ── Rule engine: hành động kinh doanh đề xuất từ hành vi + AI ──
 interface BizAction { title: string; detail: string; tone: "urgent" | "opportunity" | "nurture"; icon: "alert" | "bulb" | "gift" | "cart" }
 
-function recommendActions(a: CustomerAnalytics, feature: CustomerFeature, totalSpend: number): BizAction[] {
+function recommendActions(
+  a: CustomerAnalytics, feature: CustomerFeature, totalSpend: number,
+  hotelBrands: Set<string>, fnbBrands: Set<string>,
+): BizAction[] {
   const out: BizAction[] = [];
   const tier = customerTier(totalSpend);
   const brands = new Set(a.brandBreakdown.map((b) => b.brandId));
@@ -44,8 +50,8 @@ function recommendActions(a: CustomerAnalytics, feature: CustomerFeature, totalS
     }
   }
 
-  const usesHotel = [...brands].some((b) => HOTELS.has(b));
-  const usesFnb = [...brands].some((b) => FNB.has(b));
+  const usesHotel = [...brands].some((b) => hotelBrands.has(b));
+  const usesFnb = [...brands].some((b) => fnbBrands.has(b));
   const churn = feature.churnRisk ?? 0;
   const lc = feature.lifecycleStage;
   const highValue = tier.key === "diamond" || tier.key === "gold";
@@ -128,7 +134,15 @@ const ACTION_STYLE: Record<BizAction["tone"], { border: string; bg: string; text
 export function CustomerDeepAnalytics({ analytics, feature, totalSpend }: { analytics: CustomerAnalytics; feature: CustomerFeature; totalSpend: number }) {
   const a = analytics;
   const tier = customerTier(totalSpend);
-  const actions = recommendActions(a, feature, totalSpend);
+  // Suy nhóm ngành từ brand.industry (API) — thêm brand mới tự phân loại đúng, hết hardcode.
+  const brandsQ = useQuery({ queryKey: ["brands"], queryFn: api.listBrands });
+  const { hotelBrands, fnbBrands } = (() => {
+    if (!brandsQ.data) return { hotelBrands: HOTELS_FALLBACK, fnbBrands: FNB_FALLBACK };
+    const hotel = new Set<string>(); const fnb = new Set<string>();
+    for (const b of brandsQ.data) (b.industry === "hotel" ? hotel : fnb).add(b.brand_id);
+    return { hotelBrands: hotel, fnbBrands: fnb };
+  })();
+  const actions = recommendActions(a, feature, totalSpend, hotelBrands, fnbBrands);
   const palette = vizPalette();
 
   const monthly = a.monthlySpend.slice(-9).map((m) => ({ label: m.month.slice(2), value: m.spend }));

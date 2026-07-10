@@ -2,8 +2,11 @@ import { Controller, Post, Body, Inject, HttpCode } from "@nestjs/common";
 import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { CH_CLIENT } from "./ch.provider.js";
+import { REDIS } from "./redis.provider.js";
+import type { Redis } from "ioredis";
 import type { Ch } from "../clickhouse/client.js";
 import { projectOrderBestEffort } from "../clickhouse/project.js";
+import { invalidateCache } from "../personalization/rt.service.js";
 import { validate } from "./validate.js";
 import { orderCompletedSchema, identifySchema } from "./schemas.js";
 import { AppError } from "./errors.js";
@@ -28,6 +31,7 @@ export class IngestController {
   constructor(
     @Inject(PG_POOL) private readonly pool: Pool,
     @Inject(CH_CLIENT) private readonly ch: Ch,
+    @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
   @Post("ingest")
@@ -69,6 +73,8 @@ export class IngestController {
           });
         }
       }
+      // Merge danh tính -> invalidate cache Redis của occ bị gộp (fire-and-forget).
+      void invalidateCache(this.redis, result.mergedOccIds ?? []);
       return { data: result };
     }
 
@@ -76,6 +82,7 @@ export class IngestController {
     // identify bắt buộc có identifier (schema min 1); nếu tất cả sai chuẩn -> 400.
     assertIdentifiersValidIfPresent(dto.identifiers, dto.brand_id);
     const result = await ingestIdentify(this.pool, toIdentifyEvent(dto));
+    void invalidateCache(this.redis, result.mergedOccIds);
     return { data: result };
   }
 }

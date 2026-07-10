@@ -94,6 +94,13 @@ export async function warmAll(pool: Pool, redis: Redis, limit = 500): Promise<{ 
   return { warmed, redisUp: true };
 }
 
+/** Xoá cache profile+reco của các occ (vd sau khi merge danh tính). Redis down -> bỏ qua (TTL tự hết). */
+export async function invalidateCache(redis: Redis, occIds: string[]): Promise<void> {
+  if (occIds.length === 0) return;
+  const keys = occIds.flatMap((id) => [`profile:${id}`, `reco:${id}`]);
+  try { await redis.del(...keys); } catch { /* Redis down: bỏ qua */ }
+}
+
 export async function redisStatus(redis: Redis): Promise<{ up: boolean; keys: number }> {
   try {
     await redis.ping();

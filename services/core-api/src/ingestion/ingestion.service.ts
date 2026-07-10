@@ -35,6 +35,7 @@ export interface IngestResult {
   messageId: string;
   occId: string | null;
   idempotent: boolean;
+  mergedOccIds?: string[]; // occ bị gộp trong lần resolve này (để invalidate cache Redis)
 }
 
 /** Khóa idempotency theo tracking-plan-spec: {brand}:{store}:{pos_transaction_id}. */
@@ -60,9 +61,10 @@ export async function ingestOrderCompleted(
       return { messageId, occId: existing.rows[0]!.occ_id, idempotent: true };
     }
 
+    const merged: string[] = [];
     const occId =
       ev.identifiers && ev.identifiers.length > 0
-        ? await resolveOccIdTx(client, ev.identifiers, { brandId: ev.brand_id })
+        ? await resolveOccIdTx(client, ev.identifiers, { brandId: ev.brand_id }, merged)
         : null;
 
     const ins = await client.query(
@@ -104,7 +106,7 @@ export async function ingestOrderCompleted(
     }
 
     await client.query("COMMIT");
-    return { messageId, occId, idempotent: false };
+    return { messageId, occId, idempotent: false, mergedOccIds: merged };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
@@ -116,18 +118,19 @@ export async function ingestOrderCompleted(
 export async function ingestIdentify(
   pool: Pool,
   ev: IdentifyEvent,
-): Promise<{ occId: string | null }> {
+): Promise<{ occId: string | null; mergedOccIds: string[] }> {
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
+    const merged: string[] = [];
     const occId = await resolveOccIdTx(client, ev.identifiers, {
       brandId: ev.brand_id,
-    });
+    }, merged);
     if (occId && ev.traits) {
       await applySurvivorship(client, occId, ev.traits);
     }
     await client.query("COMMIT");
-    return { occId };
+    return { occId, mergedOccIds: merged };
   } catch (err) {
     await client.query("ROLLBACK");
     throw err;
