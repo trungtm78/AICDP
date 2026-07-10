@@ -104,6 +104,17 @@ export async function runLlmTask(
   if (!cfg.features.assistant) {
     throw new AppError({ code: "LLM_DISABLED", httpStatus: 409, message: "Tính năng AI Assistant đang tắt", why: "features.assistant=false trong AI config.", fix: "Bật trong AI Settings (admin)." });
   }
+  // Hạn mức LLM per-principal/ngày (chống đội hoá đơn khi rate-limit chưa đủ). 0 = tắt.
+  const dailyCap = Number(process.env.LLM_DAILY_CALL_CAP ?? 0);
+  if (args.principalId && dailyCap > 0) {
+    const used = await pool.query<{ n: string }>(
+      "SELECT count(*)::text AS n FROM cdp.ai_llm_usage WHERE principal_id=$1 AND created_at >= date_trunc('day', now())",
+      [args.principalId],
+    );
+    if (Number(used.rows[0]!.n) >= dailyCap) {
+      throw new AppError({ code: "RATE_LIMIT_SOURCE_BURST", httpStatus: 429, message: "Vượt hạn mức gọi AI trong ngày", why: `principal đã dùng >= ${dailyCap} lượt LLM hôm nay.`, fix: "Thử lại ngày mai hoặc tăng LLM_DAILY_CALL_CAP.", retryable: false });
+    }
+  }
   const taskCfg = cfg.llm.tasks[task];
   const fn = providers[taskCfg.provider];
   const result = await fn({

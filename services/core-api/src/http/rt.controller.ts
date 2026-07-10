@@ -7,8 +7,8 @@ import { getProfile, getReco, warmAll, redisStatus } from "../personalization/rt
 import { Roles } from "./auth/roles.js";
 
 /** Real-time Personalization API (độ trễ thấp): profile + reco cache-aside Redis, fallback PG.
- *  Dành cho web/app storefront — xác thực bằng API key (hoặc JWT). */
-@Roles("marketer", "analyst", "connector", "data_steward")
+ *  profile trả PII (họ tên) → CHỈ role nội bộ; reco phi-PII → cho cả `connector` (storefront). */
+@Roles("marketer", "analyst", "data_steward")
 @Controller("v1/rt")
 export class RtController {
   constructor(
@@ -16,6 +16,7 @@ export class RtController {
     @Inject(REDIS) private readonly redis: Redis,
   ) {}
 
+  /** Trả PII (fullName) → KHÔNG cho `connector` (chống liệt kê occId lấy tên khách hàng loạt). */
   @Get("profile/:occId")
   async profile(@Param("occId") occId: string) {
     const t0 = performance.now();
@@ -23,6 +24,8 @@ export class RtController {
     return { data: r.data, meta: { cacheHit: r.cacheHit, latencyMs: Math.round((performance.now() - t0) * 100) / 100 } };
   }
 
+  /** Reco phi-PII → cho storefront (role `connector`) dùng qua API key. */
+  @Roles("marketer", "analyst", "data_steward", "connector")
   @Get("reco/:occId")
   async reco(@Param("occId") occId: string) {
     const t0 = performance.now();

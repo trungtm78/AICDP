@@ -60,15 +60,29 @@ export class AuthController {
     return { data: res };
   }
 
-  /** Quên mật khẩu — luôn 200 ok:true (chống dò tài khoản). resetToken CHỈ lộ khi CORE_API_DEMO_RESET=1. */
+  /** Quên mật khẩu (public) — LUÔN 200 ok:true (chống dò tài khoản). KHÔNG BAO GIỜ trả token ở
+   *  production (kênh public không được lộ token → chống chiếm tài khoản). Chỉ dev (NODE_ENV!=
+   *  production) + CORE_API_DEMO_RESET=1 mới trả token cho tiện thử. Demo prod: admin cấp qua
+   *  POST /v1/auth/reset-link (RBAC). */
   @Public()
   @Post("password-reset/request")
   @HttpCode(200)
   async passwordResetRequest(@Body() body: unknown) {
     const dto = validate(passwordResetRequestSchema, body, "password_reset_request");
     const res = await requestReset(this.pool, dto.username);
-    const demo = process.env.CORE_API_DEMO_RESET === "1";
-    return { data: { ok: true, ...(demo && res.token ? { resetToken: res.token } : {}) } };
+    const leakOk = process.env.CORE_API_DEMO_RESET === "1" && process.env.NODE_ENV !== "production";
+    return { data: { ok: true, ...(leakOk && res.token ? { resetToken: res.token } : {}) } };
+  }
+
+  /** Demo-grade: admin/data_steward cấp link đặt lại mật khẩu cho 1 user (thay email thật).
+   *  Gate RBAC nên an toàn — thay cho việc lộ token qua kênh public. */
+  @Roles("data_steward", "admin")
+  @Post("reset-link")
+  @HttpCode(200)
+  async adminResetLink(@Body() body: unknown) {
+    const dto = validate(passwordResetRequestSchema, body, "admin_reset_link");
+    const res = await requestReset(this.pool, dto.username);
+    return { data: { ok: true, username: dto.username, ...(res.token ? { resetToken: res.token } : {}) } };
   }
 
   /** Đặt mật khẩu mới theo token (một lần, hết hạn 30 phút). */

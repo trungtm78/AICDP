@@ -31,9 +31,18 @@ services:
       PGDATABASE: AI_CDP_Pro
       PGUSER: occ_cdp
       PGPASSWORD: occ_cdp_dev
+      NODE_ENV: "production"                       # kích hoạt fail-fast JWT secret (M2)
       CORE_API_PORT: "8071"
-      CORE_API_JWT_SECRET: "och-aicdp-demo-jwt-secret-2026-do-not-use-in-real-prod"
-      CORE_API_DEMO_RESET: "1"  # hiện link đặt lại trên màn (demo, không gửi email thật)
+      # JWT secret BẮT BUỘC từ env host (deploy/.env), KHÔNG hardcode. Thiếu → core-api fail-fast.
+      CORE_API_JWT_SECRET: "${CORE_API_JWT_SECRET:?CORE_API_JWT_SECRET bắt buộc — đặt trong deploy/.env}"
+      CORE_API_DEMO_RESET: "0"                     # prod KHÔNG lộ token reset (demo cấp qua admin /reset-link)
+      # Rate-limit (H1) + trust proxy sau nginx (M4) — chống brute-force/credential-stuffing.
+      RATE_LIMIT_SOURCE_BURST: "${RATE_LIMIT_SOURCE_BURST:-120}"
+      RATE_LIMIT_PUBLIC_BURST: "${RATE_LIMIT_PUBLIC_BURST:-20}"
+      RATE_LIMIT_IP_BURST: "${RATE_LIMIT_IP_BURST:-240}"
+      TRUST_PROXY: "1"
+      LLM_DAILY_CALL_CAP: "${LLM_DAILY_CALL_CAP:-300}"   # hạn mức LLM/principal/ngày (CSO)
+      SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-}"    # prod đặt mật khẩu admin mạnh (seed đọc)
       AI_SERVICE_URL: "http://ai-service:8072"
       REDIS_URL: "redis://redis:6379"
       # LLM key truyền từ env host lúc `docker compose up` (KHÔNG hardcode secret trong file).
@@ -86,6 +95,7 @@ services:
       PGDATABASE: AI_CDP_Pro
       PGUSER: occ_cdp
       PGPASSWORD: occ_cdp_dev
+      SEED_ADMIN_PASSWORD: "${SEED_ADMIN_PASSWORD:-}"
     command: ["pnpm", "--dir", "services/core-api", "exec", "tsx", "scripts/seed-demo.ts"]
     depends_on:
       postgres:

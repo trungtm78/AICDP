@@ -586,15 +586,17 @@ async function main(): Promise<void> {
   await activate(pool, { audienceName: "Ưu đãi sinh nhật — SMS", purpose: "marketing_sms", channel: "sms", destination: "sms:vietguys", occIds: occIds.slice(20, 90) });
   await activate(pool, { audienceName: "Khách hàng cao cấp — Zalo ZNS", purpose: "marketing_zalo", channel: "zalo", destination: "zalo:zns", occIds: occIds.slice(0, 60) });
 
-  // ── Users (đăng nhập được) ──
+  // ── Users (đăng nhập được) ── Mật khẩu từ env SEED_ADMIN_PASSWORD (prod đặt giá trị mạnh KHÔNG
+  // nằm trong repo). Fallback "Och@2026" chỉ cho dev/demo — prod override qua env trên VM.
+  const seedPw = process.env.SEED_ADMIN_PASSWORD ?? "Och@2026";
   const users: [string, string, "admin" | "data_steward" | "marketer" | "csr" | "analyst" | "compliance" | "executive", string][] = [
-    ["admin", "Och@2026", "admin", "Quản trị hệ thống OCH"],
-    ["steward", "Och@2026", "data_steward", "Nguyễn Thị Data Steward"],
-    ["marketer", "Och@2026", "marketer", "Trần Minh Marketer"],
-    ["csr", "Och@2026", "csr", "Lê Thị CSKH"],
-    ["analyst", "Och@2026", "analyst", "Phạm Văn Analyst"],
-    ["compliance", "Och@2026", "compliance", "Hoàng Thị Compliance"],
-    ["executive", "Och@2026", "executive", "Vũ Đức Executive"],
+    ["admin", seedPw, "admin", "Quản trị hệ thống OCH"],
+    ["steward", seedPw, "data_steward", "Nguyễn Thị Data Steward"],
+    ["marketer", seedPw, "marketer", "Trần Minh Marketer"],
+    ["csr", seedPw, "csr", "Lê Thị CSKH"],
+    ["analyst", seedPw, "analyst", "Phạm Văn Analyst"],
+    ["compliance", seedPw, "compliance", "Hoàng Thị Compliance"],
+    ["executive", seedPw, "executive", "Vũ Đức Executive"],
   ];
   for (const [username, password, role, name] of users)
     await createUser(pool, { username, password, role, name });
@@ -684,7 +686,7 @@ async function main(): Promise<void> {
     `   • Journeys: ${s.journeys} (welcome ${r1.enrolled} · cart ${r2.enrolled} · VIP ${r3.enrolled} · diamond ${r4.enrolled} · winback ${r5.enrolled} · at-risk ${r6.enrolled} · hotel ${r7.enrolled}) · ${s.runs} activation run · ${redeemed} lượt đổi điểm · ${carts} giỏ hàng mở/bỏ quên\n` +
     `   • ${s.users} user · ${s.keys} api-key · ${connsSeed.length} connection · 3 pipeline\n` +
     `   • Dự đoán: ${predRes.count} khách (nguồn: ${predRes.source})\n` +
-    `   Đăng nhập: admin / Och@2026\n`,
+    `   Đăng nhập: admin / ${seedPw}\n`,
   );
   await pool.end();
 }

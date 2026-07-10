@@ -72,4 +72,26 @@ describe("auth/RBAC", () => {
     );
     expect(r.status).toBe(201);
   });
+
+  // ── R0 hardening: password-reset không lộ token qua kênh public ──
+  it("password-reset/request công khai -> 200 ok:true, KHÔNG trả resetToken (chống chiếm tài khoản)", async () => {
+    await withAuth(http().post("/v1/auth/users").send({ username: "u_reset", password: "Init@123", role: "analyst", name: "U" }), ADMIN_KEY);
+    const r = await http().post("/v1/auth/password-reset/request").send({ username: "u_reset" });
+    expect(r.status).toBe(200);
+    expect(r.body.data.ok).toBe(true);
+    expect(r.body.data.resetToken).toBeUndefined(); // KHÔNG lộ token
+  });
+
+  it("admin /reset-link -> trả token cho user tồn tại (đường an toàn thay email)", async () => {
+    await withAuth(http().post("/v1/auth/users").send({ username: "u_reset2", password: "Init@123", role: "analyst", name: "U2" }), ADMIN_KEY);
+    const r = await withAuth(http().post("/v1/auth/reset-link").send({ username: "u_reset2" }), ADMIN_KEY);
+    expect(r.status).toBe(200);
+    expect(typeof r.body.data.resetToken).toBe("string");
+    expect(r.body.data.resetToken.length).toBeGreaterThan(20);
+  });
+
+  it("reset-link KHÔNG cho marketer -> 403 (chỉ admin/data_steward)", async () => {
+    const r = await withAuth(http().post("/v1/auth/reset-link").send({ username: "admin" }), "key-marketer");
+    expect(r.status).toBe(403);
+  });
 });
