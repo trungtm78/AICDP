@@ -33,30 +33,35 @@ def load_transactions() -> pd.DataFrame:
 
 
 def load_categories() -> pd.DataFrame:
-    """(occ_id, message_id, category_id) từ view enrich — cho distinct_categories."""
+    """(occ_id, category_id, occ_timestamp) — kèm thời gian để cắt AS-OF (chống leakage)."""
     from ..db import query_df
     df = query_df(
         """
-        SELECT occ_id::text AS occ_id, category_id
-          FROM cdp.v_purchase_enriched
-         WHERE occ_id IS NOT NULL AND category_id IS NOT NULL
+        SELECT e.occ_id::text AS occ_id, e.category_id,
+               ct.occ_timestamp
+          FROM cdp.v_purchase_enriched e
+          JOIN cdp.canonical_transaction ct ON ct.message_id = e.message_id
+         WHERE e.occ_id IS NOT NULL AND e.category_id IS NOT NULL
         """
     )
+    if not df.empty:
+        df["occ_timestamp"] = pd.to_datetime(df["occ_timestamp"], utc=True)
     return df
 
 
 def load_loyalty() -> pd.DataFrame:
-    """Số dư điểm available per occ (projection từ ledger)."""
+    """Dòng ledger available (occ_id, delta, created_at) — thô để tính số dư AS-OF (chống leakage)."""
     from ..db import query_df
     df = query_df(
         """
         SELECT split_part(account, ':', 2) AS occ_id,
-               COALESCE(sum(delta), 0)::float8 AS loyalty_available
+               delta::float8 AS delta, created_at
           FROM cdp.loyalty_entry
          WHERE account LIKE 'member:%:available'
-         GROUP BY 1
         """
     )
+    if not df.empty:
+        df["created_at"] = pd.to_datetime(df["created_at"], utc=True)
     return df
 
 
@@ -81,8 +86,17 @@ def build_features(
     """Feature per occ tính từ giao dịch TRƯỚC `as_of`. Trả DataFrame index=occ_id."""
     obs = tx[tx["occ_timestamp"] < as_of]
     rows = []
-    cat_by_occ = cats.groupby("occ_id")["category_id"].nunique() if not cats.empty else pd.Series(dtype=int)
-    loy_by_occ = loyalty.set_index("occ_id")["loyalty_available"] if not loyalty.empty else pd.Series(dtype=float)
+    # AS-OF: chỉ dùng category/loyalty PHÁT SINH TRƯỚC as_of (chống leakage tương lai vào feature).
+    if not cats.empty:
+        cat_obs = cats[cats["occ_timestamp"] < as_of]
+        cat_by_occ = cat_obs.groupby("occ_id")["category_id"].nunique()
+    else:
+        cat_by_occ = pd.Series(dtype=int)
+    if not loyalty.empty:
+        loy_obs = loyalty[loyalty["created_at"] < as_of]
+        loy_by_occ = loy_obs.groupby("occ_id")["delta"].sum()
+    else:
+        loy_by_occ = pd.Series(dtype=float)
 
     for occ_id, g in obs.groupby("occ_id"):
         g = g.sort_values("occ_timestamp")

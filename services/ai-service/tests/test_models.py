@@ -31,6 +31,16 @@ def test_binary_model_learns_signal():
     assert all(len(v) >= 1 for v in reasons.values())
 
 
+def test_binary_model_reports_holdout_not_in_sample():
+    x, y = _separable(n=240)
+    m = BinaryModel().fit(x, y)
+    # R1.6: metric phải đo trên HOLDOUT (out-of-sample), không phải in-sample.
+    assert m.metrics["eval"] == "holdout"
+    assert m.metrics["holdout_size"] > 0
+    assert m.metrics["holdout_size"] < m.metrics["sample_size"]
+    assert 0.0 <= m.metrics["auc"] <= 1.0
+
+
 def test_binary_model_deterministic():
     x, y = _separable()
     a = BinaryModel().fit(x, y).predict_proba(x)

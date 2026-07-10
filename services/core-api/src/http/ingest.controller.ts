@@ -58,10 +58,15 @@ export class IngestController {
       if (!result.idempotent) {
         void projectOrderBestEffort(this.ch, orderEvent, result.messageId, result.occId);
         // Journey event-trigger: enroll khách vào journey kiểu event khớp 'order_completed'.
-        // FIRE-AND-FORGET — KHÔNG chặn 202 (giống projection CH). Lỗi nuốt; miss enroll thì
-        // segment-scan/lần mua sau bắt lại (PG là SoR).
+        // FIRE-AND-FORGET — KHÔNG chặn 202 (giống projection CH). Miss enroll thì segment-scan/
+        // lần mua sau bắt lại (PG là SoR). Lỗi được LOG (không nuốt im lặng) để quan sát; outbox
+        // bền là hardening R1.7.
         if (result.occId) {
-          void enrollEventJourneys(this.pool, result.occId, "order_completed").catch(() => undefined);
+          const occId = result.occId;
+          void enrollEventJourneys(this.pool, occId, "order_completed").catch((err: unknown) => {
+            // eslint-disable-next-line no-console
+            console.warn(`[ingest] enroll journey event thất bại occ=${occId}:`, (err as Error).message);
+          });
         }
       }
       return { data: result };

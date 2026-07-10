@@ -13,7 +13,7 @@ OCC-CDP — Customer Data Platform enterprise self-host cho tập đoàn F&B đa
 
 ## Kiến trúc
 - Nền tảng: RudderStack OSS (ingestion/routing/reverse-ETL) + domain logic tự build.
-- **`core-api` (NestJS) gom identity + loyalty + consent + ingestion trong MỘT transaction boundary ACID** (bắt buộc đúng tiền/đúng danh tính tại POS). Các service khác (analytics-api, ai-service, activation, ...) tách riêng.
+- **`core-api` (NestJS) là transaction boundary ACID cho tiền + danh tính.** Tại điểm **ingest POS**, `identity resolve + canonical_transaction` nằm trong MỘT transaction (đúng danh tính + idempotent). **Loyalty earn KHÔNG chạy ở ingest** — điểm cộng qua **journey/rule engine** (mỗi thao tác loyalty là 1 transaction double-entry riêng, advisory-lock per occ). Consent chỉ gate ở **activation**. Projection ClickHouse + enroll journey event là **fire-and-forget sau commit** (PG là SoR; lỗi được log; segment-scan backfill). Các service khác (ai-service, activation…) tách riêng. *(Outbox bền cho side-effect sau commit là hardening đã hoạch định — plan R1.7.)*
 - Postgres 18 = system of record; ClickHouse = OLAP; Redis = cache (Profile API); MinIO = object storage.
 
 ## Quy tắc kỹ thuật bắt buộc (từ review — để đạt 10/10)

@@ -28,6 +28,10 @@ def train_all() -> dict:
         # Không đủ dữ liệu để train ML — bỏ, để core-api fallback heuristic.
         return {"trained": False, "reason": "insufficient_history", "customers_train": int(len(feats))}
 
+    # is_demo = True khi metric KHÔNG phải holdout (in-sample/thiếu dữ liệu) HOẶC dưới ngưỡng.
+    def demo_flag(m: dict) -> bool:
+        return m.get("eval") != "holdout" or m.get("auc", 0.0) < settings.min_auc
+
     # Churn
     y_churn = loader.add_churn_label(feats, tx, t_cut, settings.churn_gap_days)
     churn = BinaryModel().fit(feats, y_churn)
@@ -35,7 +39,7 @@ def train_all() -> dict:
         "churn", "HistGradientBoosting+Isotonic", churn.metrics, churn.feature_cols,
         churn.metrics.get("sample_size", 0), artifacts.BUNDLE_NAME,
         "auc", churn.metrics.get("auc", 0.5), churn.importances,
-        is_demo=churn.metrics.get("auc", 0.5) < settings.min_auc, data_through=t_cut,
+        is_demo=demo_flag(churn.metrics), data_through=t_cut,
     )
     result["models"]["churn"] = churn.metrics
 
@@ -46,7 +50,7 @@ def train_all() -> dict:
         "propensity", "HistGradientBoosting+Isotonic", prop.metrics, prop.feature_cols,
         prop.metrics.get("sample_size", 0), artifacts.BUNDLE_NAME,
         "auc", prop.metrics.get("auc", 0.5), prop.importances,
-        is_demo=prop.metrics.get("auc", 0.5) < settings.min_auc, data_through=t_cut,
+        is_demo=demo_flag(prop.metrics), data_through=t_cut,
     )
     result["models"]["propensity"] = prop.metrics
 
@@ -56,7 +60,9 @@ def train_all() -> dict:
     registry.register_model(
         "next_purchase", "HistGradientBoostingRegressor", npm.metrics, npm.feature_cols,
         npm.metrics.get("sample_size", 0), artifacts.BUNDLE_NAME,
-        "mae", npm.metrics.get("mae", 0.0), {}, data_through=t_cut,
+        "mae", npm.metrics.get("mae", 0.0), {},
+        is_demo=(npm.metrics.get("eval") != "holdout" or npm.metrics.get("mae", 1e9) > npm.metrics.get("baseline_mae", 0.0)),
+        data_through=t_cut,
     )
     result["models"]["next_purchase"] = npm.metrics
 
