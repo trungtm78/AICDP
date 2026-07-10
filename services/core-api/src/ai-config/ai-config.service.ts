@@ -39,7 +39,7 @@ export interface AiConfig {
   };
   ml: {
     enabled: boolean; // bật gọi ai-service; tắt -> luôn dùng heuristic
-    useForFeature: boolean; // ghi lifecycle/propensity/churn ML vào customer_feature (ml-v1)
+    useForFeature: boolean; // dùng điểm ML (churn/propensity) ở tầng feature/decisioning
     useForClv: boolean; // dùng CLV/next-purchase ML trong customer-analytics
     churnThreshold: number; // 0..1 ngưỡng "churn cao" cho decisioning/segment
     propensityHorizonDays: number; // horizon nhãn propensity (khớp ai-service)

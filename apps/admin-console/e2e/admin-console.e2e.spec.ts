@@ -21,19 +21,19 @@ test.describe("Admin Console — Master Data + Customer 360 qua UI", () => {
   test("Control Tower hiển thị KPI tổng hợp thật từ analytics", async ({ page }) => {
     await page.goto("/control-tower");
     await expect(page.getByRole("heading", { name: "Control Tower" })).toBeVisible();
-    // KPI tiles có dữ liệu thật (brands seed = 5 -> tile master hiển thị)
+    // KPI tiles có dữ liệu thật (brands seed = 6 -> tile master "6/…/…")
     await expect(page.getByTestId("kpi-customers")).toBeVisible();
     await expect(page.getByTestId("kpi-revenue")).toBeVisible();
-    await expect(page.getByTestId("kpi-master")).toContainText("5");
+    await expect(page.getByTestId("kpi-master")).toContainText("6");
   });
 
   test("Data Ops hiển thị thương hiệu lấy từ API", async ({ page }) => {
     await page.goto("/data-ops");
     await expect(page.getByRole("heading", { name: "Master Data" })).toBeVisible();
-    // 5 brand seed phải hiện trong bảng (data từ core-api, không hardcode).
+    // brand seed hiện trong bảng (data từ core-api, không hardcode). Tên brand thật = "Fuji".
     // exact:true để không đụng cell mã 'givral' (substring match mặc định).
     await expect(page.getByRole("cell", { name: "Givral", exact: true })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "Fuji Foods", exact: true })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "Fuji", exact: true })).toBeVisible();
     await expect(page.getByRole("cell", { name: "Kem Tràng Tiền", exact: true })).toBeVisible();
   });
 

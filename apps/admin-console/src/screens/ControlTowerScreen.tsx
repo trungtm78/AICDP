@@ -10,7 +10,7 @@ import {
   PageHeader, StatTile, Panel, Badge, ForecastLine, Donut, BarChart, EmptyState, Skeleton, Sparkline,
 } from "../ui/index.js";
 
-/** Control Tower — tổng quan realtime toàn cục 5 thương hiệu. Refresh mỗi 10s. */
+/** Control Tower — tổng quan realtime toàn cục đa thương hiệu (số brand động từ API). Refresh mỗi 10s. */
 export function ControlTowerScreen() {
   const navigate = useNavigate();
   const ov = useQuery({ queryKey: ["overview"], queryFn: api.getOverview, refetchInterval: 10_000 });
@@ -21,7 +21,7 @@ export function ControlTowerScreen() {
     <div className="mx-auto max-w-[1280px] p-6">
       <PageHeader
         title="Control Tower"
-        description="Tổng quan toàn cục 5 thương hiệu — cập nhật mỗi 10 giây."
+        description={`Tổng quan toàn cục ${ov.data ? `${ov.data.brands} thương hiệu` : "đa thương hiệu"} — cập nhật mỗi 10 giây.`}
         breadcrumb={["Vận hành", "Control Tower"]}
         badge={
           <Badge tone={ov.isFetching ? "info" : "success"} icon={<RefreshCw className={`size-3 ${ov.isFetching ? "animate-spin" : ""}`} />}>
