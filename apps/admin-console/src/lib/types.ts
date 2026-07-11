@@ -136,6 +136,17 @@ export interface LoyaltyBalance {
   reserved: number;
 }
 
+// ── Loyalty coalition (L1-L8): Member-360 + cấu hình + nghĩa vụ ──
+export interface LoyaltyWallet { currencyId: string; currencyCode: string; currencyName: string; kind: string; available: number; reserved: number }
+export interface MemberTier { tierGroupCode: string; tierCode: string; tierName: string; level: number; qualifyingValue: number; reviewAt: string; benefits: Record<string, unknown> }
+export interface MemberVoucher { code: string; state: string; valueType: string | null; value: number | null; remainingValue: number | null; redeemableAtBrandId: string | null; expireAt: string | null }
+export interface ChallengeProgress { challengeCode: string; type: string; cycle: number; progress: number; target: number; completedAt: string | null; rewardPoints: number }
+export interface LoyaltyTierRow { id: string; level: number; code: string; name: string; threshold: number; benefits: Record<string, unknown> }
+export interface LoyaltyTierGroup { id: string; code: string; name: string; qualifyMetric: string; reviewCycle: string; reviewMonths: number; tiers: LoyaltyTierRow[] }
+export interface LoyaltyReward { code: string; name: string; type: string; costPoints: number; currencyCode: string; redeemableAtBrandId: string | null; tierMinLevel: number | null; valueType: string | null; value: number | null }
+export interface LoyaltyEarnRule { ruleKey: string; version: number; name: string; brandId: string | null; channel: string | null; currencyCode: string; ratePerUnit: number; multiplier: number; minAmount: number; qualifying: boolean; priority: number }
+export interface LiabilityRow { companyCode: string | null; currencyCode: string; outstandingPoints: number; unitValue: number; breakageRate: number; grossLiability: number; deferredRevenue: number; breakageRevenue: number }
+
 /** Điểm dự đoán ML của một khách (Predictive Studio / Customer 360). */
 export interface CustomerPrediction {
   occId: string;

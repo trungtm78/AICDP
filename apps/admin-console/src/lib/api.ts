@@ -270,6 +270,22 @@ export const api = {
       body: JSON.stringify({ reservationId, idempotencyKey }),
     }),
 
+  // ── Loyalty coalition (L1-L8): Member-360 + cấu hình + nghĩa vụ ──
+  getLoyaltyWallets: (occId: string) =>
+    request<import("./types.js").LoyaltyWallet[]>(`/v1/loyalty/wallets?occId=${encodeURIComponent(occId)}`),
+  getMemberTiers: (occId: string) =>
+    request<import("./types.js").MemberTier[]>(`/v1/loyalty/tiers?occId=${encodeURIComponent(occId)}`),
+  getMemberVouchers: (occId: string) =>
+    request<import("./types.js").MemberVoucher[]>(`/v1/loyalty/vouchers?occId=${encodeURIComponent(occId)}`),
+  getChallengeProgress: (occId: string) =>
+    request<import("./types.js").ChallengeProgress[]>(`/v1/loyalty/challenges/progress?occId=${encodeURIComponent(occId)}`),
+  getStoredValueBalance: (occId: string) =>
+    request<{ balance: number }>(`/v1/loyalty/stored-value/balance?occId=${encodeURIComponent(occId)}`),
+  getLoyaltyTierGroups: () => request<import("./types.js").LoyaltyTierGroup[]>("/v1/loyalty/tier-groups"),
+  getLoyaltyRewards: () => request<import("./types.js").LoyaltyReward[]>("/v1/loyalty/rewards"),
+  getLoyaltyEarnRules: () => request<import("./types.js").LoyaltyEarnRule[]>("/v1/loyalty/earn-rules"),
+  getLoyaltyLiability: () => request<import("./types.js").LiabilityRow[]>("/v1/loyalty/liability"),
+
   listConsents: (occId: string) =>
     request<ConsentState[]>(`/v1/consent?occId=${encodeURIComponent(occId)}`),
 

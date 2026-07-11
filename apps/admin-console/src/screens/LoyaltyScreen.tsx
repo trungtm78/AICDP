@@ -1,10 +1,10 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Coins, Gift, Lock, Check, X, Search, Users, Trophy, History } from "lucide-react";
+import { Coins, Gift, Lock, Check, X, Search, Users, Trophy, History, Wallet, Layers, Ticket, Target, Scale } from "lucide-react";
 import { api } from "../lib/api.js";
 import { ApiError, type LoyaltyBalance, type LoyaltyMember, type LoyaltyLedgerEntry } from "../lib/types.js";
 import { fmtInt, fmtDateTime } from "../lib/format.js";
-import { PageHeader, Panel, Field, Input, Button, StatTile, StatusPill, EmptyState, Table, Drawer, Badge, Skeleton, type Column } from "../ui/index.js";
+import { PageHeader, Panel, Field, Input, Button, StatTile, StatusPill, EmptyState, Table, Drawer, Badge, Skeleton, Tabs, type Column } from "../ui/index.js";
 
 const TXN_LABEL: Record<string, string> = {
   earn: "Cộng điểm", reserve: "Giữ điểm", capture: "Chốt tiêu", release: "Hoàn giữ", adjust: "Điều chỉnh",
@@ -180,16 +180,99 @@ export function LoyaltyScreen() {
         <LoyaltyMembers members={members.data?.data ?? []} loading={members.isLoading} onOpen={openMember} />
       </div>
 
-      {drill && <LedgerDrawer member={drill} balance={balance} onClose={() => setDrill(null)} />}
+      {/* Cấu hình chương trình (hạng/rule/reward) + nghĩa vụ điểm coalition */}
+      <div className="mt-6">
+        <ProgramLiabilityPanel />
+      </div>
+
+      {drill && <Member360Drawer member={drill} balance={balance} onClose={() => setDrill(null)} />}
     </div>
   );
 }
 
-/** Drill-down: lịch sử điểm của một thành viên (số dư + dòng ledger luỹ kế). */
-function LedgerDrawer({ member, balance, onClose }: { member: LoyaltyMember; balance: LoyaltyBalance | null; onClose: () => void }) {
+/** Cấu hình chương trình coalition (hạng, earn-rule, reward) + nghĩa vụ điểm (IFRS15) — read-only overview. */
+function ProgramLiabilityPanel() {
+  const [tab, setTab] = useState("tiers");
+  const groups = useQuery({ queryKey: ["loyalty-tier-groups"], queryFn: () => api.getLoyaltyTierGroups() });
+  const rules = useQuery({ queryKey: ["loyalty-earn-rules"], queryFn: () => api.getLoyaltyEarnRules() });
+  const rewards = useQuery({ queryKey: ["loyalty-rewards"], queryFn: () => api.getLoyaltyRewards() });
+  const liability = useQuery({ queryKey: ["loyalty-liability"], queryFn: () => api.getLoyaltyLiability() });
+  const liabRows = liability.data ?? [];
+  const totalDeferred = liabRows.reduce((s, r) => s + (r.deferredRevenue ?? 0), 0);
+  return (
+    <Panel title="Chương trình & Nghĩa vụ điểm (coalition)" icon={<Trophy className="size-4" />} subtitle="Hạng · quy tắc tích · ưu đãi · nghĩa vụ điểm IFRS15 theo pháp nhân" bodyClassName="p-0">
+      <Tabs className="px-4 pt-3" value={tab} onChange={setTab} items={[
+        { value: "tiers", label: "Hạng", icon: <Layers className="size-4" /> },
+        { value: "rules", label: "Quy tắc tích", icon: <Target className="size-4" /> },
+        { value: "rewards", label: "Ưu đãi", icon: <Gift className="size-4" /> },
+        { value: "liability", label: "Nghĩa vụ điểm", icon: <Scale className="size-4" /> },
+      ]} />
+      <div className="p-4">
+        {tab === "tiers" && (
+          <div className="space-y-3">
+            {(groups.data ?? []).map((g) => (
+              <div key={g.id}>
+                <div className="mb-1 text-xs font-semibold text-text-muted">{g.name} · {g.qualifyMetric} · review {g.reviewMonths} tháng ({g.reviewCycle})</div>
+                <div className="flex flex-wrap gap-2">
+                  {g.tiers.map((t) => (<Badge key={t.id} tone={t.level === 0 ? "neutral" : "success"}>{t.name} · ngưỡng {fmtInt(t.threshold)}</Badge>))}
+                </div>
+              </div>
+            ))}
+            {(groups.data ?? []).length === 0 && <EmptyState title="Chưa có nhóm hạng" />}
+          </div>
+        )}
+        {tab === "rules" && (
+          <ul className="divide-y divide-border text-sm">
+            {(rules.data ?? []).map((r) => (
+              <li key={r.ruleKey} className="flex items-center justify-between py-2">
+                <span className="text-text">{r.name} <span className="text-text-subtle">({r.brandId ?? "mọi brand"}/{r.channel ?? "mọi kênh"})</span></span>
+                <span className="tabular text-text-muted">{r.ratePerUnit}×{r.multiplier} → {r.currencyCode}{r.qualifying ? "" : " (non-qual)"}</span>
+              </li>
+            ))}
+            {(rules.data ?? []).length === 0 && <EmptyState title="Chưa có quy tắc tích điểm" />}
+          </ul>
+        )}
+        {tab === "rewards" && (
+          <ul className="divide-y divide-border text-sm">
+            {(rewards.data ?? []).map((r) => (
+              <li key={r.code} className="flex items-center justify-between py-2">
+                <span className="text-text">{r.name} <span className="text-text-subtle">{r.redeemableAtBrandId ? `@${r.redeemableAtBrandId}` : "· mọi brand"}</span></span>
+                <span className="tabular text-accent">{fmtInt(r.costPoints)} {r.currencyCode}</span>
+              </li>
+            ))}
+            {(rewards.data ?? []).length === 0 && <EmptyState title="Chưa có ưu đãi" />}
+          </ul>
+        )}
+        {tab === "liability" && (
+          <div className="space-y-3">
+            <StatTile hero label="Deferred revenue (nghĩa vụ điểm dự kiến)" value={fmtInt(Math.round(totalDeferred))} icon={<Scale className="size-4" />} />
+            <ul className="divide-y divide-border text-sm">
+              {liabRows.map((r, i) => (
+                <li key={i} className="flex items-center justify-between py-2">
+                  <span className="text-text">{r.companyCode ?? "(chưa gắn pháp nhân)"} · {r.currencyCode}</span>
+                  <span className="tabular text-text-muted">{fmtInt(r.outstandingPoints)}đ × {r.unitValue} · breakage {Math.round(r.breakageRate * 100)}% → {fmtInt(Math.round(r.deferredRevenue))}</span>
+                </li>
+              ))}
+              {liabRows.length === 0 && <EmptyState title="Chưa có snapshot nghĩa vụ (chốt tại /liability/snapshot)" />}
+            </ul>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+/** Member-360 loyalty: ví đa-currency + hạng + voucher + challenge + stored-value + lịch sử điểm. */
+function Member360Drawer({ member, balance, onClose }: { member: LoyaltyMember; balance: LoyaltyBalance | null; onClose: () => void }) {
+  const occ = member.occId;
+  const wallets = useQuery({ queryKey: ["loyalty-wallets", occ], queryFn: () => api.getLoyaltyWallets(occ) });
+  const tiers = useQuery({ queryKey: ["loyalty-mtiers", occ], queryFn: () => api.getMemberTiers(occ) });
+  const vouchers = useQuery({ queryKey: ["loyalty-vouchers", occ], queryFn: () => api.getMemberVouchers(occ) });
+  const challenges = useQuery({ queryKey: ["loyalty-challenges", occ], queryFn: () => api.getChallengeProgress(occ) });
+  const sv = useQuery({ queryKey: ["loyalty-sv", occ], queryFn: () => api.getStoredValueBalance(occ) });
   const ledger = useQuery({
-    queryKey: ["loyalty-ledger", member.occId],
-    queryFn: () => api.getLoyaltyLedger(member.occId),
+    queryKey: ["loyalty-ledger", occ],
+    queryFn: () => api.getLoyaltyLedger(occ),
   });
   const columns: Column<LoyaltyLedgerEntry>[] = [
     {
@@ -204,13 +287,72 @@ function LedgerDrawer({ member, balance, onClose }: { member: LoyaltyMember; bal
     { key: "at", header: "Thời gian", cell: (r) => <span className="tabular text-xs text-text-subtle">{fmtDateTime(r.createdAt)}</span>, width: "104px" },
   ];
   return (
-    <Drawer open onClose={onClose} title={`Lịch sử điểm — ${member.fullName ?? "(chưa có tên)"}`}
+    <Drawer open onClose={onClose} title={`Member-360 — ${member.fullName ?? "(chưa có tên)"}`}
       description={member.occId}>
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <StatTile label="Điểm khả dụng" value={fmtInt(balance?.available ?? member.available)} icon={<Coins className="size-4" />} />
           <StatTile label="Tổng đã tích" value={fmtInt(member.totalEarned)} icon={<Trophy className="size-4" />} />
+          <StatTile label="Ví tiền (stored-value)" value={fmtInt(sv.data?.balance ?? 0)} icon={<Wallet className="size-4" />} />
         </div>
+
+        {/* Ví đa-currency + Hạng */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Panel title="Ví điểm (đa loại)" icon={<Wallet className="size-4" />} bodyClassName="p-0">
+            <ul className="divide-y divide-border text-sm">
+              {(wallets.data ?? []).map((w) => (
+                <li key={w.currencyId} className="flex items-center justify-between px-4 py-2">
+                  <span className="text-text">{w.currencyName} <span className="text-text-subtle">({w.currencyCode})</span></span>
+                  <span className="tabular font-semibold text-accent">{fmtInt(w.available)}{w.reserved > 0 ? ` · giữ ${fmtInt(w.reserved)}` : ""}</span>
+                </li>
+              ))}
+              {(wallets.data ?? []).length === 0 && <li className="px-4 py-3 text-xs text-text-subtle">Chưa có ví điểm</li>}
+            </ul>
+          </Panel>
+          <Panel title="Hạng thành viên" icon={<Layers className="size-4" />} bodyClassName="p-0">
+            <ul className="divide-y divide-border text-sm">
+              {(tiers.data ?? []).map((t) => (
+                <li key={t.tierGroupCode} className="flex items-center justify-between px-4 py-2">
+                  <span className="text-text">{t.tierGroupCode}</span>
+                  <span className="flex items-center gap-2"><Badge tone={t.level >= 2 ? "success" : "neutral"}>{t.tierName}</Badge><span className="tabular text-text-subtle">{fmtInt(t.qualifyingValue)}</span></span>
+                </li>
+              ))}
+              {(tiers.data ?? []).length === 0 && <li className="px-4 py-3 text-xs text-text-subtle">Chưa xếp hạng</li>}
+            </ul>
+          </Panel>
+        </div>
+
+        {/* Voucher + Challenge */}
+        <div className="grid gap-4 md:grid-cols-2">
+          <Panel title="Voucher" icon={<Ticket className="size-4" />} bodyClassName="p-0">
+            <ul className="divide-y divide-border text-sm">
+              {(vouchers.data ?? []).map((v) => (
+                <li key={v.code} className="flex items-center justify-between px-4 py-2">
+                  <span className="font-mono text-xs text-text">{v.code}</span>
+                  <span className="flex items-center gap-2">
+                    <StatusPill tone={v.state === "active" ? "success" : "neutral"}>{v.state}</StatusPill>
+                    <span className="tabular text-text-subtle">{v.remainingValue != null ? fmtInt(v.remainingValue) : (v.value != null ? `${v.value}${v.valueType === "PERCENT" ? "%" : ""}` : "")}</span>
+                  </span>
+                </li>
+              ))}
+              {(vouchers.data ?? []).length === 0 && <li className="px-4 py-3 text-xs text-text-subtle">Chưa có voucher</li>}
+            </ul>
+          </Panel>
+          <Panel title="Challenge / Gamification" icon={<Target className="size-4" />} bodyClassName="p-0">
+            <ul className="divide-y divide-border text-sm">
+              {(challenges.data ?? []).map((c, i) => (
+                <li key={`${c.challengeCode}-${c.cycle}-${i}`} className="flex items-center justify-between px-4 py-2">
+                  <span className="text-text">{c.challengeCode} <span className="text-text-subtle">#{c.cycle}</span></span>
+                  <span className="flex items-center gap-2">
+                    {c.completedAt ? <Badge tone="success">hoàn thành +{fmtInt(c.rewardPoints)}</Badge> : <span className="tabular text-text-subtle">{fmtInt(c.progress)}/{fmtInt(c.target)}</span>}
+                  </span>
+                </li>
+              ))}
+              {(challenges.data ?? []).length === 0 && <li className="px-4 py-3 text-xs text-text-subtle">Chưa tham gia challenge</li>}
+            </ul>
+          </Panel>
+        </div>
+
         <Panel title="Dòng sổ điểm" icon={<History className="size-4" />} subtitle="Mới nhất trước, kèm số dư khả dụng sau mỗi giao dịch" bodyClassName="p-0">
           {ledger.isLoading ? (
             <div className="p-4"><Skeleton className="h-40 w-full" /></div>
