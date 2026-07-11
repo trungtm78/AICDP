@@ -45,6 +45,10 @@ const SOURCES: CatalogConnector[] = [
   { key: "src_pg", name: "PostgreSQL (Reverse-ETL)", direction: "source", category: "Warehouse / Cloud", transport: "database", blurb: "Đọc dữ liệu từ kho quan hệ.", configFields: [{ key: "host", label: "Host", type: "text" }, { key: "database", label: "Database", type: "text" }, apiKeyField] },
   { key: "src_snowflake", name: "Snowflake (Reverse-ETL)", direction: "source", category: "Warehouse / Cloud", transport: "warehouse", blurb: "Kích hoạt dữ liệu từ Snowflake.", configFields: [{ key: "account", label: "Account", type: "text" }, apiKeyField] },
   { key: "src_salesforce", name: "Salesforce (Cloud)", direction: "source", category: "Warehouse / Cloud", transport: "rest", blurb: "Đồng bộ đối tượng CRM.", configFields: [apiKeyField] },
+  // ── Cổng thanh toán VN (IPN — xác thực checksum/chữ ký, fail-closed) ──
+  { key: "src_vnpay", name: "VNPay (IPN)", direction: "source", category: "Cổng thanh toán VN", transport: "webhook", vn: true, blurb: "Nhận IPN thanh toán VNPay (HMAC-SHA512).", configFields: [{ key: "secretKey", label: "Secret hash key (vnp_HashSecret)", type: "password", secret: true }, { key: "brand_id", label: "Brand", type: "text" }, { key: "store_id", label: "Store", type: "text" }] },
+  { key: "src_momo", name: "MoMo (IPN)", direction: "source", category: "Cổng thanh toán VN", transport: "webhook", vn: true, blurb: "Nhận IPN thanh toán MoMo (HMAC-SHA256).", configFields: [{ key: "secretKey", label: "Secret key", type: "password", secret: true }, { key: "brand_id", label: "Brand", type: "text" }, { key: "store_id", label: "Store", type: "text" }] },
+  { key: "src_zalopay", name: "ZaloPay (Callback)", direction: "source", category: "Cổng thanh toán VN", transport: "webhook", vn: true, blurb: "Nhận callback thanh toán ZaloPay (HMAC-SHA256 key2).", configFields: [{ key: "secretKey", label: "Key2", type: "password", secret: true }, { key: "brand_id", label: "Brand", type: "text" }, { key: "store_id", label: "Store", type: "text" }] },
 ];
 
 // ── Destinations (outbound) ──

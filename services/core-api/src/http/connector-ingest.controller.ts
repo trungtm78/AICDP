@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Param, Headers, Inject, HttpCode, Res } from "@nestjs/common";
+import { Controller, Get, Post, Body, Param, Query, Headers, Inject, HttpCode, Res } from "@nestjs/common";
 import type { Response } from "express";
 import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
@@ -7,6 +7,7 @@ import { AppError } from "./errors.js";
 import { resolveInboundConnection, resolveWriteKeyConnection } from "../connector/inbound.service.js";
 import { ingestInboundEvent } from "../connector/inbound-ingest.service.js";
 import { mapSegmentPayload } from "../connector/segment-map.js";
+import { processPaymentIpn } from "../connector/payment/payment-ipn.service.js";
 import { checkInboundRate } from "../connector/connector-inbound-ratelimit.js";
 
 /** Rút write-key: ưu tiên X-Write-Key; nếu không, giải mã Basic auth chuẩn Segment (writeKey:''). */
@@ -88,5 +89,46 @@ export class ConnectorIngestController {
     const mapped = mapSegmentPayload(body, resolved.config);
     const result = await ingestInboundEvent(this.pool, resolved, mapped);
     return { data: result };
+  }
+
+  // Cổng IPN thanh toán (VNPay/MoMo/ZaloPay): verify checksum trong service (fail-closed).
+  // VNPay gọi IPN qua GET query; MoMo/ZaloPay POST body -> nhận cả hai, gộp query+body.
+  // Trả ACK ĐÚNG ĐỊNH DẠNG cổng (KHÔNG bọc {data}) để cổng đọc RspCode/return_code.
+  @Public()
+  @Post("payment/:id/ipn")
+  @HttpCode(200)
+  async paymentIpnPost(
+    @Param("id") id: string,
+    @Query() query: Record<string, unknown>,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const payload = { ...(query ?? {}), ...((body as Record<string, unknown>) ?? {}) };
+    return this.paymentIpn(id, payload, res);
+  }
+
+  @Public()
+  @Get("payment/:id/ipn")
+  @HttpCode(200)
+  async paymentIpnGet(
+    @Param("id") id: string,
+    @Query() query: Record<string, unknown>,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    return this.paymentIpn(id, { ...(query ?? {}) }, res);
+  }
+
+  private async paymentIpn(id: string, payload: Record<string, unknown>, res: Response) {
+    const rl = checkInboundRate(id);
+    if (!rl.allowed) {
+      res.setHeader("Retry-After", rl.retryAfterSec);
+      throw new AppError({
+        code: "CONNECTOR_RATE_LIMIT", httpStatus: 429,
+        message: "Vượt giới hạn tần suất cổng IPN (per-connection).",
+        why: "Connection nhận quá nhiều IPN trong thời gian ngắn.",
+        fix: `Thử lại sau ${rl.retryAfterSec}s.`, retryable: true,
+      });
+    }
+    return processPaymentIpn(this.pool, id, payload);
   }
 }
