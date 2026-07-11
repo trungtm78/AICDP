@@ -45,6 +45,21 @@ const acc = {
   redeemed: "system:redeemed",
 };
 
+// Ledger đa-currency: GROUP currency (điểm chung 'OCC_POINT') là mặc định cho kernel cũ (tương
+// thích ngược). Cache id sau lần đọc đầu. Các thao tác đa-currency (convert...) truyền currency riêng.
+let groupCurrencyId: string | null = null;
+async function getGroupCurrencyId(client: PoolClient): Promise<string> {
+  if (groupCurrencyId) return groupCurrencyId;
+  const r = await client.query<{ id: string }>("SELECT id FROM cdp.point_currency WHERE code='OCC_POINT'");
+  if (!r.rows[0]) throw new Error("Chưa seed GROUP currency OCC_POINT (migration 025).");
+  groupCurrencyId = r.rows[0]!.id;
+  return groupCurrencyId;
+}
+/** Chỉ dùng cho test: xoá cache khi DB bị dựng lại. */
+export function _resetLoyaltyCurrencyCache(): void {
+  groupCurrencyId = null;
+}
+
 const MAX_POINTS = 1_000_000_000; // trần an toàn, dưới Number.MAX_SAFE_INTEGER rất xa
 
 function assertValidPoints(points: number): void {
@@ -98,7 +113,7 @@ async function runOp(
           "idempotency_key đã dùng cho thao tác khác (tham số không khớp).",
         );
       }
-      const balance = await balanceTx(client, meta.occId);
+      const balance = await balanceTx(client, meta.occId, await getGroupCurrencyId(client));
       await client.query("COMMIT");
       return { txnId: row.txn_id, balance, idempotent: true };
     }
@@ -112,7 +127,7 @@ async function runOp(
 
     await work({ client, txnId });
 
-    const balance = await balanceTx(client, meta.occId);
+    const balance = await balanceTx(client, meta.occId, await getGroupCurrencyId(client));
     await client.query("COMMIT");
     return { txnId, balance, idempotent: false };
   } catch (err) {
@@ -123,32 +138,34 @@ async function runOp(
   }
 }
 
-async function postEntries(
-  ctx: OpCtx,
-  lines: Array<{ account: string; delta: number }>,
-): Promise<void> {
-  const sum = lines.reduce((s, l) => s + l.delta, 0);
-  if (sum !== 0) throw new Error("loyalty: bút toán kép không cân (tổng delta != 0)");
+interface Line { account: string; delta: number; currencyId: string }
+async function postEntries(ctx: OpCtx, lines: Line[]): Promise<void> {
+  // Cân theo TỪNG currency (khớp trigger DB per (txn,currency)) — hỗ trợ txn đa-currency (convert).
+  const byCur = new Map<string, number>();
+  for (const l of lines) byCur.set(l.currencyId, (byCur.get(l.currencyId) ?? 0) + l.delta);
+  for (const [cur, s] of byCur) {
+    if (s !== 0) throw new Error(`loyalty: bút toán không cân cho currency ${cur} (tổng delta != 0)`);
+  }
   for (const line of lines) {
     await ctx.client.query(
-      "INSERT INTO cdp.loyalty_entry (txn_id, account, delta) VALUES ($1,$2,$3)",
-      [ctx.txnId, line.account, line.delta],
+      "INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id) VALUES ($1,$2,$3,$4)",
+      [ctx.txnId, line.account, line.delta, line.currencyId],
     );
   }
 }
 
-async function accountBalanceTx(client: PoolClient, account: string): Promise<number> {
+async function accountBalanceTx(client: PoolClient, account: string, currencyId: string): Promise<number> {
   const r = await client.query<{ bal: string | null }>(
-    "SELECT COALESCE(sum(delta),0)::bigint AS bal FROM cdp.loyalty_entry WHERE account=$1",
-    [account],
+    "SELECT COALESCE(sum(delta),0)::bigint AS bal FROM cdp.loyalty_entry WHERE account=$1 AND currency_id=$2",
+    [account, currencyId],
   );
   return Number(r.rows[0]!.bal ?? 0);
 }
 
-async function balanceTx(client: PoolClient, occId: string): Promise<LoyaltyBalance> {
+async function balanceTx(client: PoolClient, occId: string, currencyId: string): Promise<LoyaltyBalance> {
   const [available, reserved] = await Promise.all([
-    accountBalanceTx(client, acc.available(occId)),
-    accountBalanceTx(client, acc.reserved(occId)),
+    accountBalanceTx(client, acc.available(occId), currencyId),
+    accountBalanceTx(client, acc.reserved(occId), currencyId),
   ]);
   return { available, reserved };
 }
@@ -172,11 +189,13 @@ export async function earn(pool: Pool, a: EarnArgs): Promise<LoyaltyResult> {
       fingerprint: `earn:${a.occId}:${a.points}`,
       ...(a.reason !== undefined ? { reason: a.reason } : {}),
     },
-    (ctx) =>
-      postEntries(ctx, [
-        { account: acc.available(a.occId), delta: a.points },
-        { account: acc.issued, delta: -a.points },
-      ]),
+    async (ctx) => {
+      const cur = await getGroupCurrencyId(ctx.client);
+      await postEntries(ctx, [
+        { account: acc.available(a.occId), delta: a.points, currencyId: cur },
+        { account: acc.issued, delta: -a.points, currencyId: cur },
+      ]);
+    },
   );
 }
 
@@ -200,11 +219,12 @@ export async function reserve(pool: Pool, a: ReserveArgs): Promise<ReserveResult
       fingerprint: `reserve:${a.occId}:${a.points}`,
     },
     async (ctx) => {
+      const cur = await getGroupCurrencyId(ctx.client);
       await postEntries(ctx, [
-        { account: acc.available(a.occId), delta: -a.points },
-        { account: acc.reserved(a.occId), delta: a.points },
+        { account: acc.available(a.occId), delta: -a.points, currencyId: cur },
+        { account: acc.reserved(a.occId), delta: a.points, currencyId: cur },
       ]);
-      const avail = await accountBalanceTx(ctx.client, acc.available(a.occId));
+      const avail = await accountBalanceTx(ctx.client, acc.available(a.occId), cur);
       if (avail < 0) {
         throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ điểm khả dụng để giữ.");
       }
@@ -282,15 +302,16 @@ async function settleReservation(
         );
       }
       const points = Number(row.points);
-      const lines =
+      const cur = await getGroupCurrencyId(ctx.client);
+      const lines: Line[] =
         mode === "capture"
           ? [
-              { account: acc.reserved(occId), delta: -points },
-              { account: acc.redeemed, delta: points },
+              { account: acc.reserved(occId), delta: -points, currencyId: cur },
+              { account: acc.redeemed, delta: points, currencyId: cur },
             ]
           : [
-              { account: acc.reserved(occId), delta: -points },
-              { account: acc.available(occId), delta: points },
+              { account: acc.reserved(occId), delta: -points, currencyId: cur },
+              { account: acc.available(occId), delta: points, currencyId: cur },
             ];
       await postEntries(ctx, lines);
       await ctx.client.query(
@@ -301,10 +322,11 @@ async function settleReservation(
   );
 }
 
+/** Số dư điểm CHUNG (group currency) của 1 khách — mặc định (tương thích ngược). */
 export async function getBalance(pool: Pool, occId: string): Promise<LoyaltyBalance> {
   const client = await pool.connect();
   try {
-    return await balanceTx(client, occId);
+    return await balanceTx(client, occId, await getGroupCurrencyId(client));
   } finally {
     client.release();
   }
@@ -344,6 +366,7 @@ export async function listLedger(pool: Pool, occId: string, limit = 100): Promis
        FROM cdp.loyalty_entry e
        JOIN cdp.loyalty_txn t ON t.txn_id = e.txn_id
       WHERE e.account = $1
+        AND e.currency_id = (SELECT id FROM cdp.point_currency WHERE code='OCC_POINT')
       ORDER BY e.entry_id DESC
       LIMIT $2`,
     [account, Math.min(limit, 500)],
@@ -363,7 +386,8 @@ export async function listMembers(pool: Pool, limit = 30): Promise<{ members: Lo
   const rows = await pool.query<{ occ_id: string; full_name: string | null; available: string; earned: string | null }>(
     `SELECT cf.occ_id, p.full_name, cf.loyalty_available::text AS available,
             (SELECT COALESCE(sum(delta), 0) FROM cdp.loyalty_entry le
-               WHERE le.account = 'member:' || cf.occ_id::text || ':available' AND le.delta > 0)::text AS earned
+               WHERE le.account = 'member:' || cf.occ_id::text || ':available' AND le.delta > 0
+                 AND le.currency_id = (SELECT id FROM cdp.point_currency WHERE code='OCC_POINT'))::text AS earned
        FROM cdp.customer_feature cf
        LEFT JOIN cdp.profile p ON p.occ_id = cf.occ_id
        WHERE cf.loyalty_available > 0

@@ -222,23 +222,28 @@ async function transferLoyalty(
 ): Promise<void> {
   const fromAcc = `member:${from}:${kind}`;
   const toAcc = `member:${to}:${kind}`;
-  const bal = await client.query<{ b: string | null }>(
-    "SELECT COALESCE(sum(delta),0)::bigint AS b FROM cdp.loyalty_entry WHERE account=$1",
+  // Chuyển theo TỪNG currency (đa ví/coalition): mỗi currency có số dư khác 0 -> 1 txn cân bằng riêng.
+  const balances = await client.query<{ currency_id: string; b: string }>(
+    `SELECT currency_id, COALESCE(sum(delta),0)::bigint AS b
+       FROM cdp.loyalty_entry WHERE account=$1 GROUP BY currency_id HAVING COALESCE(sum(delta),0) <> 0`,
     [fromAcc],
   );
-  const amount = Number(bal.rows[0]!.b ?? 0);
-  if (amount === 0) return; // không có gì để chuyển
-  const txn = await client.query<{ txn_id: string }>(
-    `INSERT INTO cdp.loyalty_txn (idempotency_key, type, occ_id, fingerprint, reason)
-     VALUES ($1,'adjust',$2,$3,'merge-transfer') RETURNING txn_id`,
-    [`merge:${from}:${to}:${kind}`, to, `merge:${from}:${to}:${kind}`],
-  );
-  const txnId = txn.rows[0]!.txn_id;
-  // debit from (-amount) / credit to (+amount): tổng delta = 0.
-  await client.query(
-    "INSERT INTO cdp.loyalty_entry (txn_id, account, delta) VALUES ($1,$2,$3),($1,$4,$5)",
-    [txnId, fromAcc, -amount, toAcc, amount],
-  );
+  for (const row of balances.rows) {
+    const amount = Number(row.b);
+    const cur = row.currency_id;
+    const key = `merge:${from}:${to}:${kind}:${cur}`;
+    const txn = await client.query<{ txn_id: string }>(
+      `INSERT INTO cdp.loyalty_txn (idempotency_key, type, occ_id, fingerprint, reason)
+       VALUES ($1,'adjust',$2,$1,'merge-transfer') RETURNING txn_id`,
+      [key, to],
+    );
+    const txnId = txn.rows[0]!.txn_id;
+    // debit from (-amount) / credit to (+amount) trong CÙNG currency: cân bằng per-currency.
+    await client.query(
+      "INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id) VALUES ($1,$2,$3,$6),($1,$4,$5,$6)",
+      [txnId, fromAcc, -amount, toAcc, amount, cur],
+    );
+  }
 }
 
 /** Append trạng thái consent hiệu lực (bản ghi mới nhất across from∪to mỗi purpose) cho `to`. */
