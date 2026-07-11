@@ -104,6 +104,17 @@ describe("cổng webhook inbound — chạy thật", () => {
     expect(ev.body.data[0].status).toBe("rejected");
   });
 
+  it("pos_transaction_id chứa ':' (bẩn namespace) -> 400 + rejected", async () => {
+    const { id, token } = await mkSource();
+    const r = await http()
+      .post(`/v1/connectors/sources/${id}/events`)
+      .set("X-Connector-Token", token)
+      .send(order("A:B"));
+    expect(r.status).toBe(400);
+    const ev = await withAuth(http().get(`/v1/connections/${id}/events`), ADMIN_KEY);
+    expect(ev.body.data[0].status).toBe("rejected");
+  });
+
   it("payload thiếu pos_transaction_id -> 400 + event rejected (không nuốt im lặng)", async () => {
     const { id, token } = await mkSource();
     const r = await http()

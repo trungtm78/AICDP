@@ -12,17 +12,30 @@ type Obj = Record<string, unknown>;
 
 const str = (v: unknown): string | undefined =>
   typeof v === "string" && v.trim() !== "" ? v : typeof v === "number" ? String(v) : undefined;
+// Số tiền VND = SỐ NGUYÊN. Chỉ nhận number nguyên hoặc chuỗi toàn chữ số. TỪ CHỐI chuỗi có '.'/','
+// (nguồn VN dùng '.' ngăn nghìn -> "1.500" KHÔNG được hiểu thành 1.5 rồi ghi sai đơn vị tiền âm thầm).
 const num = (v: unknown): number | undefined => {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v.trim() !== "" && Number.isFinite(Number(v))) return Number(v);
+  if (typeof v === "number" && Number.isInteger(v)) return v;
+  if (typeof v === "string" && /^-?\d+$/.test(v.trim())) return Number(v.trim());
   return undefined;
 };
 
+// Walk payload (UNTRUSTED) theo path (admin-set): CHỈ own-property (hasOwnProperty) -> không chạm
+// prototype/builtin (chống đọc __proto__/constructor/toString.constructor...); cap số segment chống
+// path cực dài tốn CPU mỗi event.
+const DANGEROUS_KEY = new Set(["__proto__", "constructor", "prototype"]);
+const MAX_PATH_SEGMENTS = 12;
 function getPath(obj: unknown, path: string): unknown {
-  return path.split(".").reduce<unknown>(
-    (o, k) => (o == null ? undefined : (o as Obj)[k]),
-    obj,
-  );
+  const segs = path.split(".");
+  if (segs.length > MAX_PATH_SEGMENTS) return undefined;
+  let o: unknown = obj;
+  for (const k of segs) {
+    if (o == null || typeof o !== "object" || DANGEROUS_KEY.has(k) || !Object.prototype.hasOwnProperty.call(o, k)) {
+      return undefined;
+    }
+    o = (o as Obj)[k];
+  }
+  return o;
 }
 
 /** Rút giá trị theo spec (hằng '=...' hoặc dot-path). undefined nếu không có / spec không phải chuỗi. */

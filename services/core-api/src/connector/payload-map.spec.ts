@@ -44,6 +44,14 @@ describe("applyPayloadMapping", () => {
     expect(out.properties.total).toBeUndefined();
   });
 
+  it("total dạng '1.500' (dấu chấm ngăn nghìn VN) -> undefined, KHÔNG hiểu thành 1.5 (chống sai đơn vị)", () => {
+    const out = applyPayloadMapping({ t: "1.500" }, { eventType: "order_completed", pos_transaction_id: "=X", total: "t" }) as Record<string, any>;
+    expect(out.properties.total).toBeUndefined();
+    // số nguyên chuỗi vẫn nhận
+    const ok = applyPayloadMapping({ t: "1500" }, { eventType: "order_completed", pos_transaction_id: "=X", total: "t" }) as Record<string, any>;
+    expect(ok.properties.total).toBe(1500);
+  });
+
   it("identify: traits + identifiers (member=pos_member_id)", () => {
     const out = applyPayloadMapping(
       { c: { name: "A", phone: "090", city: "HN", mem: "M1" } },
@@ -52,6 +60,14 @@ describe("applyPayloadMapping", () => {
     expect(out.type).toBe("identify");
     expect(out.traits).toEqual({ full_name: "A", phone: "090", city: "HN" });
     expect(out.identifiers).toContainEqual({ type: "pos_member_id", value: "M1" });
+  });
+
+  it("path chạm __proto__/constructor -> undefined (chống prototype traversal)", () => {
+    const out = applyPayloadMapping(
+      { a: {} },
+      { eventType: "order_completed", pos_transaction_id: "=X", total: "=1", store_id: "__proto__.polluted" },
+    ) as Record<string, any>;
+    expect(out.store_id).toBe("webhook"); // path bị chặn -> default
   });
 
   it("eventType lạ / thiếu -> unknown (downstream UNKNOWN_EVENT_TYPE)", () => {

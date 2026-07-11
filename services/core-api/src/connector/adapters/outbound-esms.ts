@@ -18,7 +18,9 @@ export const esmsOutboundAdapter: OutboundAdapter = {
     if (!apiKey || !secretKey || !brandname) return { status: "failed", error: "Thiếu apiKey/secretKey/brandname." };
     const phone = str(msg.recipient) ?? str(msg.payload["phone"]);
     if (!phone) return { status: "skipped_no_contact", error: "Không có số điện thoại." };
-    const content = str(msg.payload["content"]) ?? str(msg.payload["message"]) ?? `OCC-CDP: ${str(msg.payload["audience"]) ?? "thông báo"}`;
+    // Default TRUNG TÍNH — KHÔNG chèn tên audience/segment (nhãn nội bộ/PII) vào tin gửi tới khách.
+    // Campaign thật phải truyền content/message (wiring composer nội dung ở Phase FE sau).
+    const content = str(msg.payload["content"]) ?? str(msg.payload["message"]) ?? "OCC-CDP: thông báo từ hệ thống.";
 
     const body = JSON.stringify({
       ApiKey: apiKey, SecretKey: secretKey, Brandname: brandname,

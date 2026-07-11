@@ -22,7 +22,8 @@ export const vietguysOutboundAdapter: OutboundAdapter = {
     if (!user || !pwd || !from) return { status: "failed", error: "Thiếu user/password/brandname." };
     const phone = str(msg.recipient) ?? str(msg.payload["phone"]);
     if (!phone) return { status: "skipped_no_contact", error: "Không có số điện thoại." };
-    const sms = str(msg.payload["content"]) ?? str(msg.payload["message"]) ?? `OCC-CDP: ${str(msg.payload["audience"]) ?? "thông báo"}`;
+    // Default TRUNG TÍNH — KHÔNG chèn tên audience/segment (nhãn nội bộ/PII) vào tin gửi tới khách.
+    const sms = str(msg.payload["content"]) ?? str(msg.payload["message"]) ?? "OCC-CDP: thông báo từ hệ thống.";
 
     const body = form({ u: user, pwd, from, phone, sms, json: "1" });
     try {

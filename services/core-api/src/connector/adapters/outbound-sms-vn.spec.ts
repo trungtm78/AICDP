@@ -39,6 +39,14 @@ describe("esmsOutboundAdapter", () => {
     expect((await esmsOutboundAdapter.healthCheck(cfg)).ok).toBe(true);
     expect((await esmsOutboundAdapter.healthCheck({ apiKey: "x" })).ok).toBe(false);
   });
+
+  it("KHÔNG có content -> default TRUNG TÍNH, KHÔNG lộ tên audience nội bộ vào tin", async () => {
+    const cap: { body?: string } = {};
+    const noContent: OutboundMessage = { channel: "sms", recipient: "0900000001", payload: { audience: "VIP-churn-BIMAT", run_id: "r1" } };
+    await esmsOutboundAdapter.deliver(cfg, noContent, deps(200, '{"CodeResult":"100"}', cap));
+    expect(cap.body).not.toContain("VIP-churn-BIMAT");
+    expect(cap.body).toContain("thông báo");
+  });
 });
 
 describe("vietguysOutboundAdapter", () => {

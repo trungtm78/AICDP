@@ -450,7 +450,7 @@ export const inboundOrderSchema = z
     identifiers: z.array(inboundIdentifierSchema).max(20).optional(),
     properties: z
       .object({
-        pos_transaction_id: z.string().min(1).max(200),
+        pos_transaction_id: z.string().min(1).max(200).regex(/^[^:]+$/, "pos_transaction_id không được chứa ':'"),
         currency: z.string().max(10).optional(),
         total: z.number().finite(),
         payment_method: z.string().max(60).optional(),
