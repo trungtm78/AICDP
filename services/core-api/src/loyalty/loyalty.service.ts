@@ -50,9 +50,9 @@ const acc = {
 // Ledger đa-currency: GROUP currency (điểm chung 'OCC_POINT') là mặc định cho kernel cũ (tương
 // thích ngược). Cache id sau lần đọc đầu. Các thao tác đa-currency (convert...) truyền currency riêng.
 let groupCurrencyId: string | null = null;
-async function getGroupCurrencyId(client: PoolClient): Promise<string> {
+async function getGroupCurrencyId(db: { query: PoolClient["query"] }): Promise<string> {
   if (groupCurrencyId) return groupCurrencyId;
-  const r = await client.query<{ id: string }>("SELECT id FROM cdp.point_currency WHERE code='OCC_POINT'");
+  const r = await db.query<{ id: string }>("SELECT id FROM cdp.point_currency WHERE code='OCC_POINT'");
   if (!r.rows[0]) throw new Error("Chưa seed GROUP currency OCC_POINT (migration 025).");
   groupCurrencyId = r.rows[0]!.id;
   return groupCurrencyId;
@@ -327,26 +327,30 @@ async function settleReservation(
 /** Số dư điểm CHUNG (group currency) của 1 khách — mặc định (tương thích ngược). */
 // ── L1: đa-currency (convert / adjust / transfer) ──
 
-async function resolveCurrencyId(client: PoolClient, codeOrId: string): Promise<string> {
-  // Chấp nhận code (vd 'GIVRAL_PT') hoặc uuid; is_active bắt buộc.
-  const r = await client.query<{ id: string }>(
-    "SELECT id FROM cdp.point_currency WHERE (code=$1 OR id::text=$1) AND is_active",
-    [codeOrId],
-  );
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type Queryable = { query: PoolClient["query"] };
+async function resolveCurrencyId(db: Queryable, codeOrId: string): Promise<string> {
+  // Phân biệt rõ uuid vs code (tránh nhập nhằng nếu code trùng dạng uuid); is_active bắt buộc.
+  const sql = UUID_RE.test(codeOrId)
+    ? "SELECT id FROM cdp.point_currency WHERE id::text=$1 AND is_active LIMIT 1"
+    : "SELECT id FROM cdp.point_currency WHERE code=$1 AND is_active LIMIT 1";
+  const r = await db.query<{ id: string }>(sql, [codeOrId]);
   if (!r.rows[0]) throw new LoyaltyError("CURRENCY_NOT_FOUND", `Loại điểm không tồn tại/không hoạt động: ${codeOrId}`);
   return r.rows[0]!.id;
 }
 
-async function getConversionRate(client: PoolClient, fromId: string, toId: string): Promise<number> {
-  const r = await client.query<{ rate: string }>(
-    `SELECT rate::text AS rate FROM cdp.point_conversion
+/** Tính số điểm 'to' = floor(points * rate) HOÀN TOÀN trong SQL numeric (KHÔNG float JS) — chống sai
+ *  số/precision khi nhân điểm tiền. Tỷ giá hiệu lực mới nhất, thứ tự tất định. Trả string bigint. */
+async function computeConvertedPoints(db: Queryable, fromId: string, toId: string, points: number): Promise<string> {
+  const r = await db.query<{ tp: string }>(
+    `SELECT floor($3::numeric * rate)::bigint::text AS tp FROM cdp.point_conversion
       WHERE from_currency_id=$1 AND to_currency_id=$2
         AND valid_from <= now() AND (valid_to IS NULL OR valid_to > now())
-      ORDER BY valid_from DESC LIMIT 1`,
-    [fromId, toId],
+      ORDER BY valid_from DESC, created_at DESC, id DESC LIMIT 1`,
+    [fromId, toId, points],
   );
   if (!r.rows[0]) throw new LoyaltyError("CONVERSION_NOT_FOUND", "Chưa cấu hình tỷ giá quy đổi giữa 2 loại điểm.");
-  return Number(r.rows[0]!.rate);
+  return r.rows[0]!.tp;
 }
 
 export interface ConvertArgs {
@@ -368,23 +372,30 @@ export interface ConvertResult extends LoyaltyResult {
  */
 export async function convert(pool: Pool, a: ConvertArgs): Promise<ConvertResult> {
   assertValidPoints(a.points);
-  let toPoints = 0;
+  // Resolve canonical + tính toPoints (SQL numeric) TRƯỚC -> fingerprint theo ID canonical (idempotency
+  // ổn định dù caller dùng code hay uuid) + không nhân điểm bằng float JS.
+  const fromId = await resolveCurrencyId(pool, a.fromCurrency);
+  const toId = await resolveCurrencyId(pool, a.toCurrency);
+  if (fromId === toId) throw new LoyaltyError("INVALID_AMOUNT", "Không thể đổi cùng một loại điểm.");
+  const toPointsStr = await computeConvertedPoints(pool, fromId, toId, a.points);
+  if (toPointsStr === "0" || toPointsStr.startsWith("-")) {
+    throw new LoyaltyError("INVALID_AMOUNT", "Số điểm quá nhỏ để quy đổi (nhận 0).");
+  }
+  let toPoints = Number(toPointsStr);
+  if (!Number.isSafeInteger(toPoints) || toPoints > MAX_POINTS) {
+    throw new LoyaltyError("INVALID_AMOUNT", "Số điểm quy đổi vượt ngưỡng an toàn (tỷ giá/points quá lớn).");
+  }
+
   const res = await runOp(
     pool,
     {
       occId: a.occId,
       idempotencyKey: a.idempotencyKey,
       type: "convert",
-      fingerprint: `convert:${a.occId}:${a.fromCurrency}:${a.toCurrency}:${a.points}`,
+      fingerprint: `convert:${a.occId}:${fromId}:${toId}:${a.points}`,
       ...(a.reason !== undefined ? { reason: a.reason } : {}),
     },
     async (ctx) => {
-      const fromId = await resolveCurrencyId(ctx.client, a.fromCurrency);
-      const toId = await resolveCurrencyId(ctx.client, a.toCurrency);
-      if (fromId === toId) throw new LoyaltyError("INVALID_AMOUNT", "Không thể đổi cùng một loại điểm.");
-      const rate = await getConversionRate(ctx.client, fromId, toId);
-      toPoints = Math.floor(a.points * rate);
-      if (toPoints <= 0) throw new LoyaltyError("INVALID_AMOUNT", "Số điểm quá nhỏ để quy đổi (nhận 0).");
       await postEntries(ctx, [
         { account: acc.available(a.occId), delta: -a.points, currencyId: fromId },
         { account: acc.issued, delta: a.points, currencyId: fromId },     // giảm liability 'from'
@@ -395,6 +406,14 @@ export async function convert(pool: Pool, a: ConvertArgs): Promise<ConvertResult
       if (availFrom < 0) throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ điểm loại nguồn để đổi.");
     },
   );
+  // Replay idempotent: work KHÔNG chạy -> lấy lại số điểm đã mint từ ledger của txn cũ (mint = +delta 'to').
+  if (res.idempotent) {
+    const r = await pool.query<{ b: string }>(
+      "SELECT COALESCE(sum(delta),0)::bigint::text AS b FROM cdp.loyalty_entry WHERE txn_id=$1 AND account=$2 AND currency_id=$3 AND delta>0",
+      [res.txnId, acc.available(a.occId), toId],
+    );
+    toPoints = Number(r.rows[0]!.b);
+  }
   return { ...res, toPoints };
 }
 
@@ -411,17 +430,19 @@ export async function adjust(pool: Pool, a: AdjustArgs): Promise<LoyaltyResult> 
   if (!Number.isSafeInteger(a.points) || a.points === 0 || Math.abs(a.points) > MAX_POINTS) {
     throw new LoyaltyError("INVALID_AMOUNT", "Số điểm điều chỉnh phải là số nguyên khác 0 trong ngưỡng an toàn.");
   }
+  // Resolve canonical currency TRƯỚC -> fingerprint theo ID (ổn định dù code/uuid) + gồm reason
+  // (replay cùng key nhưng khác lý do/currency -> IDEMPOTENCY_CONFLICT, không nuốt âm thầm).
+  const cur = a.currency ? await resolveCurrencyId(pool, a.currency) : await getGroupCurrencyId(pool);
   return runOp(
     pool,
     {
       occId: a.occId,
       idempotencyKey: a.idempotencyKey,
       type: "adjust",
-      fingerprint: `adjust:${a.occId}:${a.currency ?? "GROUP"}:${a.points}`,
+      fingerprint: `adjust:${a.occId}:${cur}:${a.points}:${a.reason}`,
       reason: a.reason,
     },
     async (ctx) => {
-      const cur = a.currency ? await resolveCurrencyId(ctx.client, a.currency) : await getGroupCurrencyId(ctx.client);
       // +available / -issued (cộng) hoặc -available / +issued (trừ): cân bằng.
       await postEntries(ctx, [
         { account: acc.available(a.occId), delta: a.points, currencyId: cur },
@@ -454,10 +475,11 @@ export async function transfer(pool: Pool, a: TransferArgs): Promise<LoyaltyResu
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`loyalty:${lo}`]);
     await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`loyalty:${hi}`]);
 
+    // Resolve canonical currency TRƯỚC -> fingerprint theo ID (ổn định dù code/uuid).
+    const cur = a.currency ? await resolveCurrencyId(client, a.currency) : await getGroupCurrencyId(client);
     const existing = await client.query<{ txn_id: string; fingerprint: string }>(
       "SELECT txn_id, fingerprint FROM cdp.loyalty_txn WHERE idempotency_key=$1", [a.idempotencyKey]);
-    const fp = `transfer:${a.fromOccId}:${a.toOccId}:${a.currency ?? "GROUP"}:${a.points}`;
-    const cur = a.currency ? await resolveCurrencyId(client, a.currency) : await getGroupCurrencyId(client);
+    const fp = `transfer:${a.fromOccId}:${a.toOccId}:${cur}:${a.points}`;
     if (existing.rows.length > 0) {
       if (existing.rows[0]!.fingerprint !== fp) {
         throw new LoyaltyError("IDEMPOTENCY_CONFLICT", "idempotency_key đã dùng cho thao tác khác.");

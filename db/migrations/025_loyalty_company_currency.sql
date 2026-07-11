@@ -55,6 +55,9 @@ CREATE TABLE IF NOT EXISTS cdp.point_conversion (
   created_at       timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT ck_conv_diff CHECK (from_currency_id <> to_currency_id)
 );
+-- Chống nhiều tỷ giá "mở" (valid_to NULL) cùng cặp -> convert phi-tất-định (mint/hụt tuỳ dữ liệu).
+CREATE UNIQUE INDEX IF NOT EXISTS uq_conv_open
+  ON cdp.point_conversion (from_currency_id, to_currency_id) WHERE valid_to IS NULL;
 -- Seed tỷ giá brand -> group = 1:1 (mặc định; admin chỉnh sau).
 INSERT INTO cdp.point_conversion (from_currency_id, to_currency_id, rate)
 SELECT bc.id, gc.id, 1
@@ -74,6 +77,8 @@ ALTER TABLE cdp.loyalty_txn
 -- Backfill entry cũ -> group currency (tương thích ngược: kernel cũ = điểm chung).
 UPDATE cdp.loyalty_entry SET currency_id = (SELECT id FROM cdp.point_currency WHERE code='OCC_POINT')
   WHERE currency_id IS NULL;
+-- Bắt buộc mọi entry có currency_id (chống bút toán 'không currency' -> lệch balance/liability âm thầm).
+ALTER TABLE cdp.loyalty_entry ALTER COLUMN currency_id SET NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_loyalty_entry_acc_cur ON cdp.loyalty_entry (account, currency_id);
 
 -- 5) Trigger cân bằng PER (txn, currency) — mỗi loại điểm cân riêng (hỗ trợ convert đa-currency) --

@@ -25,6 +25,17 @@ describe("L1 — convert (đổi điểm brand -> điểm chung)", () => {
     expect(wallet(ws, "GIVRAL_PT")).toBeUndefined(); // đã về 0 -> không liệt kê
   });
 
+  it("convert replay cùng key -> idempotent, toPoints trả đúng (không mint trùng)", async () => {
+    await adjust(pool, { occId, points: 100, currency: "GIVRAL_PT", idempotencyKey: "ai", reason: "seed" });
+    const r1 = await convert(pool, { occId, fromCurrency: "GIVRAL_PT", toCurrency: "OCC_POINT", points: 60, idempotencyKey: "cvi" });
+    const r2 = await convert(pool, { occId, fromCurrency: "GIVRAL_PT", toCurrency: "OCC_POINT", points: 60, idempotencyKey: "cvi" });
+    expect(r2.idempotent).toBe(true);
+    expect(r2.toPoints).toBe(60); // KHÔNG phải 0
+    expect(r1.toPoints).toBe(60);
+    const ws = await listWallets(pool, occId);
+    expect(wallet(ws, "OCC_POINT")?.available).toBe(60); // không thành 120
+  });
+
   it("convert vượt số dư -> INSUFFICIENT_BALANCE, không đổi", async () => {
     await adjust(pool, { occId, points: 50, currency: "GIVRAL_PT", idempotencyKey: "a2", reason: "seed" });
     await expect(convert(pool, { occId, fromCurrency: "GIVRAL_PT", toCurrency: "OCC_POINT", points: 200, idempotencyKey: "cv2" }))

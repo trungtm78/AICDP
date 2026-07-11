@@ -223,13 +223,14 @@ async function transferLoyalty(
   const fromAcc = `member:${from}:${kind}`;
   const toAcc = `member:${to}:${kind}`;
   // Chuyển theo TỪNG currency (đa ví/coalition): mỗi currency có số dư khác 0 -> 1 txn cân bằng riêng.
+  // Số dư giữ dạng string bigint (KHÔNG Number() — mất precision khi > 2^53 điểm); âm/dương hoá trong SQL.
   const balances = await client.query<{ currency_id: string; b: string }>(
-    `SELECT currency_id, COALESCE(sum(delta),0)::bigint AS b
+    `SELECT currency_id, COALESCE(sum(delta),0)::bigint::text AS b
        FROM cdp.loyalty_entry WHERE account=$1 GROUP BY currency_id HAVING COALESCE(sum(delta),0) <> 0`,
     [fromAcc],
   );
   for (const row of balances.rows) {
-    const amount = Number(row.b);
+    const amount = row.b; // string bigint
     const cur = row.currency_id;
     const key = `merge:${from}:${to}:${kind}:${cur}`;
     const txn = await client.query<{ txn_id: string }>(
@@ -240,8 +241,8 @@ async function transferLoyalty(
     const txnId = txn.rows[0]!.txn_id;
     // debit from (-amount) / credit to (+amount) trong CÙNG currency: cân bằng per-currency.
     await client.query(
-      "INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id) VALUES ($1,$2,$3,$6),($1,$4,$5,$6)",
-      [txnId, fromAcc, -amount, toAcc, amount, cur],
+      "INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id) VALUES ($1,$2,(-$3::bigint),$4),($1,$5,$3::bigint,$4)",
+      [txnId, fromAcc, amount, cur, toAcc],
     );
   }
 }
