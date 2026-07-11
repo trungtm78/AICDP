@@ -62,4 +62,10 @@ describe("connector endpoints — vận hành thật", () => {
     const r = await http().get("/v1/connections/x/events");
     expect(r.status).toBe(401);
   });
+
+  it("id không phải UUID -> 400 (không phải 500) + không lộ chi tiết DB", async () => {
+    const r = await withAuth(http().get("/v1/connections/not-a-uuid/events"), ADMIN_KEY);
+    expect(r.status).toBe(400);
+    expect(r.body.error.code).toBe("SCHEMA_TYPE_MISMATCH");
+  });
 });

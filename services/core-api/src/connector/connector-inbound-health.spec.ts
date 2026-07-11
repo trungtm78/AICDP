@@ -76,12 +76,14 @@ describe("health.service · testConnection", () => {
     expect(row.rows[0]!.last_error).toBe("401 unauthorized");
   });
 
-  it("adapter ném exception -> status error (bắt lỗi, không văng)", async () => {
-    hc = async () => { throw new Error("connect ETIMEDOUT"); };
+  it("adapter ném exception -> status error; client KHÔNG thấy chi tiết thô, last_error giữ server-side", async () => {
+    hc = async () => { throw new Error("connect ETIMEDOUT 10.0.0.5:6379"); };
     const id = await mk("destination", "test_hc");
     const r = await testConnection(pool, id);
     expect(r.status).toBe("error");
-    expect(r.error).toContain("ETIMEDOUT");
+    expect(r.error).not.toContain("10.0.0.5"); // KHÔNG lộ IP nội bộ ra client
+    const row = await pool.query<{ last_error: string }>("SELECT last_error FROM cdp.connection WHERE id=$1", [id]);
+    expect(row.rows[0]!.last_error).toContain("ETIMEDOUT"); // chi tiết chỉ ở DB (server-side)
   });
 
   it("connector không có adapter -> INTEGRATION_NOT_AVAILABLE", async () => {

@@ -57,10 +57,12 @@ export async function resolveInboundConnection(
     [connectionId],
   );
   const row = r.rows[0];
-  if (!row || !row.inbound_token_hash) throw unauthorized("Cổng vào chưa cấu hình token.");
-  if (!token || !timingSafeEqualStr(sha256hex(token), row.inbound_token_hash)) {
+  // Message ĐỒNG NHẤT cho mọi nhánh chưa-auth (không tồn tại / chưa cấu hình token / sai token)
+  // -> không cho kẻ chưa xác thực phân biệt "UUID này là source đã cấu hình" (chống oracle).
+  if (!row || !row.inbound_token_hash || !token || !timingSafeEqualStr(sha256hex(token), row.inbound_token_hash)) {
     throw unauthorized("Token cổng vào không hợp lệ.");
   }
+  // Chỉ tới đây (đã xác thực token đúng) mới lộ trạng thái paused — an toàn (caller sở hữu token).
   if (row.status !== "active") throw unauthorized("Kết nối đang tạm dừng (không nhận dữ liệu).");
   return { id: row.id, connectorKey: row.connector_key, config: row.config ?? {} };
 }

@@ -53,7 +53,8 @@ export function encryptSecret(plain: string, key: Buffer = getConnectorSecretKey
     iv: iv.toString("base64"),
     tag: tag.toString("base64"),
     ct: ct.toString("base64"),
-    hint: plain.length >= 4 ? plain.slice(-4) : "",
+    // Chỉ lưu hint (4 ký tự cuối) khi secret đủ dài (>=8) — tránh lộ phần lớn secret ngắn.
+    hint: plain.length >= 8 ? plain.slice(-4) : "",
   };
 }
 
@@ -81,10 +82,12 @@ export function encryptConfig(config: Cfg, secretFields: string[], key: Buffer =
   const out: Cfg = { ...config };
   for (const f of secretFields) {
     const val = out[f];
-    if (isEncrypted(val)) continue; // đã mã hoá -> giữ (re-save không nhập lại secret)
-    if (typeof val === "string" && val.length > 0) {
-      out[f] = encryptSecret(val, key);
-    }
+    if (isEncrypted(val)) continue;                 // đã mã hoá -> giữ (re-save không nhập lại secret)
+    if (val === null || val === undefined || val === "") continue; // rỗng -> bỏ qua
+    if (typeof val === "object") continue;          // object không phải secret hợp lệ -> bỏ qua
+    // Coerce MỌI primitive (string/number/boolean) sang string rồi mã hoá — tránh secret
+    // dạng non-string lọt qua khâu mã hoá rồi bị maskConfig bỏ sót (rò plaintext ra API).
+    out[f] = encryptSecret(String(val), key);
   }
   return out;
 }

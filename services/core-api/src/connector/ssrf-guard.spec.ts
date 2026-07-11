@@ -28,6 +28,16 @@ describe("ssrf-guard · isPrivateIp", () => {
   it("cho phép IPv6 public", () => {
     expect(isPrivateIp("2606:4700:4700::1111")).toBe(false);
   });
+  it("CHẶN IPv4-mapped IPv6 dạng HEX-group (lỗ hổng SSRF P0)", () => {
+    // ::ffff:a9fe:a9fe = 169.254.169.254 (metadata); ::ffff:7f00:1 = 127.0.0.1; ::ffff:0a00:0001 = 10.0.0.1
+    for (const ip of ["::ffff:a9fe:a9fe", "::ffff:7f00:1", "::ffff:0a00:0001", "64:ff9b::a9fe:a9fe", "::ffff:c0a8:0101"]) {
+      expect(isPrivateIp(ip)).toBe(true);
+    }
+  });
+  it("mapped IPv4 PUBLIC vẫn cho phép (::ffff:8.8.8.8)", () => {
+    expect(isPrivateIp("::ffff:8.8.8.8")).toBe(false);
+    expect(isPrivateIp("::ffff:0808:0808")).toBe(false);
+  });
   it("chặn dải reserved/multicast/test-net IPv4", () => {
     for (const ip of ["224.0.0.1", "240.0.0.1", "192.0.2.10", "198.18.0.1", "255.255.255.255"]) {
       expect(isPrivateIp(ip)).toBe(true);
@@ -64,8 +74,11 @@ describe("ssrf-guard · assertSafeUrl", () => {
     }
   });
 
-  it("chặn IP literal nội bộ (metadata/loopback/private)", async () => {
-    for (const u of ["https://169.254.169.254/latest/meta-data", "https://127.0.0.1:8071", "https://10.0.0.1", "https://[::1]:6379"]) {
+  it("chặn IP literal nội bộ (metadata/loopback/private + IPv6-mapped hex)", async () => {
+    for (const u of [
+      "https://169.254.169.254/latest/meta-data", "https://127.0.0.1:8071", "https://10.0.0.1",
+      "https://[::1]:6379", "https://[::ffff:a9fe:a9fe]/latest/meta-data", "https://[::ffff:7f00:1]:8071",
+    ]) {
       await expect(assertSafeUrl(u, { lookup })).rejects.toBeInstanceOf(AppError);
     }
   });

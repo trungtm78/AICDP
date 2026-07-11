@@ -34,19 +34,62 @@ function isPrivateIpv4(ip: string): boolean {
   return false;
 }
 
+/** Expand IPv6 (kể cả '::' nén và đuôi IPv4 dạng dotted) thành 8 hextet số. null nếu dạng lạ. */
+export function expandIpv6(ipRaw: string): number[] | null {
+  let s = ipRaw.toLowerCase();
+  // Đuôi IPv4 dotted (::ffff:1.2.3.4) -> chuyển thành 2 hextet hex.
+  const dot = /:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(s);
+  if (dot) {
+    const p = dot[1]!.split(".").map((x) => Number(x));
+    if (p.some((n) => n > 255)) return null;
+    const h1 = (((p[0]! << 8) | p[1]!) >>> 0).toString(16);
+    const h2 = (((p[2]! << 8) | p[3]!) >>> 0).toString(16);
+    s = `${s.slice(0, dot.index)}:${h1}:${h2}`;
+  }
+  const halves = s.split("::");
+  if (halves.length > 2) return null;
+  const head = halves[0] ? halves[0].split(":") : [];
+  const tail = halves.length === 2 ? (halves[1] ? halves[1].split(":") : []) : [];
+  let groups: string[];
+  if (halves.length === 2) {
+    const fill = 8 - head.length - tail.length;
+    if (fill < 0) return null;
+    groups = [...head, ...Array<string>(fill).fill("0"), ...tail];
+  } else {
+    groups = head;
+  }
+  if (groups.length !== 8) return null;
+  const out: number[] = [];
+  for (const g of groups) {
+    if (!/^[0-9a-f]{1,4}$/.test(g)) return null;
+    out.push(parseInt(g, 16));
+  }
+  return out;
+}
+
+/** Nếu IPv6 là dạng nhúng IPv4 (mapped ::ffff:/96, compat ::/96, NAT64 64:ff9b::/96) -> trả IPv4. */
+function embeddedIpv4(hextets: number[]): string | null {
+  const [a, b, c, d, e, f, g, h] = hextets as [number, number, number, number, number, number, number, number];
+  const zeroPrefix = a === 0 && b === 0 && c === 0 && d === 0 && e === 0;
+  const mappedOrCompat = zeroPrefix && (f === 0 || f === 0xffff);
+  const nat64 = a === 0x0064 && b === 0xff9b && c === 0 && d === 0 && e === 0 && f === 0;
+  if (mappedOrCompat || nat64) {
+    return `${(g >> 8) & 0xff}.${g & 0xff}.${(h >> 8) & 0xff}.${h & 0xff}`;
+  }
+  return null;
+}
+
 function isPrivateIpv6(ipRaw: string): boolean {
   const ip = ipRaw.toLowerCase();
   if (ip === "::1" || ip === "::") return true; // loopback / unspecified
-  // IPv4-mapped/embedded (::ffff:a.b.c.d) -> kiểm phần IPv4
-  if (ip.includes(".")) {
-    const v4 = ip.slice(ip.lastIndexOf(":") + 1);
-    if (net.isIPv4(v4)) return isPrivateIpv4(v4);
-  }
-  const firstGroup = ip.startsWith("::") ? "0" : (ip.split(":")[0] || "0");
-  const h = parseInt(firstGroup, 16);
-  if (Number.isNaN(h)) return true; // dạng lạ -> không an toàn
-  if ((h & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
-  if ((h & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  const hextets = expandIpv6(ip);
+  if (!hextets) return true; // dạng lạ -> không an toàn
+  // IPv4 nhúng (mapped/compat/NAT64) — bắt CẢ dạng hex (::ffff:a9fe:a9fe) lẫn dotted.
+  const v4 = embeddedIpv4(hextets);
+  if (v4) return isPrivateIpv4(v4);
+  const h0 = hextets[0]!;
+  if ((h0 & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
+  if ((h0 & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
   return false;
 }
 

@@ -78,6 +78,18 @@ export class AllExceptionsFilter implements ExceptionFilter {
       });
     }
 
+    if (pgCode === "22P02") {
+      // Sai kiểu dữ liệu đầu vào (vd :id không phải UUID hợp lệ) -> lỗi CLIENT 400, không phải 500.
+      return new AppError({
+        code: "SCHEMA_TYPE_MISMATCH",
+        httpStatus: 400,
+        message: "Tham số không hợp lệ (sai định dạng, vd id phải là UUID).",
+        why: "Giá trị gửi lên không đúng kiểu dữ liệu cột.",
+        fix: "Kiểm tra lại định dạng tham số (UUID/số/ngày).",
+        retryable: false,
+      });
+    }
+
     if (exception instanceof HttpException) {
       // Lỗi framework. Lỗi nghiệp vụ (customer-not-found) đã là AppError ở nhánh trên.
       const status = exception.getStatus();

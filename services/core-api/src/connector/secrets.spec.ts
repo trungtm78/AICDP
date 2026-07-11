@@ -76,6 +76,15 @@ describe("secrets · config-level", () => {
     const enc = encryptConfig({ apiKey: "" }, ["apiKey", "missing"], KEY);
     expect(enc.apiKey).toBe("");
   });
+
+  it("secret NON-STRING (number) vẫn được mã hoá (không lọt plaintext qua maskConfig)", () => {
+    const enc = encryptConfig({ pin: 12345678 }, ["pin"], KEY);
+    expect(isEncrypted(enc.pin)).toBe(true);
+    expect(decryptSecret(enc.pin as never, KEY)).toBe("12345678");
+    const masked = maskConfig(enc);
+    expect(masked.pin).toBe("••••5678");
+    expect(JSON.stringify(masked)).not.toContain("12345678");
+  });
 });
 
 describe("secrets · getConnectorSecretKey", () => {
