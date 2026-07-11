@@ -4,9 +4,23 @@ import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { Public } from "./auth/roles.js";
 import { AppError } from "./errors.js";
-import { resolveInboundConnection } from "../connector/inbound.service.js";
+import { resolveInboundConnection, resolveWriteKeyConnection } from "../connector/inbound.service.js";
 import { ingestInboundEvent } from "../connector/inbound-ingest.service.js";
+import { mapSegmentPayload } from "../connector/segment-map.js";
 import { checkInboundRate } from "../connector/connector-inbound-ratelimit.js";
+
+/** Rút write-key: ưu tiên X-Write-Key; nếu không, giải mã Basic auth chuẩn Segment (writeKey:''). */
+export function extractWriteKey(authHeader: string | undefined, xWriteKey: string | undefined): string {
+  if (xWriteKey && xWriteKey.trim() !== "") return xWriteKey.trim();
+  const m = /^Basic\s+(.+)$/i.exec((authHeader ?? "").trim());
+  if (!m) return "";
+  try {
+    const decoded = Buffer.from(m[1]!, "base64").toString("utf8");
+    return decoded.slice(0, decoded.indexOf(":") >= 0 ? decoded.indexOf(":") : decoded.length);
+  } catch {
+    return "";
+  }
+}
 
 // Cổng INBOUND công khai (@Public): hệ thống ngoài (POS/PMS/webhook) đẩy event vào CDP.
 // Xác thực bằng X-Connector-Token (constant-time, per source connection). brand_id lấy từ
@@ -42,6 +56,37 @@ export class ConnectorIngestController {
     }
 
     const result = await ingestInboundEvent(this.pool, resolved, body);
+    return { data: result };
+  }
+
+  // Cổng write-key shape Segment/RudderStack: SDK gửi track/identify, xác thực bằng writeKey.
+  @Public()
+  @Post("track")
+  @HttpCode(202)
+  async track(
+    @Headers("authorization") authHeader: string | undefined,
+    @Headers("x-write-key") xWriteKey: string | undefined,
+    @Body() body: unknown,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const writeKey = extractWriteKey(authHeader, xWriteKey);
+    const resolved = await resolveWriteKeyConnection(this.pool, writeKey);
+
+    const rl = checkInboundRate(resolved.id);
+    if (!rl.allowed) {
+      res.setHeader("Retry-After", rl.retryAfterSec);
+      throw new AppError({
+        code: "CONNECTOR_RATE_LIMIT", httpStatus: 429,
+        message: "Vượt giới hạn tần suất cổng vào (per-connection).",
+        why: "Connection gửi quá nhiều event trong thời gian ngắn.",
+        fix: `Giảm tần suất và thử lại sau ${rl.retryAfterSec}s (xem header Retry-After).`,
+        retryable: true,
+      });
+    }
+
+    // Map Segment -> shape inbound rồi tái dùng ingestInboundEvent (validation + ghi event).
+    const mapped = mapSegmentPayload(body, resolved.config);
+    const result = await ingestInboundEvent(this.pool, resolved, mapped);
     return { data: result };
   }
 }

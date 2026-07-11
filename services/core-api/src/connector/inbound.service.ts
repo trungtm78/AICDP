@@ -66,3 +66,29 @@ export async function resolveInboundConnection(
   if (row.status !== "active") throw unauthorized("Kết nối đang tạm dừng (không nhận dữ liệu).");
   return { id: row.id, connectorKey: row.connector_key, config: row.config ?? {} };
 }
+
+/**
+ * Xác thực theo write-key (shape Segment/RudderStack SDK): tra source connection có
+ * config.writeKey khớp. writeKey là khoá định tuyến (không phải secret ở model Segment) nên
+ * lưu plaintext trong config -> tra bằng equality. 401 ĐỒNG NHẤT khi thiếu/không khớp/không active
+ * (chống oracle enumeration). So sánh trong DB (không constant-time từng byte) — chấp nhận vì writeKey
+ * là routing key; flood chặn bởi rate-limit + edge WAF.
+ */
+export async function resolveWriteKeyConnection(
+  pool: Pool,
+  writeKey: string,
+): Promise<ResolvedInbound> {
+  if (!writeKey) throw unauthorized("Thiếu write-key.");
+  const r = await pool.query<{
+    id: string; connector_key: string; config: Record<string, unknown>; status: string;
+  }>(
+    `SELECT id, connector_key, config, status
+       FROM cdp.connection
+      WHERE direction='source' AND config->>'writeKey' = $1
+      ORDER BY created_at ASC LIMIT 1`,
+    [writeKey],
+  );
+  const row = r.rows[0];
+  if (!row || row.status !== "active") throw unauthorized("Write-key không hợp lệ.");
+  return { id: row.id, connectorKey: row.connector_key, config: row.config ?? {} };
+}
