@@ -9,7 +9,7 @@ export interface OutboundMessage {
 }
 
 export interface DeliveryResult {
-  status: "sent" | "failed";
+  status: "sent" | "failed" | "skipped_no_contact";
   providerMessageId?: string | undefined;
   error?: string | undefined;
 }

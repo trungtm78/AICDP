@@ -1,21 +1,11 @@
-import { safeFetch, type SafeFetchOptions } from "../http-client.js";
+import { safeFetch } from "../http-client.js";
 import { hmacHex } from "../signing.js";
-import type { OutboundAdapter, OutboundDeps, OutboundMessage, DeliveryResult, HealthResult } from "./types.js";
+import { str, fetchOpts } from "./outbound-util.js";
+import type { OutboundAdapter, OutboundMessage, DeliveryResult, HealthResult } from "./types.js";
 
 // Adapter OUTBOUND webhook (verify-free): POST payload JSON tới config.webhookUrl qua safeFetch
 // (SSRF-safe + pin IP + timeout + strip CRLF). Tuỳ chọn ký HMAC body -> header X-OCC-Signature
 // (đích xác thực nguồn). config.authHeader -> Authorization. KHÔNG lộ secret ra ngoài payload.
-
-const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() !== "" ? v : undefined);
-
-/** Gộp SafeFetchOptions từ deps (chỉ set field có giá trị — tránh exactOptional). */
-function fetchOpts(base: SafeFetchOptions, deps?: OutboundDeps): SafeFetchOptions {
-  const o: SafeFetchOptions = { ...base };
-  if (deps?.fetchImpl) o.fetchImpl = deps.fetchImpl;
-  if (deps?.allowHttp !== undefined) o.allowHttp = deps.allowHttp;
-  if (deps?.lookup) o.lookup = deps.lookup;
-  return o;
-}
 
 function headersFor(config: Record<string, unknown>, body: string): Record<string, string> {
   const h: Record<string, string> = { "content-type": "application/json" };
