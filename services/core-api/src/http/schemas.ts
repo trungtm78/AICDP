@@ -426,14 +426,15 @@ export const pipelineStatusSchema = z.object({ status: z.enum(["active", "paused
 export const applyTemplateSchema = z.object({ templateKey: z.string().min(1).max(80) });
 
 // ── Phase 2: INBOUND webhook (payload webhook-native; brand_id LẤY TỪ connection, KHÔNG từ payload) ──
-// .strict(): field lạ (vd brand_id spoof) -> 400 fail-closed, không âm thầm bỏ qua.
+// .strict(): field lạ (vd brand_id spoof) -> 400 fail-closed, không âm thầm bỏ qua (kể cả trong identifiers).
+const inboundIdentifierSchema = identifierSchema.strict();
 export const inboundOrderSchema = z
   .object({
     type: z.literal("order_completed"),
     store_id: z.string().min(1).max(120),
     source: z.string().min(1).max(80).optional(),
     occ_timestamp: z.string().datetime({ offset: true }).optional(),
-    identifiers: z.array(identifierSchema).max(20).optional(),
+    identifiers: z.array(inboundIdentifierSchema).max(20).optional(),
     properties: z
       .object({
         pos_transaction_id: z.string().min(1).max(200),
@@ -450,7 +451,7 @@ export const inboundOrderSchema = z
 export const inboundIdentifySchema = z
   .object({
     type: z.literal("identify"),
-    identifiers: z.array(identifierSchema).min(1).max(20),
+    identifiers: z.array(inboundIdentifierSchema).min(1).max(20),
     traits: z
       .object({
         full_name: z.string().max(200).optional(),

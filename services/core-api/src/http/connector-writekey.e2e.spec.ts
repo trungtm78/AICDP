@@ -83,6 +83,16 @@ describe("cổng write-key (shape Segment) — chạy thật", () => {
     expect(r.status).toBe(401);
   });
 
+  it("writeKey TRÙNG ở >1 source active -> 401 (không định tuyến nhầm brand)", async () => {
+    await mkSdkSource(); // connection 1, writeKey=WK
+    await mkSdkSource(); // connection 2, cùng writeKey=WK -> va chạm
+    const r = await http()
+      .post("/v1/connectors/track")
+      .set("X-Write-Key", WK)
+      .send({ type: "identify", userId: "x" });
+    expect(r.status).toBe(401);
+  });
+
   it("track sự kiện không phải order (Product Viewed) -> 400 UNKNOWN_EVENT_TYPE + rejected", async () => {
     const id = await mkSdkSource();
     const r = await http()

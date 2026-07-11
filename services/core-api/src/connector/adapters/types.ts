@@ -29,6 +29,8 @@ export interface OutboundAdapter {
 export interface PulledEvent {
   type: "order_completed" | "identify";
   data: Record<string, unknown>;
+  /** Cursor keyset của CHÍNH event này (để runner tiến cursor tới row đã xử lý xong — không skip). */
+  cursor?: Record<string, unknown> | undefined;
 }
 
 /** Adapter INBOUND kiểu PULL (reverse-ETL): kéo event từ nguồn theo cursor. */

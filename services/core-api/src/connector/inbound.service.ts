@@ -59,7 +59,11 @@ export async function resolveInboundConnection(
   const row = r.rows[0];
   // Message ĐỒNG NHẤT cho mọi nhánh chưa-auth (không tồn tại / chưa cấu hình token / sai token)
   // -> không cho kẻ chưa xác thực phân biệt "UUID này là source đã cấu hình" (chống oracle).
-  if (!row || !row.inbound_token_hash || !token || !timingSafeEqualStr(sha256hex(token), row.inbound_token_hash)) {
+  // TIMING: LUÔN chạy sha256 + so sánh constant-time (với hash giả nếu thiếu) để thời gian đồng nhất
+  // giữa "id không tồn tại" và "id là source có token" (bịt timing-oracle enumerate UUID).
+  const DUMMY_HASH = "0".repeat(64);
+  const match = timingSafeEqualStr(sha256hex(token || ""), row?.inbound_token_hash ?? DUMMY_HASH);
+  if (!row || !row.inbound_token_hash || !token || !match) {
     throw unauthorized("Token cổng vào không hợp lệ.");
   }
   // Chỉ tới đây (đã xác thực token đúng) mới lộ trạng thái paused — an toàn (caller sở hữu token).
@@ -70,25 +74,27 @@ export async function resolveInboundConnection(
 /**
  * Xác thực theo write-key (shape Segment/RudderStack SDK): tra source connection có
  * config.writeKey khớp. writeKey là khoá định tuyến (không phải secret ở model Segment) nên
- * lưu plaintext trong config -> tra bằng equality. 401 ĐỒNG NHẤT khi thiếu/không khớp/không active
- * (chống oracle enumeration). So sánh trong DB (không constant-time từng byte) — chấp nhận vì writeKey
- * là routing key; flood chặn bởi rate-limit + edge WAF.
+ * lưu plaintext trong config -> tra bằng equality. 401 ĐỒNG NHẤT (message giống nhau) khi
+ * thiếu/không khớp/không active/TRÙNG (chống oracle enumeration). So sánh trong DB (không
+ * constant-time từng byte) — chấp nhận vì writeKey là routing key; flood chặn bởi rate-limit + edge WAF.
+ * CHỐNG VA CHẠM: nếu >1 source active cùng writeKey -> TỪ CHỐI (không định tuyến nhầm brand theo
+ * created_at). writeKey nên UNIQUE ở tầng cấu hình.
  */
 export async function resolveWriteKeyConnection(
   pool: Pool,
   writeKey: string,
 ): Promise<ResolvedInbound> {
-  if (!writeKey) throw unauthorized("Thiếu write-key.");
+  if (!writeKey) throw unauthorized("Write-key không hợp lệ.");
   const r = await pool.query<{
     id: string; connector_key: string; config: Record<string, unknown>; status: string;
   }>(
     `SELECT id, connector_key, config, status
        FROM cdp.connection
-      WHERE direction='source' AND config->>'writeKey' = $1
-      ORDER BY created_at ASC LIMIT 1`,
+      WHERE direction='source' AND status='active' AND config->>'writeKey' = $1`,
     [writeKey],
   );
-  const row = r.rows[0];
-  if (!row || row.status !== "active") throw unauthorized("Write-key không hợp lệ.");
+  // Đúng 1 source active khớp mới định tuyến; 0 -> sai key; >1 -> va chạm cấu hình (từ chối, không đoán).
+  if (r.rows.length !== 1) throw unauthorized("Write-key không hợp lệ.");
+  const row = r.rows[0]!;
   return { id: row.id, connectorKey: row.connector_key, config: row.config ?? {} };
 }
