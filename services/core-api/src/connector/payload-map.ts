@@ -25,7 +25,7 @@ const num = (v: unknown): number | undefined => {
 // path cực dài tốn CPU mỗi event.
 const DANGEROUS_KEY = new Set(["__proto__", "constructor", "prototype"]);
 const MAX_PATH_SEGMENTS = 12;
-function getPath(obj: unknown, path: string): unknown {
+export function getPath(obj: unknown, path: string): unknown {
   const segs = path.split(".");
   if (segs.length > MAX_PATH_SEGMENTS) return undefined;
   let o: unknown = obj;

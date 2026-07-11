@@ -40,11 +40,12 @@ export interface PulledEvent {
   cursor?: Record<string, unknown> | undefined;
 }
 
-/** Adapter INBOUND kiểu PULL (reverse-ETL): kéo event từ nguồn theo cursor. */
+/** Adapter INBOUND kiểu PULL (reverse-ETL): kéo event từ nguồn theo cursor. deps tiêm fetch cho test HTTP. */
 export interface InboundPullAdapter {
   key: string;
   pull(
     config: Record<string, unknown>,
     cursor: Record<string, unknown> | null,
+    deps?: OutboundDeps,
   ): Promise<{ events: PulledEvent[]; nextCursor: Record<string, unknown> | null }>;
 }
