@@ -7,6 +7,7 @@ import { setupTestDb, truncateAll } from "../test-helpers/db.js";
 import { withAuth, ADMIN_KEY } from "../test-helpers/auth.js";
 import { pool } from "../db/pool.js";
 import { createConnection, createConnector } from "../connector/connector.service.js";
+import { recordConsent } from "../consent/consent.service.js";
 import { deliverToConnection, deliverActivationRun } from "../connector/outbound.service.js";
 import { registerOutbound } from "../connector/adapters/registry.js";
 import type { OutboundMessage, OutboundDeps } from "../connector/adapters/types.js";
@@ -94,38 +95,74 @@ describe("deliverToConnection (service)", () => {
 });
 
 // Seed 1 activation_run + member(allowed) kèm profile (phone tuỳ chọn).
-async function seedRun(channel: string, phones: Array<string | null>): Promise<string> {
+// Trả runId + danh sách occId (để test thao tác consent). Cấp consent 'marketing_zalo' cho từng
+// member (allowed) — vì deliverActivationRun RE-CHECK consent lúc gửi.
+async function seedRun(channel: string, phones: Array<string | null>): Promise<{ runId: string; occIds: string[] }> {
   const run = await pool.query<{ run_id: string }>(
     `INSERT INTO cdp.activation_run (audience_name, purpose, channel, destination, total, allowed_count, suppressed_count)
      VALUES ('Aud','marketing_zalo',$1,'dst',$2,$2,0) RETURNING run_id`,
     [channel, phones.length],
   );
   const runId = run.rows[0]!.run_id;
+  const occIds: string[] = [];
   for (const phone of phones) {
     const occ = await pool.query<{ occ_id: string }>("INSERT INTO cdp.occ_identity DEFAULT VALUES RETURNING occ_id");
     const occId = occ.rows[0]!.occ_id;
+    occIds.push(occId);
     await pool.query("INSERT INTO cdp.profile (occ_id, phone) VALUES ($1,$2)", [occId, phone]);
     await pool.query("INSERT INTO cdp.activation_member (run_id, occ_id, decision) VALUES ($1,$2,'allowed')", [runId, occId]);
+    await recordConsent(pool, { occId, purpose: "marketing_zalo", status: "granted", source: "api" });
   }
-  return runId;
+  return { runId, occIds };
 }
 
 describe("deliverActivationRun (wiring activation → outbound)", () => {
-  it("giao cho member allowed -> ghi delivery gắn run_id", async () => {
+  it("giao cho member allowed (consent còn hiệu lực) -> ghi delivery gắn run_id", async () => {
     const connId = await mkTestOut();
-    const runId = await seedRun("webhook", ["0900000001", "0900000002"]);
+    const { runId } = await seedRun("webhook", ["0900000001", "0900000002"]);
     const r = await deliverActivationRun(pool, runId, connId);
-    expect(r).toMatchObject({ total: 2, sent: 2, failed: 0, skipped: 0 });
+    expect(r).toMatchObject({ total: 2, sent: 2, failed: 0, skipped: 0, suppressed: 0 });
     const d = await pool.query("SELECT count(*)::int n FROM cdp.connector_delivery WHERE run_id=$1", [runId]);
     expect(d.rows[0]!.n).toBe(2);
   });
 
+  it("consent RÚT sau activate, trước deliver -> suppressed, KHÔNG gửi (latest-wins)", async () => {
+    const connId = await mkTestOut();
+    const { runId, occIds } = await seedRun("webhook", ["0900000001"]);
+    await recordConsent(pool, { occId: occIds[0]!, purpose: "marketing_zalo", status: "withdrawn", source: "api" });
+    const r = await deliverActivationRun(pool, runId, connId);
+    expect(r).toMatchObject({ sent: 0, suppressed: 1 });
+    const d = await pool.query("SELECT count(*)::int n FROM cdp.connector_delivery WHERE run_id=$1", [runId]);
+    expect(d.rows[0]!.n).toBe(0); // không ghi delivery cho người đã rút consent
+  });
+
   it("member không có contact + kênh messaging (Zalo) -> skipped_no_contact", async () => {
     const c = await createConnection(pool, { name: "z", direction: "destination", connectorKey: "dst_zalo_zns", config: { apiKey: "tok", templateId: "t1" } });
-    const runId = await seedRun("zalo_zns", [null]); // không phone
+    const { runId } = await seedRun("zalo_zns", [null]); // không phone
     const r = await deliverActivationRun(pool, runId, c.id);
     expect(r.skipped).toBe(1);
     expect(r.sent).toBe(0);
+  });
+
+  it("gọi deliver 2 lần -> lần 2 alreadySent (idempotent, KHÔNG gửi trùng)", async () => {
+    const connId = await mkTestOut();
+    const { runId } = await seedRun("webhook", ["0900000001", "0900000002"]);
+    const r1 = await deliverActivationRun(pool, runId, connId);
+    expect(r1.sent).toBe(2);
+    const r2 = await deliverActivationRun(pool, runId, connId);
+    expect(r2).toMatchObject({ sent: 0, alreadySent: 2 });
+    const d = await pool.query("SELECT count(*)::int n FROM cdp.connector_delivery WHERE run_id=$1 AND status='sent'", [runId]);
+    expect(d.rows[0]!.n).toBe(2); // vẫn chỉ 2 (không nhân đôi)
+  });
+
+  it("recipient PII bị MASK khi trả qua GET /deliveries", async () => {
+    const connId = await mkTestOut();
+    const { runId } = await seedRun("webhook", ["0900000001"]);
+    await deliverActivationRun(pool, runId, connId);
+    const d = await withAuth(http().get(`/v1/connections/${connId}/deliveries`), ADMIN_KEY);
+    const rec = d.body.data[0].recipient as string;
+    expect(rec).not.toBe("0900000001");
+    expect(rec).toContain("***");
   });
 
   it("run không tồn tại -> NOT_FOUND", async () => {
@@ -133,12 +170,39 @@ describe("deliverActivationRun (wiring activation → outbound)", () => {
     await expect(deliverActivationRun(pool, "00000000-0000-0000-0000-000000000000", connId))
       .rejects.toMatchObject({ code: "NOT_FOUND" });
   });
+
+  it("lỗi SSRF (URL trỏ IP nội bộ) -> delivery.error KHÔNG lộ IP nội bộ", async () => {
+    const c = await createConnection(pool, { name: "wh", direction: "destination", connectorKey: "dst_webhook", config: { webhookUrl: "https://evil.example.com/x" } });
+    // lookup trả IP nội bộ -> assertSafeUrl chặn (message chứa IP) -> phải bị redact.
+    const r = await deliverToConnection(pool, c.id, { channel: "webhook", payload: {} }, { lookup: async () => ["10.0.0.5"] });
+    expect(r.status).toBe("failed");
+    const d = await pool.query<{ error: string | null }>("SELECT error FROM cdp.connector_delivery WHERE connection_id=$1", [c.id]);
+    expect(d.rows[0]!.error ?? "").not.toContain("10.0.0.5");
+  });
+});
+
+describe("dst_webhook secret fields (authHeader/signingSecret) — mã hoá + mask", () => {
+  it("tạo connection có authHeader/signingSecret -> API MASK, không lộ plaintext", async () => {
+    const r = await withAuth(
+      http().post("/v1/connections").send({
+        name: "wh", direction: "destination", connectorKey: "dst_webhook",
+        config: { webhookUrl: "https://hooks.example.com/x", signingSecret: "SUPERSECRET99", authHeader: "Bearer TOKEN123" },
+      }),
+      ADMIN_KEY,
+    );
+    expect(r.status).toBe(201);
+    expect(JSON.stringify(r.body)).not.toContain("SUPERSECRET99");
+    expect(JSON.stringify(r.body)).not.toContain("TOKEN123");
+    // DB lưu ciphertext (không plaintext).
+    const row = await pool.query<{ config: Record<string, unknown> }>("SELECT config FROM cdp.connection WHERE id=$1", [r.body.data.id]);
+    expect(JSON.stringify(row.rows[0]!.config)).not.toContain("SUPERSECRET99");
+  });
 });
 
 describe("POST /v1/activation/:runId/deliver (endpoint)", () => {
   it("marketer giao audience -> 200 summary", async () => {
     const connId = await mkTestOut();
-    const runId = await seedRun("webhook", ["0900000001"]);
+    const { runId } = await seedRun("webhook", ["0900000001"]);
     const r = await withAuth(http().post(`/v1/activation/${runId}/deliver`).send({ connectionId: connId }), ADMIN_KEY);
     expect(r.status).toBe(200);
     expect(r.body.data.sent).toBe(1);

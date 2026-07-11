@@ -20,7 +20,8 @@ export const webhookOutboundAdapter: OutboundAdapter = {
   key: "dst_webhook",
 
   async deliver(config, msg: OutboundMessage, deps): Promise<DeliveryResult> {
-    const url = str(config["webhookUrl"]) ?? str(msg.recipient);
+    // URL đích LẤY TỪ config (không mượn msg.recipient — recipient là người nhận, không phải URL).
+    const url = str(config["webhookUrl"]);
     if (!url) return { status: "failed", error: "Thiếu webhookUrl." };
     const body = JSON.stringify({ channel: msg.channel, occId: msg.occId ?? null, payload: msg.payload });
     try {

@@ -1,6 +1,22 @@
 import { describe, it, expect } from "vitest";
 import { AppError } from "../http/errors.js";
-import { safeFetch, makePinLookup, buildPinnedDispatcher } from "./http-client.js";
+import { safeFetch, makePinLookup, buildPinnedDispatcher, readBounded } from "./http-client.js";
+
+// Fake Response có body stream (getReader) từ danh sách chunk — kiểm readBounded (giới hạn byte).
+function streamResponse(chunks: Uint8Array[]): Response {
+  let i = 0;
+  return {
+    status: 200,
+    text: async () => Buffer.concat(chunks).toString("utf8"),
+    body: {
+      getReader: () => ({
+        read: async () => (i < chunks.length ? { done: false, value: chunks[i++] } : { done: true, value: undefined }),
+        cancel: async () => undefined,
+      }),
+    },
+  } as unknown as Response;
+}
+const enc = (s: string) => new TextEncoder().encode(s);
 
 const lookup = async (host: string): Promise<string[]> => {
   if (host === "api.test") return ["93.184.216.34"];
@@ -15,6 +31,20 @@ function mockFetch(status: number, body: string) {
   }) as unknown as typeof fetch;
   return { impl, calls };
 }
+
+describe("http-client · readBounded (giới hạn body)", () => {
+  it("body dưới trần -> ghép đủ chuỗi từ stream", async () => {
+    const r = await readBounded(streamResponse([enc("abc"), enc("def")]), 100);
+    expect(r).toBe("abcdef");
+  });
+  it("body VƯỢT trần -> ném (chống DoS bộ nhớ)", async () => {
+    await expect(readBounded(streamResponse([enc("aaaaa"), enc("bbbbb"), enc("ccccc")]), 8)).rejects.toThrow();
+  });
+  it("response không có stream (fake .text) -> fallback text()", async () => {
+    const res = { status: 200, text: async () => "plain" } as unknown as Response;
+    expect(await readBounded(res, 100)).toBe("plain");
+  });
+});
 
 describe("http-client · safeFetch", () => {
   it("gọi được URL public https, trả status/ok/body chuẩn hoá", async () => {

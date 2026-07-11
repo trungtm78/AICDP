@@ -72,6 +72,16 @@ export interface ConnectorDeliveryRow {
   createdAt: string; deliveredAt: string | null;
 }
 
+/** Mask PII recipient khi trả API (giữ đủ để nhận dạng, không lộ toàn bộ số/điện thư). */
+function maskContact(v: string | null): string | null {
+  if (!v) return v;
+  if (v.includes("@")) {
+    const at = v.indexOf("@");
+    return `${v.slice(0, 1)}***${v.slice(at)}`;
+  }
+  return v.length <= 3 ? "***" : `***${v.slice(-3)}`;
+}
+
 export async function listDeliveries(pool: Pool, connectionId: string, limit = 50): Promise<ConnectorDeliveryRow[]> {
   const r = await pool.query<{
     id: string; run_id: string | null; occ_id: string | null; channel: string; recipient: string | null;
@@ -84,7 +94,7 @@ export async function listDeliveries(pool: Pool, connectionId: string, limit = 5
     [connectionId, Math.min(limit, 200)],
   );
   return r.rows.map((x) => ({
-    id: x.id, runId: x.run_id, occId: x.occ_id, channel: x.channel, recipient: x.recipient,
+    id: x.id, runId: x.run_id, occId: x.occ_id, channel: x.channel, recipient: maskContact(x.recipient),
     status: x.status, providerMessageId: x.provider_message_id, error: x.error, attempts: x.attempts,
     createdAt: x.created_at, deliveredAt: x.delivered_at,
   }));

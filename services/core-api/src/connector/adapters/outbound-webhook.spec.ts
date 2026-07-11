@@ -42,10 +42,11 @@ describe("webhookOutboundAdapter.deliver", () => {
     expect(r.error).toContain("ECONNREFUSED");
   });
 
-  it("thiếu webhookUrl -> failed (dùng recipient nếu có)", async () => {
+  it("thiếu webhookUrl -> failed (KHÔNG mượn recipient làm URL)", async () => {
     expect((await webhookOutboundAdapter.deliver({}, msg, deps(200))).status).toBe("failed");
+    // recipient là người nhận, KHÔNG được dùng làm URL đích -> vẫn failed dù có recipient.
     const withRecip: OutboundMessage = { ...msg, recipient: "https://hooks.example.com/r" };
-    expect((await webhookOutboundAdapter.deliver({}, withRecip, deps(200))).status).toBe("sent");
+    expect((await webhookOutboundAdapter.deliver({}, withRecip, deps(200))).status).toBe("failed");
   });
 
   it("signingSecret -> ký HMAC-SHA256 body vào header X-OCC-Signature", async () => {

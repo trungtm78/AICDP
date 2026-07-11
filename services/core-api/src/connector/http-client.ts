@@ -22,6 +22,28 @@ export interface SafeResponse {
   body: string;
 }
 
+// Trần kích thước body đọc từ đích (chống DoS bộ nhớ khi đích độc/bị chiếm trả body khổng lồ).
+const MAX_RESPONSE_BYTES = 2 * 1024 * 1024; // 2MB
+
+/** Đọc body có GIỚI HẠN byte: stream (undici) -> cắt khi vượt trần; fake test (chỉ có .text) -> fallback. */
+export async function readBounded(res: Response, max: number): Promise<string> {
+  const body = (res as { body?: ReadableStream<Uint8Array> | null }).body;
+  if (!body || typeof body.getReader !== "function") return res.text(); // fake/test injection
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      received += value.length;
+      if (received > max) { await reader.cancel(); throw new Error("Response body vượt giới hạn."); }
+      chunks.push(value);
+    }
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
 type PinCb = (err: Error | null, address: string, family: number) => void;
 
 /** Lookup PIN: luôn trả IP đã kiểm (bỏ qua DNS runtime) — chống DNS-rebinding TOCTOU. */
@@ -67,6 +89,6 @@ export async function safeFetch(rawUrl: string, opts: SafeFetchOptions = {}): Pr
   }
 
   const res = await f(url, init);
-  const body = await res.text();
+  const body = await readBounded(res, MAX_RESPONSE_BYTES);
   return { status: res.status, ok: res.status >= 200 && res.status < 300, body };
 }

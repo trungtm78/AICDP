@@ -74,7 +74,7 @@ const DESTINATIONS: CatalogConnector[] = [
   { key: "dst_redshift", name: "Amazon Redshift", direction: "destination", category: "Warehouse / BI", transport: "warehouse", blurb: "Kho dữ liệu AWS.", configFields: [{ key: "host", label: "Host", type: "text" }, apiKeyField] },
   { key: "dst_clickhouse", name: "ClickHouse", direction: "destination", category: "Warehouse / BI", transport: "warehouse", blurb: "OLAP phân tích cột (đang dùng nội bộ).", configFields: [{ key: "host", label: "Host", type: "text" }] },
   { key: "dst_kafka", name: "Apache Kafka", direction: "destination", category: "Streaming / Custom", transport: "webhook", blurb: "Streaming sự kiện.", configFields: [{ key: "brokers", label: "Brokers", type: "text" }, { key: "topic", label: "Topic", type: "text" }] },
-  { key: "dst_webhook", name: "Webhook", direction: "destination", category: "Streaming / Custom", transport: "webhook", blurb: "Đẩy sự kiện tới endpoint tuỳ ý.", configFields: [webhookUrl] },
+  { key: "dst_webhook", name: "Webhook", direction: "destination", category: "Streaming / Custom", transport: "webhook", blurb: "Đẩy sự kiện tới endpoint tuỳ ý.", configFields: [webhookUrl, { key: "authHeader", label: "Authorization header", type: "password", secret: true }, { key: "signingSecret", label: "Signing secret (HMAC)", type: "password", secret: true }] },
   { key: "dst_s3", name: "Amazon S3", direction: "destination", category: "Streaming / Custom", transport: "warehouse", blurb: "Lưu trữ đối tượng theo lô.", configFields: [{ key: "bucket", label: "Bucket", type: "text" }, apiKeyField] },
 ];
 

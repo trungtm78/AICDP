@@ -3,6 +3,7 @@ import { AppError } from "../http/errors.js";
 import { decryptConfig } from "./secrets.js";
 import { getOutbound } from "./adapters/registry.js";
 import { recordDelivery } from "./logs.service.js";
+import { isAllowed } from "../consent/consent.service.js";
 import type { OutboundMessage, OutboundDeps } from "./adapters/types.js";
 
 // Giao hàng OUTBOUND THẬT tới 1 destination connection: giải mã config -> adapter.deliver (safeFetch
@@ -13,6 +14,16 @@ export interface DeliverOutcome {
   deliveryId: string;
   status: "sent" | "failed" | "skipped_no_contact";
   error?: string;
+}
+
+// Chuẩn hoá error trả ra ngoài: xoá URL (có thể chứa token/endpoint nội bộ) + IP (v4/v6, error
+// SSRF-guard chứa IP nội bộ đã resolve) -> chống dùng test-send/deliveries làm công cụ dò mạng/rò
+// credential. Chi tiết đầy đủ chỉ ở log tiến trình. Cắt độ dài để tránh nhồi dữ liệu.
+const URL_RE = /https?:\/\/\S+/gi;
+const IP_RE = /\b\d{1,3}(?:\.\d{1,3}){3}\b|\b(?:[0-9a-f]{1,4}:){2,7}[0-9a-f]{1,4}\b/gi;
+function redactError(msg: string | null): string | null {
+  if (msg == null) return null;
+  return msg.replace(URL_RE, "[url]").replace(IP_RE, "[ip]").slice(0, 300);
 }
 
 export async function deliverToConnection(
@@ -54,14 +65,17 @@ export async function deliverToConnection(
   let error: string | null = null;
   try {
     const res = await adapter.deliver(config, msg, deps);
-    status = res.status; // 'sent' | 'failed'
+    status = res.status; // 'sent' | 'failed' | 'skipped_no_contact'
     providerMessageId = res.providerMessageId ?? null;
     error = res.error ?? null;
   } catch (e) {
-    // Adapter tự bắt lỗi mạng, nhưng phòng exception ngoài ý muốn -> vẫn ghi 'failed' (không lộ chi tiết).
+    // Adapter tự bắt lỗi mạng, nhưng phòng exception ngoài ý muốn -> vẫn ghi 'failed'.
     status = "failed";
     error = (e as Error).message;
   }
+  // REDACT IP khỏi error trước khi lưu/trả (error SSRF-guard chứa IP nội bộ đã resolve -> chống
+  // dùng test-send/deliveries làm công cụ dò mạng nội bộ). Chi tiết đầy đủ chỉ ở log tiến trình.
+  error = redactError(error);
 
   const deliveryId = await recordDelivery(pool, {
     connectionId,
@@ -79,17 +93,21 @@ export async function deliverToConnection(
 // ── Wiring activation → OUTBOUND ──
 export interface ActivationDeliverSummary {
   runId: string;
-  total: number; // số member allowed
+  total: number; // số member allowed (snapshot lúc activate)
   sent: number;
   failed: number;
-  skipped: number;
+  skipped: number; // không có contact (phone/email)
+  suppressed: number; // consent đã RÚT sau activate -> KHÔNG gửi (deny-by-default lúc gửi)
+  alreadySent: number; // đã gửi thành công lần trước (idempotent -> KHÔNG gửi lại)
 }
 
 /**
- * Giao hàng cho các member ĐƯỢC PHÉP (consent) của 1 activation_run tới 1 destination connection.
- * Tách khỏi transaction activate() (post-commit side-effect): consent đã gate lúc activate. Mỗi
- * member -> deliverToConnection (recipient = phone/email từ profile); ghi connector_delivery gắn run_id.
- * Lỗi 1 member KHÔNG dừng cả lô. Idempotency giao hàng thật (chống gửi trùng) là hardening outbox sau.
+ * Giao hàng cho các member ĐƯỢC PHÉP của 1 activation_run tới 1 destination connection. Tách khỏi
+ * transaction activate() (post-commit side-effect). CONSENT RE-CHECK lúc gửi: activate() gate consent
+ * tại thời điểm tạo run, nhưng deliver có thể chạy MUCH LATER -> phải kiểm isAllowed LẠI (latest-wins)
+ * để tôn trọng KH đã RÚT consent trong khoảng giữa (deny-by-default; chống gửi lố sau khi withdraw).
+ * Mỗi member -> deliverToConnection (recipient = phone/email); ghi connector_delivery gắn run_id.
+ * Lỗi 1 member KHÔNG dừng cả lô. Idempotency giao hàng thật là hardening outbox sau.
  */
 export async function deliverActivationRun(
   pool: Pool,
@@ -97,8 +115,8 @@ export async function deliverActivationRun(
   connectionId: string,
   deps?: OutboundDeps,
 ): Promise<ActivationDeliverSummary> {
-  const run = await pool.query<{ channel: string; audience_name: string }>(
-    "SELECT channel, audience_name FROM cdp.activation_run WHERE run_id=$1",
+  const run = await pool.query<{ channel: string; audience_name: string; purpose: string }>(
+    "SELECT channel, audience_name, purpose FROM cdp.activation_run WHERE run_id=$1",
     [runId],
   );
   if (run.rowCount === 0) {
@@ -107,8 +125,7 @@ export async function deliverActivationRun(
       why: "runId không tồn tại.", fix: "Kiểm tra lại runId.", retryable: false,
     });
   }
-  const channel = run.rows[0]!.channel;
-  const audienceName = run.rows[0]!.audience_name;
+  const { channel, audience_name: audienceName, purpose } = run.rows[0]!;
 
   const members = await pool.query<{ occ_id: string; phone: string | null; email: string | null }>(
     `SELECT m.occ_id, p.phone, p.email
@@ -118,8 +135,19 @@ export async function deliverActivationRun(
     [runId],
   );
 
-  let sent = 0, failed = 0, skipped = 0;
+  // Idempotency chống double-send (double-click/retry): bỏ qua member đã 'sent' cho (run, connection).
+  const prior = await pool.query<{ occ_id: string }>(
+    `SELECT DISTINCT occ_id FROM cdp.connector_delivery
+      WHERE run_id=$1 AND connection_id=$2 AND status='sent' AND occ_id IS NOT NULL`,
+    [runId, connectionId],
+  );
+  const alreadySentSet = new Set(prior.rows.map((r) => r.occ_id));
+
+  let sent = 0, failed = 0, skipped = 0, suppressed = 0, alreadySent = 0;
   for (const m of members.rows) {
+    if (alreadySentSet.has(m.occ_id)) { alreadySent += 1; continue; } // đã gửi -> không gửi lại
+    // Re-check consent tại thời điểm gửi (latest-wins) — tôn trọng withdraw sau activate.
+    if (!(await isAllowed(pool, m.occ_id, purpose))) { suppressed += 1; continue; }
     const recipient = m.phone ?? m.email ?? undefined;
     const msg: OutboundMessage = {
       channel,
@@ -132,5 +160,5 @@ export async function deliverActivationRun(
     else if (out.status === "skipped_no_contact") skipped += 1;
     else failed += 1;
   }
-  return { runId, total: members.rows.length, sent, failed, skipped };
+  return { runId, total: members.rows.length, sent, failed, skipped, suppressed, alreadySent };
 }
