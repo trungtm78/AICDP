@@ -12,6 +12,7 @@ import {
   pipelineSaveSchema,
   pipelineStatusSchema,
   applyTemplateSchema,
+  testSendSchema,
 } from "./schemas.js";
 import {
   getCatalog,
@@ -26,6 +27,8 @@ import { listEvents, listDeliveries } from "../connector/logs.service.js";
 import { dataSummary } from "../connector/data-summary.service.js";
 import { issueInboundToken } from "../connector/inbound.service.js";
 import { pullConnection } from "../connector/inbound-pull.service.js";
+import { deliverToConnection } from "../connector/outbound.service.js";
+import type { OutboundMessage } from "../connector/adapters/types.js";
 
 function notFound(entity: string): AppError {
   return new AppError({
@@ -104,6 +107,19 @@ export class ConnectorController {
   async pullConnectionRoute(@Param("id") id: string) {
     // Reverse-ETL: kéo dữ liệu nguồn (SELECT-only) nạp vào CDP. Xem inbound-pull.service.
     return { data: await pullConnection(this.pool, id) };
+  }
+
+  @Post("connections/:id/test-send")
+  @HttpCode(200)
+  async testSendRoute(@Param("id") id: string, @Body() body: unknown) {
+    // Gửi thử 1 message OUTBOUND qua destination (adapter deliver thật + ghi connector_delivery).
+    const dto = validate(testSendSchema, body ?? {}, "test_send");
+    const msg: OutboundMessage = {
+      channel: dto.channel ?? "test",
+      payload: dto.payload ?? { type: "test", message: "OCC-CDP test-send" },
+      ...(dto.recipient ? { recipient: dto.recipient } : {}),
+    };
+    return { data: await deliverToConnection(this.pool, id, msg) };
   }
 
   @Post("connections/:id/inbound-token")

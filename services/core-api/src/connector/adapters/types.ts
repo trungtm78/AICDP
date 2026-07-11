@@ -19,11 +19,18 @@ export interface HealthResult {
   error?: string | undefined;
 }
 
+/** Dependency tiêm cho adapter OUTBOUND (test không cần mạng): fetch giả + nới SSRF cho test. */
+export interface OutboundDeps {
+  fetchImpl?: typeof fetch | undefined;
+  allowHttp?: boolean | undefined;
+  lookup?: ((host: string) => Promise<string[]>) | undefined;
+}
+
 /** Adapter OUTBOUND: gửi 1 message tới destination + health-check. config đã GIẢI MÃ secret. */
 export interface OutboundAdapter {
   key: string;                           // connectorKey phục vụ (vd 'dst_webhook','dst_zalo_zns')
-  deliver(config: Record<string, unknown>, msg: OutboundMessage): Promise<DeliveryResult>;
-  healthCheck(config: Record<string, unknown>): Promise<HealthResult>;
+  deliver(config: Record<string, unknown>, msg: OutboundMessage, deps?: OutboundDeps): Promise<DeliveryResult>;
+  healthCheck(config: Record<string, unknown>, deps?: OutboundDeps): Promise<HealthResult>;
 }
 
 export interface PulledEvent {

@@ -424,6 +424,12 @@ export const pipelineSaveSchema = z.object({
 });
 export const pipelineStatusSchema = z.object({ status: z.enum(["active", "paused", "draft"]) });
 export const applyTemplateSchema = z.object({ templateKey: z.string().min(1).max(80) });
+// Test-send OUTBOUND: gửi thử 1 message qua destination connection (payload/recipient tuỳ chọn).
+export const testSendSchema = z.object({
+  channel: z.string().min(1).max(50).optional(),
+  recipient: z.string().min(1).max(500).optional(),
+  payload: z.record(z.unknown()).optional(),
+});
 
 // ── Phase 2: INBOUND webhook (payload webhook-native; brand_id LẤY TỪ connection, KHÔNG từ payload) ──
 // .strict(): field lạ (vd brand_id spoof) -> 400 fail-closed, không âm thầm bỏ qua (kể cả trong identifiers).
