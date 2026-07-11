@@ -2,6 +2,7 @@ import { Injectable, Inject, type OnApplicationBootstrap, type OnModuleDestroy, 
 import type { Pool } from "pg";
 import { PG_POOL } from "../http/pg.provider.js";
 import { expireLots } from "./loyalty.service.js";
+import { expireVouchers } from "./reward.service.js";
 
 // Worker đáo hạn lô điểm (L2): mỗi lượt gọi expireLots() -> lô active quá hạn thành breakage
 // (giảm liability, ghi nhận điểm vỡ). Interval thuần + single-flight + lifecycle Nest, giống
@@ -46,6 +47,8 @@ export class LoyaltyExpiryScheduler implements OnApplicationBootstrap, OnModuleD
     try {
       const n = await expireLots(this.pool);
       if (n > 0) this.log.log(`đáo hạn ${n} lô điểm -> breakage`);
+      const nv = await expireVouchers(this.pool); // đáo hạn voucher (L5)
+      if (nv > 0) this.log.log(`đáo hạn ${nv} voucher`);
       return n;
     } catch (err) {
       this.log.error(`đáo hạn lỗi: ${err instanceof Error ? err.message : err}`);

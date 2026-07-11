@@ -14,7 +14,13 @@ export type LoyaltyErrorCode =
   | "RESERVATION_INVALID_STATE"
   | "IDEMPOTENCY_CONFLICT"
   | "CURRENCY_NOT_FOUND"
-  | "CONVERSION_NOT_FOUND";
+  | "CONVERSION_NOT_FOUND"
+  | "REWARD_NOT_FOUND"
+  | "TIER_REQUIRED"
+  | "OUT_OF_STOCK"
+  | "VOUCHER_NOT_FOUND"
+  | "VOUCHER_INVALID_STATE"
+  | "VOUCHER_BRAND_MISMATCH";
 
 export class LoyaltyError extends Error {
   readonly code: LoyaltyErrorCode;

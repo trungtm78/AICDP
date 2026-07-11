@@ -153,4 +153,21 @@ describe("loyalty HTTP", () => {
       .send({ ruleKey: "sys:hack", name: "x", currencyCode: "OCC_POINT", ratePerUnit: 0.001 });
     expect(r.status).toBe(400);
   });
+
+  it("L5: đổi reward -> voucher -> dùng cross-brand", async () => {
+    const occId = await makeOcc("0901000030");
+    await http().post("/v1/loyalty/earn").send({ occId, points: 600, idempotencyKey: "e-r" });
+    const rewards = await http().get("/v1/loyalty/rewards");
+    expect(rewards.status).toBe(200);
+    const rd = await http().post("/v1/loyalty/rewards/redeem")
+      .send({ occId, rewardCode: "VOUCHER_50K", idempotencyKey: "rd-1" });
+    expect(rd.status).toBe(201);
+    const code = rd.body.data.voucherCode as string;
+    const vs = await http().get("/v1/loyalty/vouchers").query({ occId });
+    expect((vs.body.data as unknown[]).length).toBe(1);
+    const use = await http().post("/v1/loyalty/vouchers/use")
+      .send({ voucherCode: code, brandId: "fuji", amount: 20000, idempotencyKey: "u-1" });
+    expect(use.status).toBe(201);
+    expect(use.body.data.remainingValue).toBe(30000);
+  });
 });

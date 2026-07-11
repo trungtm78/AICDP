@@ -42,6 +42,12 @@ export class AllExceptionsFilter implements ExceptionFilter {
         IDEMPOTENCY_CONFLICT: 409,
         CURRENCY_NOT_FOUND: 400,
         CONVERSION_NOT_FOUND: 400,
+        REWARD_NOT_FOUND: 404,
+        TIER_REQUIRED: 403,
+        OUT_OF_STOCK: 409,
+        VOUCHER_NOT_FOUND: 404,
+        VOUCHER_INVALID_STATE: 409,
+        VOUCHER_BRAND_MISMATCH: 400,
       };
       return new AppError({
         code: exception.code,

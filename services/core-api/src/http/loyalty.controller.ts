@@ -12,10 +12,13 @@ import {
   loyaltyAdjustSchema,
   loyaltyTransferSchema,
   earnRuleSchema,
+  rewardRedeemSchema,
+  voucherUseSchema,
 } from "./schemas.js";
 import { earn, reserve, capture, release, getBalance, listMembers, listLedger, convert, adjust, transfer, listWallets } from "../loyalty/loyalty.service.js";
 import { setEarnRule, listEarnRules, listEarnRuleAudit, processUnearnedTransactions } from "../loyalty/earn-rule.service.js";
 import { listTierGroups, listTiers, getMemberTiers, recomputeMemberTier, recomputeAllTiers } from "../loyalty/tier.service.js";
+import { listRewards, redeemReward, listMemberVouchers, useVoucher } from "../loyalty/reward.service.js";
 import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
@@ -172,5 +175,36 @@ export class LoyaltyController {
   @Post("tiers/recompute-all")
   async recomputeAllTiers() {
     return { data: await recomputeAllTiers(this.pool) };
+  }
+
+  // ── L5: reward catalog + redemption cross-brand ──
+
+  /** Danh mục reward đang phát hành. */
+  @Get("rewards")
+  async rewards() {
+    return { data: await listRewards(this.pool) };
+  }
+
+  /** Đổi điểm lấy reward (burn điểm + phát voucher) — cần csr. */
+  @Roles("csr")
+  @Post("rewards/redeem")
+  async redeem(@Body() body: unknown) {
+    const dto = validate(rewardRedeemSchema, body, "loyalty_reward_redeem");
+    return { data: await redeemReward(this.pool, dto) };
+  }
+
+  /** Voucher của một khách. */
+  @Get("vouchers")
+  async vouchers(@Query() query: Record<string, string>) {
+    const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_vouchers");
+    return { data: await listMemberVouchers(this.pool, occId) };
+  }
+
+  /** Dùng voucher tại một brand (cross-brand; FIXED tiêu partial) — cần csr. */
+  @Roles("csr")
+  @Post("vouchers/use")
+  async useVoucher(@Body() body: unknown) {
+    const dto = validate(voucherUseSchema, body, "loyalty_voucher_use");
+    return { data: await useVoucher(this.pool, dto) };
   }
 }

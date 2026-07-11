@@ -149,6 +149,19 @@ export const earnRuleSchema = z.object({
   validTo: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
+// L5 — reward redemption + voucher
+export const rewardRedeemSchema = z.object({
+  occId: z.string().uuid(),
+  rewardCode: z.string().min(1).max(80),
+  idempotencyKey,
+});
+export const voucherUseSchema = z.object({
+  voucherCode: z.string().min(1).max(80),
+  brandId: z.string().min(1).max(80),
+  amount: z.number().positive().finite().optional(),
+  idempotencyKey,
+});
+
 // Purpose v1 (chốt danh mục để tránh ghi consent mục đích tùy tiện).
 export const consentPurposeEnum = z.enum([
   "marketing_email",
