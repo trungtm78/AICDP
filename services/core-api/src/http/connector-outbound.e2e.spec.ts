@@ -7,7 +7,7 @@ import { setupTestDb, truncateAll } from "../test-helpers/db.js";
 import { withAuth, ADMIN_KEY } from "../test-helpers/auth.js";
 import { pool } from "../db/pool.js";
 import { createConnection, createConnector } from "../connector/connector.service.js";
-import { deliverToConnection } from "../connector/outbound.service.js";
+import { deliverToConnection, deliverActivationRun } from "../connector/outbound.service.js";
 import { registerOutbound } from "../connector/adapters/registry.js";
 import type { OutboundMessage, OutboundDeps } from "../connector/adapters/types.js";
 
@@ -90,6 +90,58 @@ describe("deliverToConnection (service)", () => {
     const c = await createConnection(pool, { name: "m", direction: "destination", connectorKey: "dst_meta_ads", config: {} });
     await expect(deliverToConnection(pool, c.id, { channel: "x", payload: {} }))
       .rejects.toMatchObject({ code: "INTEGRATION_NOT_AVAILABLE" });
+  });
+});
+
+// Seed 1 activation_run + member(allowed) kèm profile (phone tuỳ chọn).
+async function seedRun(channel: string, phones: Array<string | null>): Promise<string> {
+  const run = await pool.query<{ run_id: string }>(
+    `INSERT INTO cdp.activation_run (audience_name, purpose, channel, destination, total, allowed_count, suppressed_count)
+     VALUES ('Aud','marketing_zalo',$1,'dst',$2,$2,0) RETURNING run_id`,
+    [channel, phones.length],
+  );
+  const runId = run.rows[0]!.run_id;
+  for (const phone of phones) {
+    const occ = await pool.query<{ occ_id: string }>("INSERT INTO cdp.occ_identity DEFAULT VALUES RETURNING occ_id");
+    const occId = occ.rows[0]!.occ_id;
+    await pool.query("INSERT INTO cdp.profile (occ_id, phone) VALUES ($1,$2)", [occId, phone]);
+    await pool.query("INSERT INTO cdp.activation_member (run_id, occ_id, decision) VALUES ($1,$2,'allowed')", [runId, occId]);
+  }
+  return runId;
+}
+
+describe("deliverActivationRun (wiring activation → outbound)", () => {
+  it("giao cho member allowed -> ghi delivery gắn run_id", async () => {
+    const connId = await mkTestOut();
+    const runId = await seedRun("webhook", ["0900000001", "0900000002"]);
+    const r = await deliverActivationRun(pool, runId, connId);
+    expect(r).toMatchObject({ total: 2, sent: 2, failed: 0, skipped: 0 });
+    const d = await pool.query("SELECT count(*)::int n FROM cdp.connector_delivery WHERE run_id=$1", [runId]);
+    expect(d.rows[0]!.n).toBe(2);
+  });
+
+  it("member không có contact + kênh messaging (Zalo) -> skipped_no_contact", async () => {
+    const c = await createConnection(pool, { name: "z", direction: "destination", connectorKey: "dst_zalo_zns", config: { apiKey: "tok", templateId: "t1" } });
+    const runId = await seedRun("zalo_zns", [null]); // không phone
+    const r = await deliverActivationRun(pool, runId, c.id);
+    expect(r.skipped).toBe(1);
+    expect(r.sent).toBe(0);
+  });
+
+  it("run không tồn tại -> NOT_FOUND", async () => {
+    const connId = await mkTestOut();
+    await expect(deliverActivationRun(pool, "00000000-0000-0000-0000-000000000000", connId))
+      .rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+});
+
+describe("POST /v1/activation/:runId/deliver (endpoint)", () => {
+  it("marketer giao audience -> 200 summary", async () => {
+    const connId = await mkTestOut();
+    const runId = await seedRun("webhook", ["0900000001"]);
+    const r = await withAuth(http().post(`/v1/activation/${runId}/deliver`).send({ connectionId: connId }), ADMIN_KEY);
+    expect(r.status).toBe(200);
+    expect(r.body.data.sent).toBe(1);
   });
 });
 

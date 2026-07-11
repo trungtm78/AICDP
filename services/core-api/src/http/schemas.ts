@@ -198,6 +198,11 @@ export const activationSchema = z.object({
   occIds: z.array(z.string().uuid()).max(100000),
 });
 
+// Giao hàng activation run tới 1 destination connection (Phase 4 wiring OUTBOUND).
+export const activationDeliverSchema = z.object({
+  connectionId: z.string().uuid(),
+});
+
 export const consentListQuerySchema = z.object({
   occId: z.string().uuid(),
 });
