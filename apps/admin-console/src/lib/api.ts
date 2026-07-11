@@ -286,6 +286,22 @@ export const api = {
   getLoyaltyEarnRules: () => request<import("./types.js").LoyaltyEarnRule[]>("/v1/loyalty/earn-rules"),
   getLoyaltyLiability: () => request<import("./types.js").LiabilityRow[]>("/v1/loyalty/liability"),
 
+  // Thao tác vận hành (L9b+)
+  loyaltyAdjust: (occId: string, points: number, currency: string | undefined, reason: string, idempotencyKey: string) =>
+    request<LoyaltyResult>("/v1/loyalty/adjust", { method: "POST", body: JSON.stringify({ occId, points, currency, reason, idempotencyKey }) }),
+  loyaltyRedeemReward: (occId: string, rewardCode: string, idempotencyKey: string) =>
+    request<{ voucherCode: string | null; costPoints: number }>("/v1/loyalty/rewards/redeem", { method: "POST", body: JSON.stringify({ occId, rewardCode, idempotencyKey }) }),
+  loyaltyTopUp: (occId: string, amount: number, idempotencyKey: string) =>
+    request<{ balance: number }>("/v1/loyalty/stored-value/topup", { method: "POST", body: JSON.stringify({ occId, amount, idempotencyKey }) }),
+  loyaltyIssueCard: (occId: string) =>
+    request<{ cardNo: string; qrToken: string }>("/v1/loyalty/cards/issue", { method: "POST", body: JSON.stringify({ occId }) }),
+  loyaltyRecomputeTier: (occId: string) =>
+    request<import("./types.js").MemberTier[]>("/v1/loyalty/tiers/recompute", { method: "POST", body: JSON.stringify({ occId }) }),
+  loyaltyCreateEarnRule: (body: { ruleKey: string; name: string; currencyCode: string; ratePerUnit: number; multiplier?: number; brandId?: string | null; qualifying?: boolean; priority?: number }) =>
+    request<import("./types.js").LoyaltyEarnRule>("/v1/loyalty/earn-rules", { method: "POST", body: JSON.stringify(body) }),
+  loyaltyLiabilitySnapshot: () =>
+    request<import("./types.js").LiabilityRow[]>("/v1/loyalty/liability/snapshot", { method: "POST" }),
+
   listConsents: (occId: string) =>
     request<ConsentState[]>(`/v1/consent?occId=${encodeURIComponent(occId)}`),
 

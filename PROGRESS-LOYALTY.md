@@ -36,7 +36,7 @@ tương thích ngược chữ ký `earn/reserve/capture/release/getBalance` (m�
 - [~] **L9 — Admin FE + RBAC (ĐANG TRIỂN KHAI)**:
   - [x] **L9a RBAC** (migration 033): role `loyalty_manager` (config rule/tier/reward/giá điểm/liability) + `loyalty_ops` (vận hành khách), gán vào loyalty endpoints, e2e RBAC. **676 test**.
   - [x] **L9b FE Member-360 + overview** (`LoyaltyScreen.tsx`): drawer Member-360 (ví đa-currency, hạng, voucher, challenge, stored-value, ledger) + panel "Chương trình & Nghĩa vụ" (tabs hạng/quy tắc/ưu đãi/liability IFRS15). api.ts + types.ts thêm methods L1-L8. FE 32 test PASS, tsc sạch. *(Còn lại L9b+: form cấu hình earn-rule/tier/reward, campaign builder, settlement dashboard, thao tác adjust/redeem/topup trên UI — mở rộng sau.)*
-  - [ ] **L9c DEPLOY VM 8070** — migrations 025-033 tự chạy khi core-api start (cần CONNECTOR_SECRET_KEY; core-api recreate → restart web). Verify live.
+  - [x] **L9c DEPLOY VM 8070 HOÀN TẤT & verified live** — push branch → tarball (services/core-api + db/migrations 025-033 + deploy/admin-dist FE) scp lên VM ~/AICDP → `docker compose up -d --build core-api web` (core-api tự chạy migrations 025-033 sạch trên prod DB) → restart web (nginx DNS). Verify: 19 bảng loyalty, seed đúng (8 currency/4 hạng/4 challenge/2 pháp nhân), health 200, loyalty API auth OK, FE tải, login admin/Och@2026 → tier-groups + rewards trả data thật. **Loyalty coalition CHẠY THẬT tại 8070.**
 
 ## Lưu ý kỹ thuật
 - Migration ở **repo-root `db/migrations/`** (không phải services/core-api/db). Chạy tự động theo tên (migrate.ts), idempotent (IF NOT EXISTS/ON CONFLICT).

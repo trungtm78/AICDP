@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Coins, Gift, Lock, Check, X, Search, Users, Trophy, History, Wallet, Layers, Ticket, Target, Scale } from "lucide-react";
 import { api } from "../lib/api.js";
 import { ApiError, type LoyaltyBalance, type LoyaltyMember, type LoyaltyLedgerEntry } from "../lib/types.js";
@@ -192,6 +192,7 @@ export function LoyaltyScreen() {
 
 /** Cấu hình chương trình coalition (hạng, earn-rule, reward) + nghĩa vụ điểm (IFRS15) — read-only overview. */
 function ProgramLiabilityPanel() {
+  const qc = useQueryClient();
   const [tab, setTab] = useState("tiers");
   const groups = useQuery({ queryKey: ["loyalty-tier-groups"], queryFn: () => api.getLoyaltyTierGroups() });
   const rules = useQuery({ queryKey: ["loyalty-earn-rules"], queryFn: () => api.getLoyaltyEarnRules() });
@@ -199,6 +200,22 @@ function ProgramLiabilityPanel() {
   const liability = useQuery({ queryKey: ["loyalty-liability"], queryFn: () => api.getLoyaltyLiability() });
   const liabRows = liability.data ?? [];
   const totalDeferred = liabRows.reduce((s, r) => s + (r.deferredRevenue ?? 0), 0);
+  const [busy, setBusy] = useState(false);
+  const [rk, setRk] = useState(""); const [rname, setRname] = useState(""); const [rrate, setRrate] = useState("");
+  const [cfgMsg, setCfgMsg] = useState<string | null>(null);
+  async function createRule() {
+    if (!rk.trim() || !rname.trim() || !(Number(rrate) > 0)) return;
+    setBusy(true); setCfgMsg(null);
+    try { await api.loyaltyCreateEarnRule({ ruleKey: rk.trim(), name: rname.trim(), currencyCode: "OCC_POINT", ratePerUnit: Number(rrate) }); setRk(""); setRname(""); setRrate(""); void qc.invalidateQueries({ queryKey: ["loyalty-earn-rules"] }); setCfgMsg("Đã tạo/cập nhật quy tắc (append-only)"); }
+    catch (e) { setCfgMsg(e instanceof ApiError ? e.message : "Lỗi tạo quy tắc"); }
+    finally { setBusy(false); }
+  }
+  async function snapshot() {
+    setBusy(true); setCfgMsg(null);
+    try { await api.loyaltyLiabilitySnapshot(); void qc.invalidateQueries({ queryKey: ["loyalty-liability"] }); setCfgMsg("Đã chốt snapshot nghĩa vụ điểm"); }
+    catch (e) { setCfgMsg(e instanceof ApiError ? e.message : "Lỗi chốt snapshot"); }
+    finally { setBusy(false); }
+  }
   return (
     <Panel title="Chương trình & Nghĩa vụ điểm (coalition)" icon={<Trophy className="size-4" />} subtitle="Hạng · quy tắc tích · ưu đãi · nghĩa vụ điểm IFRS15 theo pháp nhân" bodyClassName="p-0">
       <Tabs className="px-4 pt-3" value={tab} onChange={setTab} items={[
@@ -208,6 +225,18 @@ function ProgramLiabilityPanel() {
         { value: "liability", label: "Nghĩa vụ điểm", icon: <Scale className="size-4" /> },
       ]} />
       <div className="p-4">
+        {cfgMsg && <div className="mb-3 rounded-md bg-accent/10 px-3 py-2 text-xs text-accent">{cfgMsg}</div>}
+        {tab === "rules" && (
+          <div className="mb-3 flex flex-wrap items-end gap-2 rounded-md border border-border bg-surface-muted/40 p-2">
+            <Field className="w-32" label="Mã quy tắc"><Input aria-label="Mã quy tắc" value={rk} onChange={(e) => setRk(e.target.value)} /></Field>
+            <Field className="min-w-[140px] flex-1" label="Tên"><Input aria-label="Tên quy tắc" value={rname} onChange={(e) => setRname(e.target.value)} /></Field>
+            <Field className="w-32" label="Điểm/1đ (rate)"><Input aria-label="Rate" inputMode="decimal" value={rrate} onChange={(e) => setRrate(e.target.value)} className="tabular" /></Field>
+            <Button variant="secondary" className="mb-[1px]" disabled={busy} onClick={createRule}>Tạo quy tắc</Button>
+          </div>
+        )}
+        {tab === "liability" && (
+          <div className="mb-3"><Button variant="secondary" disabled={busy} onClick={snapshot} icon={<Scale className="size-4" />}>Chốt snapshot nghĩa vụ điểm</Button></div>
+        )}
         {tab === "tiers" && (
           <div className="space-y-3">
             {(groups.data ?? []).map((g) => (
@@ -353,6 +382,8 @@ function Member360Drawer({ member, balance, onClose }: { member: LoyaltyMember; 
           </Panel>
         </div>
 
+        <MemberOps occId={occ} />
+
         <Panel title="Dòng sổ điểm" icon={<History className="size-4" />} subtitle="Mới nhất trước, kèm số dư khả dụng sau mỗi giao dịch" bodyClassName="p-0">
           {ledger.isLoading ? (
             <div className="p-4"><Skeleton className="h-40 w-full" /></div>
@@ -363,6 +394,65 @@ function Member360Drawer({ member, balance, onClose }: { member: LoyaltyMember; 
         </Panel>
       </div>
     </Drawer>
+  );
+}
+
+/** Thao tác vận hành khách (loyalty_ops): điều chỉnh điểm, đổi thưởng, nạp ví, phát thẻ, xếp hạng lại. */
+function MemberOps({ occId }: { occId: string }) {
+  const qc = useQueryClient();
+  const rewards = useQuery({ queryKey: ["loyalty-rewards"], queryFn: () => api.getLoyaltyRewards() });
+  const [adjustPts, setAdjustPts] = useState("");
+  const [adjustReason, setAdjustReason] = useState("");
+  const [topupAmt, setTopupAmt] = useState("");
+  const [rewardCode, setRewardCode] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const key = () => crypto.randomUUID();
+  function refresh() {
+    for (const k of ["loyalty-wallets", "loyalty-mtiers", "loyalty-vouchers", "loyalty-sv", "loyalty-ledger"]) void qc.invalidateQueries({ queryKey: [k, occId] });
+    void qc.invalidateQueries({ queryKey: ["loyalty-members"] });
+  }
+  async function run(fn: () => Promise<string>) {
+    setBusy(true); setMsg(null);
+    try { const t = await fn(); setMsg({ ok: true, text: t }); refresh(); }
+    catch (e) { setMsg({ ok: false, text: e instanceof ApiError ? e.message : e instanceof Error ? e.message : "Lỗi thao tác" }); }
+    finally { setBusy(false); }
+  }
+  const adjInt = Number(adjustPts);
+  return (
+    <Panel title="Thao tác vận hành" icon={<Coins className="size-4" />} subtitle="Điều chỉnh điểm · đổi thưởng · nạp ví · phát thẻ · xếp hạng lại">
+      <div className="space-y-3">
+        {msg && <div className={`rounded-md px-3 py-2 text-xs ${msg.ok ? "bg-accent/10 text-accent" : "bg-error/10 text-error"}`}>{msg.text}</div>}
+        {/* Điều chỉnh điểm (± có lý do) */}
+        <div className="flex flex-wrap items-end gap-2">
+          <Field className="w-28" label="Điều chỉnh (±)"><Input aria-label="Điều chỉnh điểm" inputMode="numeric" value={adjustPts} onChange={(e) => setAdjustPts(e.target.value)} className="tabular" /></Field>
+          <Field className="min-w-[160px] flex-1" label="Lý do"><Input aria-label="Lý do điều chỉnh" value={adjustReason} onChange={(e) => setAdjustReason(e.target.value)} /></Field>
+          <Button variant="secondary" className="mb-[1px]" disabled={busy || !Number.isInteger(adjInt) || adjInt === 0 || !adjustReason.trim()}
+            onClick={() => run(async () => { await api.loyaltyAdjust(occId, adjInt, undefined, adjustReason.trim(), key()); setAdjustPts(""); setAdjustReason(""); return `Đã điều chỉnh ${adjInt > 0 ? "+" : ""}${adjInt} điểm`; })}>Điều chỉnh</Button>
+        </div>
+        {/* Đổi thưởng */}
+        <div className="flex flex-wrap items-end gap-2">
+          <Field className="min-w-[200px] flex-1" label="Đổi thưởng (reward)">
+            <select aria-label="Chọn reward" value={rewardCode} onChange={(e) => setRewardCode(e.target.value)} className="h-9 w-full rounded-md border border-border bg-surface px-2 text-sm text-text">
+              <option value="">— chọn ưu đãi —</option>
+              {(rewards.data ?? []).map((r) => <option key={r.code} value={r.code}>{r.name} ({r.costPoints} {r.currencyCode})</option>)}
+            </select>
+          </Field>
+          <Button variant="secondary" className="mb-[1px]" disabled={busy || !rewardCode}
+            onClick={() => run(async () => { const r = await api.loyaltyRedeemReward(occId, rewardCode, key()); return `Đã đổi ${rewardCode}${r.voucherCode ? ` → voucher ${r.voucherCode}` : ""}`; })}>Đổi</Button>
+        </div>
+        {/* Nạp ví + phát thẻ + xếp hạng */}
+        <div className="flex flex-wrap items-end gap-2">
+          <Field className="w-32" label="Nạp ví (VND)"><Input aria-label="Nạp ví" inputMode="numeric" value={topupAmt} onChange={(e) => setTopupAmt(e.target.value)} className="tabular" /></Field>
+          <Button variant="secondary" className="mb-[1px]" disabled={busy || !(Number(topupAmt) > 0)}
+            onClick={() => run(async () => { const r = await api.loyaltyTopUp(occId, Number(topupAmt), key()); setTopupAmt(""); return `Ví: ${fmtInt(r.balance)}đ`; })}>Nạp</Button>
+          <Button variant="ghost" className="mb-[1px]" disabled={busy}
+            onClick={() => run(async () => { const c = await api.loyaltyIssueCard(occId); return `Thẻ: ${c.cardNo}`; })}>Phát thẻ</Button>
+          <Button variant="ghost" className="mb-[1px]" disabled={busy}
+            onClick={() => run(async () => { await api.loyaltyRecomputeTier(occId); return "Đã tính lại hạng"; })}>Xếp hạng lại</Button>
+        </div>
+      </div>
+    </Panel>
   );
 }
 
