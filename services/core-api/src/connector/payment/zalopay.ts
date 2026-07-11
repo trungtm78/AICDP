@@ -6,6 +6,7 @@ import { verifyHmac } from "../signing.js";
 
 export interface ZalopayResult {
   ok: boolean;
+  merchantId: string; // app_id trong data (đã MAC) — bind chống replay cross-connection
   txnRef: string;
   amount: number;
   success: boolean;
@@ -16,15 +17,18 @@ export function verifyZalopay(key2: string, payload: Record<string, unknown>): Z
   const mac = typeof payload["mac"] === "string" ? (payload["mac"] as string) : "";
   const ok = data !== "" && mac !== "" && verifyHmac(key2, data, mac, "sha256");
   let txnRef = "";
+  let merchantId = "";
   let amount = NaN;
   if (ok) {
     try {
       const d = JSON.parse(data) as Record<string, unknown>;
       txnRef = String(d["app_trans_id"] ?? d["apptransid"] ?? "");
+      merchantId = String(d["app_id"] ?? d["appid"] ?? "");
       amount = Number(d["amount"]);
     } catch {
       // data không phải JSON hợp lệ -> coi như không có txnRef -> caller trả lỗi.
     }
   }
-  return { ok, txnRef, amount, success: ok };
+  // ZaloPay chỉ callback khi thanh toán thành công (protocol; data không có field status) -> success=ok.
+  return { ok, merchantId, txnRef, amount, success: ok };
 }

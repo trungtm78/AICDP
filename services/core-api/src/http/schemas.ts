@@ -431,7 +431,9 @@ const inboundIdentifierSchema = identifierSchema.strict();
 export const inboundOrderSchema = z
   .object({
     type: z.literal("order_completed"),
-    store_id: z.string().min(1).max(120),
+    // store_id KHÔNG chứa ':' (delimiter message_id {brand}:{store}:{txn}) hay ký tự điều khiển ->
+    // chống trùng khoá idempotency/nuốt giao dịch âm thầm (review Phase 3).
+    store_id: z.string().min(1).max(120).regex(/^[^:]+$/, "store_id không hợp lệ (cấm ':' và ký tự điều khiển)"),
     source: z.string().min(1).max(80).optional(),
     occ_timestamp: z.string().datetime({ offset: true }).optional(),
     identifiers: z.array(inboundIdentifierSchema).max(20).optional(),

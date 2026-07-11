@@ -118,17 +118,9 @@ export class ConnectorIngestController {
     return this.paymentIpn(id, { ...(query ?? {}) }, res);
   }
 
-  private async paymentIpn(id: string, payload: Record<string, unknown>, res: Response) {
-    const rl = checkInboundRate(id);
-    if (!rl.allowed) {
-      res.setHeader("Retry-After", rl.retryAfterSec);
-      throw new AppError({
-        code: "CONNECTOR_RATE_LIMIT", httpStatus: 429,
-        message: "Vượt giới hạn tần suất cổng IPN (per-connection).",
-        why: "Connection nhận quá nhiều IPN trong thời gian ngắn.",
-        fix: `Thử lại sau ${rl.retryAfterSec}s.`, retryable: true,
-      });
-    }
+  private async paymentIpn(id: string, payload: Record<string, unknown>, _res: Response) {
+    // Rate-limit per-connection ĐƯỢC ÁP TRONG service SAU khi verify chữ ký (chỉ IPN hợp lệ mới
+    // tính quota -> flood sai-checksum không đốt quota IPN thật). Xem processPaymentIpn.
     return processPaymentIpn(this.pool, id, payload);
   }
 }

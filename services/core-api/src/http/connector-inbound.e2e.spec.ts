@@ -115,6 +115,17 @@ describe("cổng webhook inbound — chạy thật", () => {
     expect(ev.body.data[0].status).toBe("rejected");
   });
 
+  it("store_id chứa ':' (bẩn namespace message_id) -> 400 + rejected", async () => {
+    const { id, token } = await mkSource("givral");
+    const r = await http()
+      .post(`/v1/connectors/sources/${id}/events`)
+      .set("X-Connector-Token", token)
+      .send(order("POS-COLON", { store_id: "fuji:web1" }));
+    expect(r.status).toBe(400);
+    const tx = await pool.query("SELECT count(*)::int n FROM cdp.canonical_transaction");
+    expect(tx.rows[0]!.n).toBe(0);
+  });
+
   it("identify webhook -> 202 + event ingested", async () => {
     const { id, token } = await mkSource();
     const r = await http()

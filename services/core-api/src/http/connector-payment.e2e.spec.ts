@@ -21,11 +21,12 @@ afterAll(async () => { await app.close(); });
 beforeEach(async () => { await truncateAll(); });
 const http = () => request(app.getHttpServer());
 
-async function mkVnpay(): Promise<string> {
+const TMN = "OCCTMN01";
+async function mkVnpay(merchantId = TMN): Promise<string> {
   const c = await withAuth(
     http().post("/v1/connections").send({
       name: "VNPay", direction: "source", connectorKey: "src_vnpay",
-      config: { secretKey: SECRET, brand_id: "givral", store_id: "web1" },
+      config: { secretKey: SECRET, merchantId, brand_id: "givral", store_id: "web1" },
     }),
     ADMIN_KEY,
   );
@@ -35,9 +36,9 @@ async function mkVnpay(): Promise<string> {
   return c.body.data.id as string;
 }
 
-function signed(txnRef: string, amount: string, code = "00"): Record<string, string> {
+function signed(txnRef: string, amount: string, code = "00", tmn = TMN): Record<string, string> {
   const p: Record<string, string> = {
-    vnp_TxnRef: txnRef, vnp_Amount: amount, vnp_ResponseCode: code,
+    vnp_TmnCode: tmn, vnp_TxnRef: txnRef, vnp_Amount: amount, vnp_ResponseCode: code,
     vnp_TransactionStatus: code, vnp_BankCode: "NCB",
   };
   p["vnp_SecureHash"] = createHmac("sha512", SECRET).update(buildVnpayHashData(p), "utf8").digest("hex");
@@ -147,7 +148,7 @@ describe("cổng IPN VNPay — chạy thật", () => {
 
   it("chữ ký đúng nhưng thiếu vnp_TxnRef -> RspCode 01", async () => {
     const id = await mkVnpay();
-    const p: Record<string, string> = { vnp_Amount: "1000000", vnp_ResponseCode: "00", vnp_TransactionStatus: "00" };
+    const p: Record<string, string> = { vnp_TmnCode: TMN, vnp_Amount: "1000000", vnp_ResponseCode: "00", vnp_TransactionStatus: "00" };
     p["vnp_SecureHash"] = createHmac("sha512", SECRET).update(buildVnpayHashData(p), "utf8").digest("hex");
     const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send(p);
     expect(r.body.RspCode).toBe("01");
@@ -161,11 +162,56 @@ describe("cổng IPN VNPay — chạy thật", () => {
     expect(tx.rows[0]!.n).toBe(0);
   });
 
+  it("txnRef chứa ':' (bẩn namespace message_id) chữ ký đúng -> RspCode 01, không ingest", async () => {
+    const id = await mkVnpay();
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send(signed("fuji:web1:HACK", "1000000"));
+    expect(r.body.RspCode).toBe("01");
+    const tx = await pool.query("SELECT count(*)::int n FROM cdp.canonical_transaction");
+    expect(tx.rows[0]!.n).toBe(0);
+  });
+
+  it("amount vượt ngưỡng an toàn (>100 tỷ) -> RspCode 04, không ingest", async () => {
+    const id = await mkVnpay();
+    // vnp_Amount ×100; 2e13/100 = 2e11 > 1e11 ngưỡng.
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send(signed("PBIG", "20000000000000"));
+    expect(r.body.RspCode).toBe("04");
+    const tx = await pool.query("SELECT count(*)::int n FROM cdp.canonical_transaction");
+    expect(tx.rows[0]!.n).toBe(0);
+  });
+
+  it("merchant khác (replay cross-connection dù chữ ký hợp lệ) -> RspCode 97, không ingest", async () => {
+    // Connection merchantId=OCCTMN01, nhưng IPN ký với vnp_TmnCode='OTHER' (của merchant khác).
+    const id = await mkVnpay("OCCTMN01");
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send(signed("PM-1", "1000000", "00", "OTHER"));
+    expect(r.body.RspCode).toBe("97");
+    const tx = await pool.query("SELECT count(*)::int n FROM cdp.canonical_transaction");
+    expect(tx.rows[0]!.n).toBe(0);
+  });
+
+  it("thiếu merchantId trong config -> 400 CONNECTOR_MISCONFIGURED", async () => {
+    const c = await withAuth(
+      http().post("/v1/connections").send({ name: "vp", direction: "source", connectorKey: "src_vnpay", config: { secretKey: SECRET, brand_id: "givral" } }),
+      ADMIN_KEY,
+    );
+    const id = c.body.data.id as string;
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send(signed("MM0", "1000000"));
+    expect(r.status).toBe(400);
+    expect(r.body.error.code).toBe("CONNECTOR_MISCONFIGURED");
+  });
+
+  it("amount phân số (vnp_Amount không chia hết 100) -> RspCode 04, không ingest", async () => {
+    const id = await mkVnpay();
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send(signed("PFRAC", "25000050"));
+    expect(r.body.RspCode).toBe("04");
+    const tx = await pool.query("SELECT count(*)::int n FROM cdp.canonical_transaction");
+    expect(tx.rows[0]!.n).toBe(0);
+  });
+
   it("MoMo: chữ ký hợp lệ + resultCode 0 -> resultCode 0, ingest giao dịch", async () => {
     const c = await withAuth(
       http().post("/v1/connections").send({
         name: "MoMo", direction: "source", connectorKey: "src_momo",
-        config: { secretKey: "MMSECRET", accessKey: "MMACCESS", brand_id: "givral", store_id: "web1" },
+        config: { secretKey: "MMSECRET", accessKey: "MMACCESS", merchantId: "OCC", brand_id: "givral", store_id: "web1" },
       }),
       ADMIN_KEY,
     );
@@ -188,7 +234,7 @@ describe("cổng IPN VNPay — chạy thật", () => {
     const c = await withAuth(
       http().post("/v1/connections").send({
         name: "MoMo", direction: "source", connectorKey: "src_momo",
-        config: { secretKey: "MMSECRET", accessKey: "MMACCESS", brand_id: "givral" },
+        config: { secretKey: "MMSECRET", accessKey: "MMACCESS", merchantId: "OCC", brand_id: "givral" },
       }),
       ADMIN_KEY,
     );
@@ -203,7 +249,7 @@ describe("cổng IPN VNPay — chạy thật", () => {
     const c = await withAuth(
       http().post("/v1/connections").send({
         name: "MoMo", direction: "source", connectorKey: "src_momo",
-        config: { secretKey: "MMSECRET", brand_id: "givral" },
+        config: { secretKey: "MMSECRET", merchantId: "OCC", brand_id: "givral" },
       }),
       ADMIN_KEY,
     );
@@ -217,12 +263,12 @@ describe("cổng IPN VNPay — chạy thật", () => {
     const c = await withAuth(
       http().post("/v1/connections").send({
         name: "ZaloPay", direction: "source", connectorKey: "src_zalopay",
-        config: { secretKey: "ZKEY2", brand_id: "givral", store_id: "web1" },
+        config: { secretKey: "ZKEY2", merchantId: "ZPAPP", brand_id: "givral", store_id: "web1" },
       }),
       ADMIN_KEY,
     );
     const id = c.body.data.id as string;
-    const data = JSON.stringify({ app_trans_id: "ZP-100", amount: 320000, app_time: 1700000000000 });
+    const data = JSON.stringify({ app_id: "ZPAPP", app_trans_id: "ZP-100", amount: 320000, app_time: 1700000000000 });
     const mac = createHmac("sha256", "ZKEY2").update(data, "utf8").digest("hex");
     const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send({ data, mac, type: 1 });
     expect(r.body.return_code).toBe(1);
@@ -235,12 +281,12 @@ describe("cổng IPN VNPay — chạy thật", () => {
     const c = await withAuth(
       http().post("/v1/connections").send({
         name: "ZaloPay", direction: "source", connectorKey: "src_zalopay",
-        config: { secretKey: "ZKEY2", brand_id: "givral" },
+        config: { secretKey: "ZKEY2", merchantId: "ZPAPP", brand_id: "givral" },
       }),
       ADMIN_KEY,
     );
     const id = c.body.data.id as string;
-    const data = JSON.stringify({ app_trans_id: "ZP-X", amount: 1 });
+    const data = JSON.stringify({ app_id: "ZPAPP", app_trans_id: "ZP-X", amount: 1 });
     const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send({ data, mac: "bad", type: 1 });
     expect(r.body.return_code).toBe(-1);
     const tx = await pool.query("SELECT count(*)::int n FROM cdp.canonical_transaction");

@@ -6,6 +6,7 @@ import { verifyHmac } from "../signing.js";
 
 export interface MomoResult {
   ok: boolean;
+  merchantId: string; // partnerCode (đã ký) — bind chống replay cross-connection
   txnRef: string;
   amount: number;
   success: boolean;
@@ -35,7 +36,8 @@ export function verifyMomo(secret: string, accessKey: string, payload: Record<st
   const provided = typeof payload["signature"] === "string" ? (payload["signature"] as string) : "";
   const ok = provided !== "" && verifyHmac(secret, buildMomoRaw(accessKey, payload), provided, "sha256");
   const txnRef = String(payload["orderId"] ?? "");
+  const merchantId = String(payload["partnerCode"] ?? "");
   const amount = Number(payload["amount"]);
   const success = String(payload["resultCode"]) === "0";
-  return { ok, txnRef, amount, success };
+  return { ok, merchantId, txnRef, amount, success };
 }

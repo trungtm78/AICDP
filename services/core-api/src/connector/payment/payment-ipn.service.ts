@@ -6,6 +6,7 @@ import { ingestOrderCompleted, type OrderCompletedEvent } from "../../ingestion/
 import { verifyVnpay } from "./vnpay.js";
 import { verifyMomo } from "./momo.js";
 import { verifyZalopay } from "./zalopay.js";
+import { checkInboundRate } from "../connector-inbound-ratelimit.js";
 
 // Xử lý IPN cổng thanh toán (VNPay/MoMo/ZaloPay). BẢO MẬT (threat-model P0 "IPN-checksum"):
 // - Verify chữ ký/checksum TRƯỚC, FAIL-CLOSED (chữ ký sai -> KHÔNG ingest, trả mã lỗi cổng).
@@ -23,6 +24,11 @@ const GATEWAY_BY_KEY: Record<string, "vnpay" | "momo" | "zalopay"> = {
 };
 
 const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim() !== "" ? v : undefined);
+// txnRef an toàn: alnum + . _ - , 1..100 ký tự (KHÔNG chứa ':' delimiter message_id).
+const SAFE_TXN_REF = /^[A-Za-z0-9._-]{1,100}$/;
+// Ngưỡng amount VND: 100 tỷ — dư cho mọi giao dịch F&B/khách sạn, dưới xa 2^53 (chống precision).
+const MAX_AMOUNT_VND = 100_000_000_000;
+const isPrintable = (s: string): boolean => s.length <= 200 && !/[\x00-\x1f]/.test(s);
 
 function misconfigured(msg: string): AppError {
   return new AppError({
@@ -55,11 +61,13 @@ export async function processPaymentIpn(
   const config = decryptConfig(row.config ?? {});
   const secret = str(config["secretKey"]);
   const brandId = str(config["brand_id"]) ?? str(config["brandId"]);
+  const expectedMerchant = str(config["merchantId"]);
   if (!secret) throw misconfigured("Kết nối chưa cấu hình secretKey (khoá checksum).");
   if (!brandId) throw misconfigured("Kết nối chưa gắn brand_id.");
+  if (!expectedMerchant) throw misconfigured("Kết nối chưa cấu hình merchantId (vnp_TmnCode/partnerCode/app_id).");
   const storeId = str(config["store_id"]) ?? gateway;
 
-  // Verify chữ ký theo cổng -> kết quả chuẩn hoá {ok,txnRef,amount,success}.
+  // Verify chữ ký theo cổng -> kết quả chuẩn hoá {ok,merchantId,txnRef,amount,success}.
   let v: PaymentVerify;
   if (gateway === "vnpay") v = verifyVnpay(secret, payload);
   else if (gateway === "zalopay") v = verifyZalopay(secret, payload);
@@ -69,6 +77,24 @@ export async function processPaymentIpn(
     v = verifyMomo(secret, accessKey, payload);
   }
 
+  // Sau khi chữ ký hợp lệ: (1) BIND merchant đã ký == merchantId của connection -> chống replay
+  // cross-connection khi secret dùng chung (multi-brand cùng tài khoản gateway); (2) rate-limit
+  // per-connection CHỈ tính request hợp lệ -> flood sai-checksum KHÔNG đốt quota IPN thật.
+  if (v.ok) {
+    if (v.merchantId !== expectedMerchant) {
+      await recordEvent(pool, { connectionId, eventType: "payment", status: "rejected", error: "MERCHANT_MISMATCH" });
+      return ackFor(gateway, "bad_checksum");
+    }
+    const rl = checkInboundRate(connectionId);
+    if (!rl.allowed) {
+      throw new AppError({
+        code: "CONNECTOR_RATE_LIMIT", httpStatus: 429, message: "Vượt giới hạn tần suất IPN.",
+        why: "Connection nhận quá nhiều IPN hợp lệ trong thời gian ngắn.",
+        fix: `Thử lại sau ${rl.retryAfterSec}s.`, retryable: true,
+      });
+    }
+  }
+
   const verdict = await ingestVerified(pool, connectionId, brandId, storeId, gateway, v);
   return ackFor(gateway, verdict);
 }
@@ -76,6 +102,7 @@ export async function processPaymentIpn(
 /** Kết quả verify chuẩn hoá cho mọi cổng. */
 export interface PaymentVerify {
   ok: boolean; // chữ ký hợp lệ
+  merchantId: string; // định danh merchant ĐÃ KÝ (vnp_TmnCode/partnerCode/app_id)
   txnRef: string;
   amount: number; // VND
   success: boolean; // giao dịch thành công
@@ -93,9 +120,14 @@ async function ingestVerified(
     recordEvent(pool, { connectionId, eventType: "payment", status: "rejected", error, ...(messageId ? { messageId } : {}) });
 
   if (!v.ok) { await rej("IPN_CHECKSUM_INVALID"); return "bad_checksum"; }
-  if (!v.txnRef) { await rej("MISSING_TXN_REF"); return "no_txnref"; }
+  // txnRef phải sạch: ':' là delimiter message_id {brand}:{store}:{txnRef} -> chặn để không bẩn
+  // namespace/khoá idempotency; cũng cap độ dài + ký tự (gateway dùng alnum/._-).
+  if (!SAFE_TXN_REF.test(v.txnRef)) { await rej("MISSING_TXN_REF", isPrintable(v.txnRef) ? v.txnRef : undefined); return "no_txnref"; }
   if (!v.success) { await rej("PAYMENT_NOT_SUCCESS", v.txnRef); return "not_success"; }
-  if (!Number.isFinite(v.amount) || v.amount <= 0) { await rej("INVALID_AMOUNT", v.txnRef); return "bad_amount"; }
+  // amount: SỐ NGUYÊN an toàn (VND không phần lẻ), >0, trong ngưỡng (chống "100.5"/"1e2"/precision>2^53).
+  if (!Number.isSafeInteger(v.amount) || v.amount <= 0 || v.amount > MAX_AMOUNT_VND) {
+    await rej("INVALID_AMOUNT", v.txnRef); return "bad_amount";
+  }
 
   const ev: OrderCompletedEvent = {
     brand_id: brandId, store_id: storeId, source: gateway,

@@ -7,6 +7,7 @@ import { verifyHmac } from "../signing.js";
 
 export interface VnpayResult {
   ok: boolean; // chữ ký hợp lệ
+  merchantId: string; // vnp_TmnCode (định danh merchant ĐÃ KÝ — bind chống replay cross-connection)
   txnRef: string; // vnp_TxnRef (mã đơn merchant)
   amount: number; // VND (đã /100)
   success: boolean; // giao dịch thành công (vnp_ResponseCode == '00' && TransactionStatus == '00')
@@ -24,8 +25,9 @@ export function verifyVnpay(secret: string, params: Record<string, unknown>): Vn
   const provided = typeof params["vnp_SecureHash"] === "string" ? (params["vnp_SecureHash"] as string) : "";
   const ok = provided !== "" && verifyHmac(secret, buildVnpayHashData(params), provided, "sha512");
   const txnRef = typeof params["vnp_TxnRef"] === "string" ? (params["vnp_TxnRef"] as string) : "";
+  const merchantId = typeof params["vnp_TmnCode"] === "string" ? (params["vnp_TmnCode"] as string) : "";
   const amountRaw = Number(params["vnp_Amount"]);
   const amount = Number.isFinite(amountRaw) ? amountRaw / 100 : NaN;
   const success = params["vnp_ResponseCode"] === "00" && params["vnp_TransactionStatus"] === "00";
-  return { ok, txnRef, amount, success };
+  return { ok, merchantId, txnRef, amount, success };
 }
