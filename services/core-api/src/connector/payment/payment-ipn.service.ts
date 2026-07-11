@@ -4,6 +4,8 @@ import { decryptConfig } from "../secrets.js";
 import { recordEvent } from "../logs.service.js";
 import { ingestOrderCompleted, type OrderCompletedEvent } from "../../ingestion/ingestion.service.js";
 import { verifyVnpay } from "./vnpay.js";
+import { verifyMomo } from "./momo.js";
+import { verifyZalopay } from "./zalopay.js";
 
 // Xử lý IPN cổng thanh toán (VNPay/MoMo/ZaloPay). BẢO MẬT (threat-model P0 "IPN-checksum"):
 // - Verify chữ ký/checksum TRƯỚC, FAIL-CLOSED (chữ ký sai -> KHÔNG ingest, trả mã lỗi cổng).
@@ -57,48 +59,72 @@ export async function processPaymentIpn(
   if (!brandId) throw misconfigured("Kết nối chưa gắn brand_id.");
   const storeId = str(config["store_id"]) ?? gateway;
 
-  if (gateway === "vnpay") {
-    return handleVnpay(pool, connectionId, secret, brandId, storeId, payload);
+  // Verify chữ ký theo cổng -> kết quả chuẩn hoá {ok,txnRef,amount,success}.
+  let v: PaymentVerify;
+  if (gateway === "vnpay") v = verifyVnpay(secret, payload);
+  else if (gateway === "zalopay") v = verifyZalopay(secret, payload);
+  else {
+    const accessKey = str(config["accessKey"]);
+    if (!accessKey) throw misconfigured("Kết nối MoMo chưa cấu hình accessKey.");
+    v = verifyMomo(secret, accessKey, payload);
   }
-  // MoMo/ZaloPay: Task 3.2.
-  throw new AppError({
-    code: "INTEGRATION_NOT_AVAILABLE", httpStatus: 400,
-    message: `Cổng '${gateway}' chưa hỗ trợ IPN.`, why: "Adapter IPN chưa cài.",
-    fix: "Chờ Task 3.2 (MoMo/ZaloPay).", retryable: false,
-  });
+
+  const verdict = await ingestVerified(pool, connectionId, brandId, storeId, gateway, v);
+  return ackFor(gateway, verdict);
 }
 
-async function handleVnpay(
-  pool: Pool, connectionId: string, secret: string, brandId: string, storeId: string,
-  payload: Record<string, unknown>,
-): Promise<IpnAck> {
-  const v = verifyVnpay(secret, payload);
-  if (!v.ok) {
-    await recordEvent(pool, { connectionId, eventType: "payment", status: "rejected", error: "IPN_CHECKSUM_INVALID" });
-    return { RspCode: "97", Message: "Invalid Checksum" };
-  }
-  if (!v.txnRef) {
-    await recordEvent(pool, { connectionId, eventType: "payment", status: "rejected", error: "MISSING_TXN_REF" });
-    return { RspCode: "01", Message: "Order not found" };
-  }
-  if (!v.success) {
-    // Chữ ký đúng nhưng giao dịch không thành công -> đã nhận (không retry), KHÔNG ingest.
-    await recordEvent(pool, { connectionId, eventType: "payment", messageId: v.txnRef, status: "rejected", error: "PAYMENT_NOT_SUCCESS" });
-    return { RspCode: "00", Message: "Confirm Received" };
-  }
-  if (!Number.isFinite(v.amount) || v.amount <= 0) {
-    await recordEvent(pool, { connectionId, eventType: "payment", messageId: v.txnRef, status: "rejected", error: "INVALID_AMOUNT" });
-    return { RspCode: "04", Message: "Invalid Amount" };
-  }
+/** Kết quả verify chuẩn hoá cho mọi cổng. */
+export interface PaymentVerify {
+  ok: boolean; // chữ ký hợp lệ
+  txnRef: string;
+  amount: number; // VND
+  success: boolean; // giao dịch thành công
+}
+
+type PayVerdict =
+  | "bad_checksum" | "no_txnref" | "not_success" | "bad_amount" | "ingested" | "idempotent";
+
+/** Lõi chung: kiểm chữ ký/txnRef/success/amount -> ingest (idempotent) -> ghi event. FAIL-CLOSED. */
+async function ingestVerified(
+  pool: Pool, connectionId: string, brandId: string, storeId: string,
+  gateway: string, v: PaymentVerify,
+): Promise<PayVerdict> {
+  const rej = (error: string, messageId?: string): Promise<void> =>
+    recordEvent(pool, { connectionId, eventType: "payment", status: "rejected", error, ...(messageId ? { messageId } : {}) });
+
+  if (!v.ok) { await rej("IPN_CHECKSUM_INVALID"); return "bad_checksum"; }
+  if (!v.txnRef) { await rej("MISSING_TXN_REF"); return "no_txnref"; }
+  if (!v.success) { await rej("PAYMENT_NOT_SUCCESS", v.txnRef); return "not_success"; }
+  if (!Number.isFinite(v.amount) || v.amount <= 0) { await rej("INVALID_AMOUNT", v.txnRef); return "bad_amount"; }
 
   const ev: OrderCompletedEvent = {
-    brand_id: brandId, store_id: storeId, source: "vnpay",
+    brand_id: brandId, store_id: storeId, source: gateway,
     occ_timestamp: new Date().toISOString(),
-    properties: { pos_transaction_id: v.txnRef, currency: "VND", total: v.amount, payment_method: "vnpay" },
+    properties: { pos_transaction_id: v.txnRef, currency: "VND", total: v.amount, payment_method: gateway },
   };
   const res = await ingestOrderCompleted(pool, ev);
-  await recordEvent(pool, {
-    connectionId, eventType: "payment", messageId: res.messageId, occId: res.occId, status: "ingested",
-  });
-  return { RspCode: "00", Message: res.idempotent ? "Order Already Confirmed" : "Confirm Success" };
+  await recordEvent(pool, { connectionId, eventType: "payment", messageId: res.messageId, occId: res.occId, status: "ingested" });
+  return res.idempotent ? "idempotent" : "ingested";
+}
+
+/** ACK theo định dạng riêng của từng cổng (cổng đọc mã này để dừng retry / báo lỗi). */
+function ackFor(gateway: "vnpay" | "momo" | "zalopay", verdict: PayVerdict): IpnAck {
+  if (gateway === "vnpay") {
+    switch (verdict) {
+      case "bad_checksum": return { RspCode: "97", Message: "Invalid Checksum" };
+      case "no_txnref": return { RspCode: "01", Message: "Order not found" };
+      case "not_success": return { RspCode: "00", Message: "Confirm Received" };
+      case "bad_amount": return { RspCode: "04", Message: "Invalid Amount" };
+      case "idempotent": return { RspCode: "00", Message: "Order Already Confirmed" };
+      default: return { RspCode: "00", Message: "Confirm Success" };
+    }
+  }
+  if (gateway === "zalopay") {
+    if (verdict === "bad_checksum") return { return_code: -1, return_message: "mac not equal" };
+    if (verdict === "ingested" || verdict === "idempotent") return { return_code: 1, return_message: "success" };
+    return { return_code: 0, return_message: "retry" }; // ZaloPay sẽ gọi lại sau
+  }
+  // momo: resultCode 0 = đã nhận OK; != 0 = lỗi (MoMo chủ yếu chỉ cần HTTP 2xx).
+  if (verdict === "bad_checksum") return { resultCode: 1, message: "Invalid signature" };
+  return { resultCode: 0, message: "received" };
 }

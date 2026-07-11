@@ -8,6 +8,7 @@ import { setupTestDb, truncateAll } from "../test-helpers/db.js";
 import { withAuth, ADMIN_KEY } from "../test-helpers/auth.js";
 import { pool } from "../db/pool.js";
 import { buildVnpayHashData } from "../connector/payment/vnpay.js";
+import { buildMomoRaw } from "../connector/payment/momo.js";
 import { resetInboundLimiter } from "../connector/connector-inbound-ratelimit.js";
 
 // Phase 3 Task 3.1 — cổng IPN VNPay: @Public POST/GET /v1/connectors/payment/:id/ipn.
@@ -160,15 +161,90 @@ describe("cổng IPN VNPay — chạy thật", () => {
     expect(tx.rows[0]!.n).toBe(0);
   });
 
-  it("cổng MoMo chưa hỗ trợ IPN -> 400 INTEGRATION_NOT_AVAILABLE", async () => {
+  it("MoMo: chữ ký hợp lệ + resultCode 0 -> resultCode 0, ingest giao dịch", async () => {
     const c = await withAuth(
-      http().post("/v1/connections").send({ name: "momo", direction: "source", connectorKey: "src_momo", config: { secretKey: SECRET, brand_id: "givral" } }),
+      http().post("/v1/connections").send({
+        name: "MoMo", direction: "source", connectorKey: "src_momo",
+        config: { secretKey: "MMSECRET", accessKey: "MMACCESS", brand_id: "givral", store_id: "web1" },
+      }),
       ADMIN_KEY,
     );
     const id = c.body.data.id as string;
-    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send({ any: "x" });
+    const p: Record<string, string> = {
+      partnerCode: "OCC", orderId: "MM-100", requestId: "R1", amount: "180000",
+      orderInfo: "pay", orderType: "momo_wallet", transId: "T1", resultCode: "0",
+      message: "ok", payType: "qr", responseTime: "1700000000000", extraData: "",
+    };
+    p["signature"] = createHmac("sha256", "MMSECRET").update(buildMomoRaw("MMACCESS", p), "utf8").digest("hex");
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send(p);
+    expect(r.status).toBe(200);
+    expect(r.body.resultCode).toBe(0);
+    const tx = await pool.query("SELECT total FROM cdp.canonical_transaction WHERE message_id=$1", ["givral:web1:MM-100"]);
+    expect(tx.rowCount).toBe(1);
+    expect(Number(tx.rows[0]!.total)).toBe(180000);
+  });
+
+  it("MoMo: chữ ký sai -> resultCode 1, không ingest", async () => {
+    const c = await withAuth(
+      http().post("/v1/connections").send({
+        name: "MoMo", direction: "source", connectorKey: "src_momo",
+        config: { secretKey: "MMSECRET", accessKey: "MMACCESS", brand_id: "givral" },
+      }),
+      ADMIN_KEY,
+    );
+    const id = c.body.data.id as string;
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send({ orderId: "MM-X", amount: "1", resultCode: "0", signature: "deadbeef" });
+    expect(r.body.resultCode).toBe(1);
+    const tx = await pool.query("SELECT count(*)::int n FROM cdp.canonical_transaction");
+    expect(tx.rows[0]!.n).toBe(0);
+  });
+
+  it("MoMo: thiếu accessKey trong config -> 400", async () => {
+    const c = await withAuth(
+      http().post("/v1/connections").send({
+        name: "MoMo", direction: "source", connectorKey: "src_momo",
+        config: { secretKey: "MMSECRET", brand_id: "givral" },
+      }),
+      ADMIN_KEY,
+    );
+    const id = c.body.data.id as string;
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send({ orderId: "x", signature: "y" });
     expect(r.status).toBe(400);
-    expect(r.body.error.code).toBe("INTEGRATION_NOT_AVAILABLE");
+    expect(r.body.error.code).toBe("CONNECTOR_MISCONFIGURED");
+  });
+
+  it("ZaloPay: mac hợp lệ -> return_code 1, ingest giao dịch", async () => {
+    const c = await withAuth(
+      http().post("/v1/connections").send({
+        name: "ZaloPay", direction: "source", connectorKey: "src_zalopay",
+        config: { secretKey: "ZKEY2", brand_id: "givral", store_id: "web1" },
+      }),
+      ADMIN_KEY,
+    );
+    const id = c.body.data.id as string;
+    const data = JSON.stringify({ app_trans_id: "ZP-100", amount: 320000, app_time: 1700000000000 });
+    const mac = createHmac("sha256", "ZKEY2").update(data, "utf8").digest("hex");
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send({ data, mac, type: 1 });
+    expect(r.body.return_code).toBe(1);
+    const tx = await pool.query("SELECT total FROM cdp.canonical_transaction WHERE message_id=$1", ["givral:web1:ZP-100"]);
+    expect(tx.rowCount).toBe(1);
+    expect(Number(tx.rows[0]!.total)).toBe(320000);
+  });
+
+  it("ZaloPay: mac sai -> return_code -1, không ingest", async () => {
+    const c = await withAuth(
+      http().post("/v1/connections").send({
+        name: "ZaloPay", direction: "source", connectorKey: "src_zalopay",
+        config: { secretKey: "ZKEY2", brand_id: "givral" },
+      }),
+      ADMIN_KEY,
+    );
+    const id = c.body.data.id as string;
+    const data = JSON.stringify({ app_trans_id: "ZP-X", amount: 1 });
+    const r = await http().post(`/v1/connectors/payment/${id}/ipn`).send({ data, mac: "bad", type: 1 });
+    expect(r.body.return_code).toBe(-1);
+    const tx = await pool.query("SELECT count(*)::int n FROM cdp.canonical_transaction");
+    expect(tx.rows[0]!.n).toBe(0);
   });
 
   it("vượt rate-limit per-connection IPN -> 429", async () => {
