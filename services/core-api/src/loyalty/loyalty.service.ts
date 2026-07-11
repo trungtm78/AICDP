@@ -258,6 +258,36 @@ export async function postAutoEarnTx(client: PoolClient, a: AutoEarnArgs): Promi
   return a.points;
 }
 
+export interface BonusEarnArgs {
+  occId: string;
+  points: number;
+  currencyId: string;
+  idempotencyKey: string;   // key ổn định do caller sinh (vd sys:challenge:...) -> idempotent
+  reason: string;
+  brandId?: string;
+  qualifying?: boolean;     // mặc định FALSE (điểm thưởng KHÔNG tính hạng)
+}
+
+/**
+ * Phát hành điểm THƯỞNG (campaign/challenge/birthday/referral) TRONG transaction của caller. Idempotent
+ * qua idempotencyKey (=loyalty_txn key, ON CONFLICT DO NOTHING). qualifying mặc định FALSE (không tính
+ * hạng). +available/-issued ở currency chỉ định + tạo lô (L2). Trả điểm đã tích (0 nếu đã tích trước). */
+export async function postBonusEarnTx(client: PoolClient, a: BonusEarnArgs): Promise<number> {
+  assertValidPoints(a.points);
+  const ins = await client.query<{ txn_id: string }>(
+    `INSERT INTO cdp.loyalty_txn (idempotency_key, type, occ_id, fingerprint, reason, brand_id, qualifying)
+     VALUES ($1,'earn',$2,$1,$3,$4,$5) ON CONFLICT (idempotency_key) DO NOTHING RETURNING txn_id`,
+    [a.idempotencyKey, a.occId, a.reason, a.brandId ?? null, a.qualifying ?? false]);
+  if (ins.rows.length === 0) return 0;
+  const txnId = ins.rows[0]!.txn_id;
+  await client.query(
+    `INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id)
+     VALUES ($1,$2,$3::bigint,$4),($1,$5,(-$3::bigint),$4)`,
+    [txnId, acc.available(a.occId), String(a.points), a.currencyId, acc.issued]);
+  await createLotTx(client, a.occId, a.currencyId, a.points, txnId);
+  return a.points;
+}
+
 export interface ReserveArgs {
   occId: string;
   points: number;

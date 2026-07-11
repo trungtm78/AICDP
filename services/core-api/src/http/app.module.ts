@@ -33,6 +33,7 @@ import { JourneyScheduler } from "../journey/journey-scheduler.js";
 import { LoyaltyExpiryScheduler } from "../loyalty/loyalty-expiry.scheduler.js";
 import { LoyaltyEarnScheduler } from "../loyalty/loyalty-earn.scheduler.js";
 import { LoyaltyTierScheduler } from "../loyalty/loyalty-tier.scheduler.js";
+import { LoyaltyCampaignScheduler } from "../loyalty/loyalty-campaign.scheduler.js";
 
 @Module({
   controllers: [
@@ -67,6 +68,7 @@ import { LoyaltyTierScheduler } from "../loyalty/loyalty-tier.scheduler.js";
     LoyaltyExpiryScheduler,
     LoyaltyEarnScheduler,
     LoyaltyTierScheduler,
+    LoyaltyCampaignScheduler,
     // Thứ tự guard: rate-limit IP PRE-AUTH (shed flood trước khi tốn JWT/DB) -> xác thực
     // (AuthGuard) -> rate-limit theo principal/login (RateLimitGuard) -> phân quyền (RolesGuard).
     { provide: APP_GUARD, useClass: IpRateLimitGuard },

@@ -24,6 +24,7 @@ export async function truncateAll(): Promise<void> {
               cdp.connector_delivery, cdp.connector_event,
               cdp.pipeline, cdp.connection, cdp.connector,
               cdp.activation_member, cdp.activation_run, cdp.consent_record,
+              cdp.member_challenge_progress, cdp.referral,
               cdp.voucher_redemption, cdp.voucher,
               cdp.member_tier_history, cdp.member_tier,
               cdp.earn_rule_audit, cdp.earn_rule,

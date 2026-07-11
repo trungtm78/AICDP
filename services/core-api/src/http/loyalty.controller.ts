@@ -14,11 +14,14 @@ import {
   earnRuleSchema,
   rewardRedeemSchema,
   voucherUseSchema,
+  referralCreateSchema,
+  referralJoinSchema,
 } from "./schemas.js";
 import { earn, reserve, capture, release, getBalance, listMembers, listLedger, convert, adjust, transfer, listWallets } from "../loyalty/loyalty.service.js";
 import { setEarnRule, listEarnRules, listEarnRuleAudit, processUnearnedTransactions } from "../loyalty/earn-rule.service.js";
 import { listTierGroups, listTiers, getMemberTiers, recomputeMemberTier, recomputeAllTiers } from "../loyalty/tier.service.js";
 import { listRewards, redeemReward, listMemberVouchers, useVoucher } from "../loyalty/reward.service.js";
+import { listChallenges, getMemberProgress, createReferralCode, joinReferral } from "../loyalty/campaign.service.js";
 import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
@@ -206,5 +209,37 @@ export class LoyaltyController {
   async useVoucher(@Body() body: unknown) {
     const dto = validate(voucherUseSchema, body, "loyalty_voucher_use");
     return { data: await useVoucher(this.pool, dto) };
+  }
+
+  // ── L6: campaign + gamification ──
+
+  /** Danh mục challenge đang chạy. */
+  @Get("challenges")
+  async challenges() {
+    return { data: await listChallenges(this.pool) };
+  }
+
+  /** Tiến độ challenge của một khách. */
+  @Get("challenges/progress")
+  async challengeProgress(@Query() query: Record<string, string>) {
+    const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_challenge_progress");
+    return { data: await getMemberProgress(this.pool, occId) };
+  }
+
+  /** Tạo mã giới thiệu cho một khách — cần csr. */
+  @Roles("csr")
+  @Post("referral/create")
+  async referralCreate(@Body() body: unknown) {
+    const { occId } = validate(referralCreateSchema, body, "loyalty_referral_create");
+    return { data: { code: await createReferralCode(this.pool, occId) } };
+  }
+
+  /** Referee dùng mã giới thiệu — cần csr. */
+  @Roles("csr")
+  @Post("referral/join")
+  async referralJoin(@Body() body: unknown) {
+    const dto = validate(referralJoinSchema, body, "loyalty_referral_join");
+    await joinReferral(this.pool, dto.code, dto.refereeOccId);
+    return { data: { ok: true } };
   }
 }

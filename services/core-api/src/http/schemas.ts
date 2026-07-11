@@ -162,6 +162,13 @@ export const voucherUseSchema = z.object({
   idempotencyKey,
 });
 
+// L6 — campaign / referral
+export const referralCreateSchema = z.object({ occId: z.string().uuid() });
+export const referralJoinSchema = z.object({
+  code: z.string().min(1).max(40),
+  refereeOccId: z.string().uuid(),
+});
+
 // Purpose v1 (chốt danh mục để tránh ghi consent mục đích tùy tiện).
 export const consentPurposeEnum = z.enum([
   "marketing_email",
