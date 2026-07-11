@@ -35,6 +35,8 @@ services:
       CORE_API_PORT: "8071"
       # JWT secret BẮT BUỘC từ env host (deploy/.env), KHÔNG hardcode. Thiếu → core-api fail-fast.
       CORE_API_JWT_SECRET: "${CORE_API_JWT_SECRET:?CORE_API_JWT_SECRET bắt buộc — đặt trong deploy/.env}"
+      # Khoá mã hoá secret connector (AES-256-GCM at-rest) — BẮT BUỘC ở production. Đặt trong deploy/.env.
+      CONNECTOR_SECRET_KEY: "${CONNECTOR_SECRET_KEY:?CONNECTOR_SECRET_KEY bắt buộc — đặt trong deploy/.env (32 byte hex 64 ký tự)}"
       CORE_API_DEMO_RESET: "0"                     # prod KHÔNG lộ token reset (demo cấp qua admin /reset-link)
       # Rate-limit (H1) + trust proxy sau nginx (M4) — chống brute-force/credential-stuffing.
       RATE_LIMIT_SOURCE_BURST: "${RATE_LIMIT_SOURCE_BURST:-120}"
