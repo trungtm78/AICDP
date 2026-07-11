@@ -77,6 +77,11 @@ describe("secrets · config-level", () => {
     expect(enc.apiKey).toBe("");
   });
 
+  it("secret dạng OBJECT/array -> REJECT (không lọt plaintext)", () => {
+    expect(() => encryptConfig({ creds: { client_secret: "sk_live" } }, ["creds"], KEY)).toThrow(AppError);
+    expect(() => encryptConfig({ creds: ["a", "b"] }, ["creds"], KEY)).toThrow(AppError);
+  });
+
   it("secret NON-STRING (number) vẫn được mã hoá (không lọt plaintext qua maskConfig)", () => {
     const enc = encryptConfig({ pin: 12345678 }, ["pin"], KEY);
     expect(isEncrypted(enc.pin)).toBe(true);

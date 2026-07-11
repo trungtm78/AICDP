@@ -67,13 +67,16 @@ export function expandIpv6(ipRaw: string): number[] | null {
   return out;
 }
 
-/** Nếu IPv6 là dạng nhúng IPv4 (mapped ::ffff:/96, compat ::/96, NAT64 64:ff9b::/96) -> trả IPv4. */
+/** Nếu IPv6 nhúng IPv4 (compat ::/96, mapped ::ffff:/96, translated ::ffff:0:0/96, NAT64
+ *  64:ff9b::/96) -> trả IPv4 (last 32-bit). Fail-closed cho mọi biến thể IPv4-in-IPv6. */
 function embeddedIpv4(hextets: number[]): string | null {
   const [a, b, c, d, e, f, g, h] = hextets as [number, number, number, number, number, number, number, number];
-  const zeroPrefix = a === 0 && b === 0 && c === 0 && d === 0 && e === 0;
-  const mappedOrCompat = zeroPrefix && (f === 0 || f === 0xffff);
-  const nat64 = a === 0x0064 && b === 0xff9b && c === 0 && d === 0 && e === 0 && f === 0;
-  if (mappedOrCompat || nat64) {
+  const z4 = a === 0 && b === 0 && c === 0 && d === 0;
+  const compat = z4 && e === 0 && f === 0;        // ::/96
+  const mapped = z4 && e === 0 && f === 0xffff;   // ::ffff:/96
+  const translated = z4 && e === 0xffff && f === 0; // ::ffff:0:0/96 (IPv4-translated)
+  const nat64 = a === 0x0064 && b === 0xff9b && c === 0 && d === 0 && e === 0 && f === 0; // 64:ff9b::/96
+  if (compat || mapped || translated || nat64) {
     return `${(g >> 8) & 0xff}.${g & 0xff}.${(h >> 8) & 0xff}.${h & 0xff}`;
   }
   return null;
@@ -90,6 +93,8 @@ function isPrivateIpv6(ipRaw: string): boolean {
   const h0 = hextets[0]!;
   if ((h0 & 0xfe00) === 0xfc00) return true; // fc00::/7 unique-local
   if ((h0 & 0xffc0) === 0xfe80) return true; // fe80::/10 link-local
+  if ((h0 & 0xffc0) === 0xfec0) return true; // fec0::/10 site-local (deprecated)
+  if (h0 === 0x0100 && hextets[1] === 0 && hextets[2] === 0 && hextets[3] === 0) return true; // 100::/64 discard
   return false;
 }
 

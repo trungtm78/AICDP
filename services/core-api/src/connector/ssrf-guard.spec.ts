@@ -30,7 +30,12 @@ describe("ssrf-guard · isPrivateIp", () => {
   });
   it("CHẶN IPv4-mapped IPv6 dạng HEX-group (lỗ hổng SSRF P0)", () => {
     // ::ffff:a9fe:a9fe = 169.254.169.254 (metadata); ::ffff:7f00:1 = 127.0.0.1; ::ffff:0a00:0001 = 10.0.0.1
-    for (const ip of ["::ffff:a9fe:a9fe", "::ffff:7f00:1", "::ffff:0a00:0001", "64:ff9b::a9fe:a9fe", "::ffff:c0a8:0101"]) {
+    for (const ip of [
+      "::ffff:a9fe:a9fe", "::ffff:7f00:1", "::ffff:0a00:0001", "64:ff9b::a9fe:a9fe", "::ffff:c0a8:0101",
+      "::ffff:0:a9fe:a9fe", // IPv4-translated ::ffff:0:0/96 -> 169.254.169.254
+      "fec0::1",            // site-local deprecated
+      "100::1",             // discard-only
+    ]) {
       expect(isPrivateIp(ip)).toBe(true);
     }
   });

@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, beforeEach } from "vitest";
 import { pool } from "../db/pool.js";
 import { setupTestDb, truncateAll } from "../test-helpers/db.js";
 import { AppError } from "../http/errors.js";
-import { createConnection } from "./connector.service.js";
+import { createConnection, createConnector } from "./connector.service.js";
+import { connectorByKey } from "./catalog.js";
 import { issueInboundToken, resolveInboundConnection } from "./inbound.service.js";
 import { testConnection } from "./health.service.js";
 import { registerOutbound } from "./adapters/registry.js";
@@ -15,7 +16,11 @@ registerOutbound({ key: "test_hc", deliver: async () => ({ status: "sent" }), he
 beforeAll(async () => { await setupTestDb(); });
 beforeEach(async () => { await truncateAll(); hc = async () => ({ ok: true }); });
 
-async function mk(direction: string, connectorKey: string): Promise<string> {
+async function mk(direction: "source" | "destination", connectorKey: string): Promise<string> {
+  // Key ngoài catalog -> đăng ký custom connector trước (createConnection nay validate key tồn tại).
+  if (!connectorByKey(connectorKey)) {
+    await createConnector(pool, { key: connectorKey, name: connectorKey, direction, category: "test", transport: "rest" });
+  }
   const c = await createConnection(pool, { name: "t", direction, connectorKey });
   return c.id;
 }

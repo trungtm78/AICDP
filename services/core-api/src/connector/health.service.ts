@@ -32,20 +32,14 @@ export async function testConnection(pool: Pool, id: string): Promise<TestResult
   }
 
   let ok = false;
-  let clientError: string | undefined;  // an toàn để trả client
-  let dbError: string | undefined;      // chi tiết -> chỉ lưu server-side (last_error)
+  let dbError: string | undefined; // chi tiết -> CHỈ lưu server-side (last_error), KHÔNG trả client
   try {
     const h = await adapter.healthCheck(c.config);
     ok = h.ok;
-    // HealthResult.error do adapter của ta tạo (đã kiểm soát an toàn) -> trả được.
-    clientError = h.error;
     dbError = h.error;
   } catch (e) {
-    // Exception THÔ (vd 'connect ECONNREFUSED 10.x', '401 Bearer sk_...') có thể chứa
-    // IP nội bộ/credential -> KHÔNG trả nguyên ra client; chỉ lưu server-side.
     ok = false;
     dbError = (e as Error).message;
-    clientError = "Kiểm tra kết nối thất bại (xem nhật ký hệ thống).";
   }
 
   const status: "active" | "error" = ok ? "active" : "error";
@@ -53,5 +47,7 @@ export async function testConnection(pool: Pool, id: string): Promise<TestResult
     `UPDATE cdp.connection SET status=$2, last_checked_at=now(), last_error=$3, updated_at=now() WHERE id=$1`,
     [id, status, ok ? null : (dbError ?? "health-check thất bại")],
   );
-  return clientError !== undefined ? { ok, status, error: clientError } : { ok, status };
+  // Client CHỈ nhận trạng thái + message generic (adapter error/exception có thể chứa IP nội
+  // bộ/credential/URL secret -> không bao giờ echo ra client; chi tiết ở last_error server-side).
+  return ok ? { ok, status } : { ok, status, error: "Kiểm tra kết nối thất bại (xem nhật ký hệ thống)." };
 }

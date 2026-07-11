@@ -1,6 +1,15 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { AppError } from "../http/errors.js";
 
+function badSecret(field: string): AppError {
+  return new AppError({
+    code: "SCHEMA_TYPE_MISMATCH", httpStatus: 400,
+    message: `Field secret '${field}' phải là chuỗi/số, không phải object/array.`,
+    why: "Secret dạng object/array không được mã hoá an toàn -> có thể lộ plaintext.",
+    fix: "Gửi secret dưới dạng chuỗi (vd JSON đã stringify nếu cần).", retryable: false,
+  });
+}
+
 // Mã hoá secret AT-REST cho connection config (API key/token/HashSecret/DB password).
 // AES-256-GCM (authenticated): {iv, tag, ct} base64 + hint 4 ký tự cuối để mask UI. Key từ
 // CONNECTOR_SECRET_KEY (fail-fast production). Field secret suy từ catalog (configFields.secret).
@@ -84,7 +93,8 @@ export function encryptConfig(config: Cfg, secretFields: string[], key: Buffer =
     const val = out[f];
     if (isEncrypted(val)) continue;                 // đã mã hoá -> giữ (re-save không nhập lại secret)
     if (val === null || val === undefined || val === "") continue; // rỗng -> bỏ qua
-    if (typeof val === "object") continue;          // object không phải secret hợp lệ -> bỏ qua
+    // Object/array secret KHÔNG được bỏ qua âm thầm (sẽ lọt plaintext qua maskConfig) -> reject.
+    if (typeof val === "object") throw badSecret(f);
     // Coerce MỌI primitive (string/number/boolean) sang string rồi mã hoá — tránh secret
     // dạng non-string lọt qua khâu mã hoá rồi bị maskConfig bỏ sót (rò plaintext ra API).
     out[f] = encryptSecret(String(val), key);

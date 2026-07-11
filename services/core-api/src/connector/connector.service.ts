@@ -7,6 +7,29 @@ import {
   type CatalogConnector,
 } from "./catalog.js";
 import { encryptConfig, decryptConfig, maskConfig } from "./secrets.js";
+import { AppError } from "../http/errors.js";
+
+/** Bảo đảm connectorKey tồn tại (catalog ∪ custom) + đúng direction. Chống: key sai -> secret field
+ *  không được nhận diện -> lưu plaintext + trả nguyên ra API (rò secret). */
+async function assertConnectorExists(
+  pool: Pool,
+  connectorKey: string,
+  direction: "source" | "destination",
+): Promise<void> {
+  const bad = (msg: string): AppError =>
+    new AppError({ code: "NOT_FOUND", httpStatus: 400, message: msg,
+      why: "Connector không có trong catalog hoặc bảng connector tuỳ biến.",
+      fix: "Dùng connectorKey hợp lệ và đúng chiều (source/destination).", retryable: false });
+  const cat = connectorByKey(connectorKey);
+  if (cat) {
+    if (cat.direction !== direction) throw bad(`Connector '${connectorKey}' là ${cat.direction}, không phải ${direction}.`);
+    return;
+  }
+  const r = await pool.query<{ direction: string }>("SELECT direction FROM cdp.connector WHERE key=$1", [connectorKey]);
+  const row = r.rows[0];
+  if (!row) throw bad(`Connector không tồn tại: ${connectorKey}.`);
+  if (row.direction !== direction) throw bad(`Connector '${connectorKey}' là ${row.direction}, không phải ${direction}.`);
+}
 
 // Connector & Pipeline builder (demo-grade): lưu connection/pipeline + connector tuỳ biến.
 // Không nối RudderStack live — trạng thái mô phỏng; đây là lớp cấu hình cho giai đoạn tích hợp.
@@ -126,6 +149,8 @@ export async function createConnection(
   pool: Pool,
   a: { name: string; direction: "source" | "destination"; connectorKey: string; config?: Record<string, unknown> | undefined; status?: Connection["status"] | undefined },
 ): Promise<Connection> {
+  // Validate connectorKey tồn tại + đúng direction (chống rò secret do key sai).
+  await assertConnectorExists(pool, a.connectorKey, a.direction);
   // Mã hoá field secret TRƯỚC khi lưu (AES-256-GCM) — không bao giờ lưu plaintext.
   const secretFields = await secretFieldsFor(pool, a.connectorKey);
   const storedConfig = encryptConfig(a.config ?? {}, secretFields);
