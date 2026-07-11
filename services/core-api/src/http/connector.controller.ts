@@ -21,6 +21,10 @@ import {
   applyTemplate,
   PipelineValidationError,
 } from "../connector/connector.service.js";
+import { testConnection } from "../connector/health.service.js";
+import { listEvents, listDeliveries } from "../connector/logs.service.js";
+import { dataSummary } from "../connector/data-summary.service.js";
+import { issueInboundToken } from "../connector/inbound.service.js";
 
 function notFound(entity: string): AppError {
   return new AppError({
@@ -85,6 +89,35 @@ export class ConnectorController {
   async deleteConnectionRoute(@Param("id") id: string) {
     if (!(await deleteConnection(this.pool, id))) throw notFound("connection");
     return { data: { deleted: true } };
+  }
+
+  // ── Vận hành THẬT: health-check, token cổng vào, nhật ký, tổng hợp data ──
+  @Post("connections/:id/test")
+  @HttpCode(200)
+  async testConnectionRoute(@Param("id") id: string) {
+    return { data: await testConnection(this.pool, id) };
+  }
+
+  @Post("connections/:id/inbound-token")
+  @HttpCode(201)
+  async inboundTokenRoute(@Param("id") id: string) {
+    // Reveal RAW token 1 lần (DB chỉ lưu sha256). Client phải lưu ngay.
+    return { data: { token: await issueInboundToken(this.pool, id) } };
+  }
+
+  @Get("connections/:id/events")
+  async connectionEvents(@Param("id") id: string) {
+    return { data: await listEvents(this.pool, id) };
+  }
+
+  @Get("connections/:id/deliveries")
+  async connectionDeliveries(@Param("id") id: string) {
+    return { data: await listDeliveries(this.pool, id) };
+  }
+
+  @Get("connections/:id/data-summary")
+  async connectionDataSummary(@Param("id") id: string) {
+    return { data: await dataSummary(this.pool, id) };
   }
 
   // ── Áp dụng mô hình dựng sẵn ──
