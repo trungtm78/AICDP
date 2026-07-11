@@ -93,4 +93,39 @@ describe("loyalty HTTP", () => {
     expect(r.status).toBe(400);
     expect(r.body.error.code).toBe("INVALID_AMOUNT");
   });
+
+  it("L1: adjust seed điểm brand -> convert sang group -> wallets phản ánh 2 ví", async () => {
+    const occId = await makeOcc("0901000010");
+    const aj = await http().post("/v1/loyalty/adjust")
+      .send({ occId, points: 100, currency: "GIVRAL_PT", idempotencyKey: "aj-1", reason: "seed" });
+    expect(aj.status).toBe(201);
+    const cv = await http().post("/v1/loyalty/convert")
+      .send({ occId, fromCurrency: "GIVRAL_PT", toCurrency: "OCC_POINT", points: 60, idempotencyKey: "cv-1" });
+    expect(cv.status).toBe(201);
+    expect(cv.body.data.toPoints).toBe(60);
+    const ws = await http().get("/v1/loyalty/wallets").query({ occId });
+    expect(ws.status).toBe(200);
+    const byCode = Object.fromEntries((ws.body.data as Array<{ currencyCode: string; available: number }>).map((w) => [w.currencyCode, w.available]));
+    expect(byCode["OCC_POINT"]).toBe(60);
+    expect(byCode["GIVRAL_PT"]).toBe(40);
+  });
+
+  it("L1: transfer điểm giữa 2 khách", async () => {
+    const a = await makeOcc("0901000011");
+    const b = await makeOcc("0901000012");
+    await http().post("/v1/loyalty/earn").send({ occId: a, points: 100, idempotencyKey: "e-a" });
+    const t = await http().post("/v1/loyalty/transfer")
+      .send({ fromOccId: a, toOccId: b, points: 30, idempotencyKey: "tf-1" });
+    expect(t.status).toBe(201);
+    const balB = await http().get("/v1/loyalty/balance").query({ occId: b });
+    expect(balB.body.data.available).toBe(30);
+  });
+
+  it("L1: convert loại điểm không tồn tại -> 400 CURRENCY_NOT_FOUND", async () => {
+    const occId = await makeOcc("0901000013");
+    const r = await http().post("/v1/loyalty/convert")
+      .send({ occId, fromCurrency: "NOPE", toCurrency: "OCC_POINT", points: 1, idempotencyKey: "cv-x" });
+    expect(r.status).toBe(400);
+    expect(r.body.error.code).toBe("CURRENCY_NOT_FOUND");
+  });
 });

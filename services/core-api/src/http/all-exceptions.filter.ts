@@ -40,6 +40,8 @@ export class AllExceptionsFilter implements ExceptionFilter {
         RESERVATION_NOT_FOUND: 404,
         RESERVATION_INVALID_STATE: 409,
         IDEMPOTENCY_CONFLICT: 409,
+        CURRENCY_NOT_FOUND: 400,
+        CONVERSION_NOT_FOUND: 400,
       };
       return new AppError({
         code: exception.code,

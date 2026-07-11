@@ -12,7 +12,9 @@ export type LoyaltyErrorCode =
   | "INSUFFICIENT_RESERVED"
   | "RESERVATION_NOT_FOUND"
   | "RESERVATION_INVALID_STATE"
-  | "IDEMPOTENCY_CONFLICT";
+  | "IDEMPOTENCY_CONFLICT"
+  | "CURRENCY_NOT_FOUND"
+  | "CONVERSION_NOT_FOUND";
 
 export class LoyaltyError extends Error {
   readonly code: LoyaltyErrorCode;
@@ -323,6 +325,202 @@ async function settleReservation(
 }
 
 /** Số dư điểm CHUNG (group currency) của 1 khách — mặc định (tương thích ngược). */
+// ── L1: đa-currency (convert / adjust / transfer) ──
+
+async function resolveCurrencyId(client: PoolClient, codeOrId: string): Promise<string> {
+  // Chấp nhận code (vd 'GIVRAL_PT') hoặc uuid; is_active bắt buộc.
+  const r = await client.query<{ id: string }>(
+    "SELECT id FROM cdp.point_currency WHERE (code=$1 OR id::text=$1) AND is_active",
+    [codeOrId],
+  );
+  if (!r.rows[0]) throw new LoyaltyError("CURRENCY_NOT_FOUND", `Loại điểm không tồn tại/không hoạt động: ${codeOrId}`);
+  return r.rows[0]!.id;
+}
+
+async function getConversionRate(client: PoolClient, fromId: string, toId: string): Promise<number> {
+  const r = await client.query<{ rate: string }>(
+    `SELECT rate::text AS rate FROM cdp.point_conversion
+      WHERE from_currency_id=$1 AND to_currency_id=$2
+        AND valid_from <= now() AND (valid_to IS NULL OR valid_to > now())
+      ORDER BY valid_from DESC LIMIT 1`,
+    [fromId, toId],
+  );
+  if (!r.rows[0]) throw new LoyaltyError("CONVERSION_NOT_FOUND", "Chưa cấu hình tỷ giá quy đổi giữa 2 loại điểm.");
+  return Number(r.rows[0]!.rate);
+}
+
+export interface ConvertArgs {
+  occId: string;
+  fromCurrency: string; // code hoặc id
+  toCurrency: string;
+  points: number; // số điểm 'from' đem đổi
+  idempotencyKey: string;
+  reason?: string | undefined;
+}
+export interface ConvertResult extends LoyaltyResult {
+  toPoints: number; // số điểm 'to' nhận được (floor theo tỷ giá)
+}
+
+/**
+ * ĐỔI ĐIỂM giữa 2 loại (vd điểm brand -> điểm CHUNG tập đoàn) theo point_conversion. Double-entry
+ * cân bằng PER currency: burn `points` ở 'from' (giảm liability from) + mint floor(points*rate) ở 'to'
+ * (tăng liability to). Cấm âm số dư 'from'. toPoints = floor(points*rate) (phần dư = spread, không mint).
+ */
+export async function convert(pool: Pool, a: ConvertArgs): Promise<ConvertResult> {
+  assertValidPoints(a.points);
+  let toPoints = 0;
+  const res = await runOp(
+    pool,
+    {
+      occId: a.occId,
+      idempotencyKey: a.idempotencyKey,
+      type: "convert",
+      fingerprint: `convert:${a.occId}:${a.fromCurrency}:${a.toCurrency}:${a.points}`,
+      ...(a.reason !== undefined ? { reason: a.reason } : {}),
+    },
+    async (ctx) => {
+      const fromId = await resolveCurrencyId(ctx.client, a.fromCurrency);
+      const toId = await resolveCurrencyId(ctx.client, a.toCurrency);
+      if (fromId === toId) throw new LoyaltyError("INVALID_AMOUNT", "Không thể đổi cùng một loại điểm.");
+      const rate = await getConversionRate(ctx.client, fromId, toId);
+      toPoints = Math.floor(a.points * rate);
+      if (toPoints <= 0) throw new LoyaltyError("INVALID_AMOUNT", "Số điểm quá nhỏ để quy đổi (nhận 0).");
+      await postEntries(ctx, [
+        { account: acc.available(a.occId), delta: -a.points, currencyId: fromId },
+        { account: acc.issued, delta: a.points, currencyId: fromId },     // giảm liability 'from'
+        { account: acc.available(a.occId), delta: toPoints, currencyId: toId },
+        { account: acc.issued, delta: -toPoints, currencyId: toId },       // tăng liability 'to'
+      ]);
+      const availFrom = await accountBalanceTx(ctx.client, acc.available(a.occId), fromId);
+      if (availFrom < 0) throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ điểm loại nguồn để đổi.");
+    },
+  );
+  return { ...res, toPoints };
+}
+
+export interface AdjustArgs {
+  occId: string;
+  points: number;    // ± (dương = cộng bù, âm = trừ/thu hồi)
+  currency?: string | undefined; // mặc định GROUP
+  idempotencyKey: string;
+  reason: string;    // BẮT BUỘC (audit)
+}
+
+/** Điều chỉnh thủ công (bù/thu hồi) có lý do + audit. Không được làm available âm. */
+export async function adjust(pool: Pool, a: AdjustArgs): Promise<LoyaltyResult> {
+  if (!Number.isSafeInteger(a.points) || a.points === 0 || Math.abs(a.points) > MAX_POINTS) {
+    throw new LoyaltyError("INVALID_AMOUNT", "Số điểm điều chỉnh phải là số nguyên khác 0 trong ngưỡng an toàn.");
+  }
+  return runOp(
+    pool,
+    {
+      occId: a.occId,
+      idempotencyKey: a.idempotencyKey,
+      type: "adjust",
+      fingerprint: `adjust:${a.occId}:${a.currency ?? "GROUP"}:${a.points}`,
+      reason: a.reason,
+    },
+    async (ctx) => {
+      const cur = a.currency ? await resolveCurrencyId(ctx.client, a.currency) : await getGroupCurrencyId(ctx.client);
+      // +available / -issued (cộng) hoặc -available / +issued (trừ): cân bằng.
+      await postEntries(ctx, [
+        { account: acc.available(a.occId), delta: a.points, currencyId: cur },
+        { account: acc.issued, delta: -a.points, currencyId: cur },
+      ]);
+      const avail = await accountBalanceTx(ctx.client, acc.available(a.occId), cur);
+      if (avail < 0) throw new LoyaltyError("INSUFFICIENT_BALANCE", "Điều chỉnh làm số dư âm — từ chối.");
+    },
+  );
+}
+
+export interface TransferArgs {
+  fromOccId: string;
+  toOccId: string;
+  points: number;
+  currency?: string | undefined; // mặc định GROUP
+  idempotencyKey: string;
+  reason?: string | undefined;
+}
+
+/** Chuyển điểm giữa 2 khách (cùng currency). Lock theo thứ tự occ (chống deadlock). Cấm âm nguồn. */
+export async function transfer(pool: Pool, a: TransferArgs): Promise<LoyaltyResult> {
+  assertValidPoints(a.points);
+  if (a.fromOccId === a.toOccId) throw new LoyaltyError("INVALID_AMOUNT", "Không thể chuyển cho chính mình.");
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    // Lock 2 occ theo thứ tự cố định (chống deadlock).
+    const [lo, hi] = [a.fromOccId, a.toOccId].sort();
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`loyalty:${lo}`]);
+    await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`loyalty:${hi}`]);
+
+    const existing = await client.query<{ txn_id: string; fingerprint: string }>(
+      "SELECT txn_id, fingerprint FROM cdp.loyalty_txn WHERE idempotency_key=$1", [a.idempotencyKey]);
+    const fp = `transfer:${a.fromOccId}:${a.toOccId}:${a.currency ?? "GROUP"}:${a.points}`;
+    const cur = a.currency ? await resolveCurrencyId(client, a.currency) : await getGroupCurrencyId(client);
+    if (existing.rows.length > 0) {
+      if (existing.rows[0]!.fingerprint !== fp) {
+        throw new LoyaltyError("IDEMPOTENCY_CONFLICT", "idempotency_key đã dùng cho thao tác khác.");
+      }
+      const balance = await balanceTx(client, a.fromOccId, cur);
+      await client.query("COMMIT");
+      return { txnId: existing.rows[0]!.txn_id, balance, idempotent: true };
+    }
+    const ins = await client.query<{ txn_id: string }>(
+      `INSERT INTO cdp.loyalty_txn (idempotency_key, type, occ_id, fingerprint, reason)
+       VALUES ($1,'transfer',$2,$3,$4) RETURNING txn_id`,
+      [a.idempotencyKey, a.fromOccId, fp, a.reason ?? null],
+    );
+    const txnId = ins.rows[0]!.txn_id;
+    await postEntries({ client, txnId }, [
+      { account: acc.available(a.fromOccId), delta: -a.points, currencyId: cur },
+      { account: acc.available(a.toOccId), delta: a.points, currencyId: cur },
+    ]);
+    const availFrom = await accountBalanceTx(client, acc.available(a.fromOccId), cur);
+    if (availFrom < 0) throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ điểm để chuyển.");
+    const balance = await balanceTx(client, a.fromOccId, cur);
+    await client.query("COMMIT");
+    return { txnId, balance, idempotent: false };
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export interface WalletBalance {
+  currencyId: string;
+  currencyCode: string;
+  currencyName: string;
+  kind: string;
+  available: number;
+  reserved: number;
+}
+
+/** Tất cả ví (đa-currency) của 1 khách — số dư per currency. */
+export async function listWallets(pool: Pool, occId: string): Promise<WalletBalance[]> {
+  const r = await pool.query<{
+    id: string; code: string; name: string; kind: string; available: string; reserved: string;
+  }>(
+    `SELECT c.id, c.code, c.name, c.kind,
+            COALESCE(sum(e.delta) FILTER (WHERE e.account=$1),0)::text AS available,
+            COALESCE(sum(e.delta) FILTER (WHERE e.account=$2),0)::text AS reserved
+       FROM cdp.point_currency c
+       LEFT JOIN cdp.loyalty_entry e ON e.currency_id=c.id AND e.account IN ($1,$2)
+      WHERE c.is_active
+      GROUP BY c.id, c.code, c.name, c.kind
+      HAVING COALESCE(sum(e.delta) FILTER (WHERE e.account=$1),0) <> 0
+          OR COALESCE(sum(e.delta) FILTER (WHERE e.account=$2),0) <> 0
+      ORDER BY c.kind DESC, c.code`,
+    [acc.available(occId), acc.reserved(occId)],
+  );
+  return r.rows.map((x) => ({
+    currencyId: x.id, currencyCode: x.code, currencyName: x.name, kind: x.kind,
+    available: Number(x.available), reserved: Number(x.reserved),
+  }));
+}
+
 export async function getBalance(pool: Pool, occId: string): Promise<LoyaltyBalance> {
   const client = await pool.connect();
   try {

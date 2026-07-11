@@ -7,8 +7,11 @@ import {
   loyaltyReserveSchema,
   loyaltyReservationOpSchema,
   loyaltyBalanceQuerySchema,
+  loyaltyConvertSchema,
+  loyaltyAdjustSchema,
+  loyaltyTransferSchema,
 } from "./schemas.js";
-import { earn, reserve, capture, release, getBalance, listMembers, listLedger } from "../loyalty/loyalty.service.js";
+import { earn, reserve, capture, release, getBalance, listMembers, listLedger, convert, adjust, transfer, listWallets } from "../loyalty/loyalty.service.js";
 import { Roles } from "./auth/roles.js";
 
 /** Loyalty double-entry: earn + reserve/capture/release (theo reservationId) + balance. */
@@ -56,6 +59,37 @@ export class LoyaltyController {
   async balance(@Query() query: Record<string, string>) {
     const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_balance");
     return { data: await getBalance(this.pool, occId) };
+  }
+
+  /** Đổi điểm giữa 2 loại (brand -> điểm CHUNG tập đoàn) theo tỷ giá. */
+  @Roles("csr")
+  @Post("convert")
+  async convert(@Body() body: unknown) {
+    const dto = validate(loyaltyConvertSchema, body, "loyalty_convert");
+    return { data: await convert(this.pool, dto) };
+  }
+
+  /** Điều chỉnh thủ công (bù/thu hồi) — cần data_steward (nhạy cảm, có audit). */
+  @Roles("data_steward")
+  @Post("adjust")
+  async adjust(@Body() body: unknown) {
+    const dto = validate(loyaltyAdjustSchema, body, "loyalty_adjust");
+    return { data: await adjust(this.pool, dto) };
+  }
+
+  /** Chuyển điểm giữa 2 khách (cùng loại điểm). */
+  @Roles("csr")
+  @Post("transfer")
+  async transfer(@Body() body: unknown) {
+    const dto = validate(loyaltyTransferSchema, body, "loyalty_transfer");
+    return { data: await transfer(this.pool, dto) };
+  }
+
+  /** Tất cả ví (đa-currency) của 1 khách. */
+  @Get("wallets")
+  async wallets(@Query() query: Record<string, string>) {
+    const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_wallets");
+    return { data: await listWallets(this.pool, occId) };
   }
 
   @Get("members")

@@ -103,6 +103,32 @@ export const loyaltyBalanceQuerySchema = z.object({
   occId: z.string().uuid(),
 });
 
+// L1 — đa-currency: convert / adjust / transfer
+const currencyCode = z.string().min(1).max(80);
+export const loyaltyConvertSchema = z.object({
+  occId: z.string().uuid(),
+  fromCurrency: currencyCode,
+  toCurrency: currencyCode,
+  points: pointsSchema.refine((n) => n > 0, "points phải > 0"),
+  idempotencyKey: z.string().min(1),
+  reason: z.string().max(500).optional(),
+});
+export const loyaltyAdjustSchema = z.object({
+  occId: z.string().uuid(),
+  points: z.number().int().safe(), // ± (khác 0 kiểm ở service)
+  currency: currencyCode.optional(),
+  idempotencyKey: z.string().min(1),
+  reason: z.string().min(1).max(500),
+});
+export const loyaltyTransferSchema = z.object({
+  fromOccId: z.string().uuid(),
+  toOccId: z.string().uuid(),
+  points: pointsSchema.refine((n) => n > 0, "points phải > 0"),
+  currency: currencyCode.optional(),
+  idempotencyKey: z.string().min(1),
+  reason: z.string().max(500).optional(),
+});
+
 // Purpose v1 (chốt danh mục để tránh ghi consent mục đích tùy tiện).
 export const consentPurposeEnum = z.enum([
   "marketing_email",
