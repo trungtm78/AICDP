@@ -53,8 +53,9 @@ export interface EarnRuleRow {
 }
 
 async function resolveCurrencyId(db: Pool | PoolClient, code: string): Promise<string> {
-  const r = await db.query<{ id: string }>("SELECT id FROM cdp.point_currency WHERE code=$1 AND is_active", [code]);
+  const r = await db.query<{ id: string; kind: string }>("SELECT id, kind FROM cdp.point_currency WHERE code=$1 AND is_active", [code]);
   if (!r.rows[0]) throw new EarnRuleError("CURRENCY_NOT_FOUND", `Loại điểm không tồn tại: ${code}`);
+  if (r.rows[0]!.kind === "STORED_VALUE") throw new EarnRuleError("INVALID_RULE", "OCC_CASH là ví tiền — không dùng cho earn rule điểm.");
   return r.rows[0]!.id;
 }
 

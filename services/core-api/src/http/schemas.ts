@@ -162,6 +162,15 @@ export const voucherUseSchema = z.object({
   idempotencyKey,
 });
 
+// L8 — thẻ + stored-value
+export const cardIssueSchema = z.object({ occId: z.string().uuid() });
+export const cardBlockSchema = z.object({ cardNo: z.string().min(1).max(60), status: z.enum(["blocked", "lost"]).optional() });
+export const storedValueSchema = z.object({
+  occId: z.string().uuid(),
+  amount: z.number().int().positive().safe(),
+  idempotencyKey,
+});
+
 // L6 — campaign / referral
 export const referralCreateSchema = z.object({ occId: z.string().uuid() });
 export const referralJoinSchema = z.object({

@@ -54,8 +54,9 @@ export async function computeLiabilitySnapshot(pool: Pool): Promise<LiabilityRow
   // cho cặp (company,currency) từng có snapshot nhưng nay cạn (liability giảm về 0, không stale).
   const r = await pool.query<Record<string, unknown>>(
     `WITH src AS (
-       SELECT issuing_company_id AS company, currency_id AS currency, points_remaining::numeric AS pts
-         FROM cdp.loyalty_lot WHERE status='active' AND points_remaining > 0
+       SELECT l.issuing_company_id AS company, l.currency_id AS currency, l.points_remaining::numeric AS pts
+         FROM cdp.loyalty_lot l JOIN cdp.point_currency pc ON pc.id=l.currency_id
+        WHERE l.status='active' AND l.points_remaining > 0 AND pc.kind <> 'STORED_VALUE'
        UNION ALL
        -- Điểm reserved (đang held) — bám issuing company gốc trong consumed_lots; currency = GROUP
        -- (reserve hiện chạy trên GROUP currency).

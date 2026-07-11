@@ -426,11 +426,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 type Queryable = { query: PoolClient["query"] };
 async function resolveCurrencyId(db: Queryable, codeOrId: string): Promise<string> {
   // Phân biệt rõ uuid vs code (tránh nhập nhằng nếu code trùng dạng uuid); is_active bắt buộc.
+  // CHẶN kind STORED_VALUE (tiền OCC_CASH) khỏi luồng ĐIỂM (convert/adjust/transfer) — tiền chỉ
+  // nạp/tiêu qua topUp/pay, KHÔNG được đúc/đốt như điểm.
   const sql = UUID_RE.test(codeOrId)
-    ? "SELECT id FROM cdp.point_currency WHERE id::text=$1 AND is_active LIMIT 1"
-    : "SELECT id FROM cdp.point_currency WHERE code=$1 AND is_active LIMIT 1";
-  const r = await db.query<{ id: string }>(sql, [codeOrId]);
+    ? "SELECT id, kind FROM cdp.point_currency WHERE id::text=$1 AND is_active LIMIT 1"
+    : "SELECT id, kind FROM cdp.point_currency WHERE code=$1 AND is_active LIMIT 1";
+  const r = await db.query<{ id: string; kind: string }>(sql, [codeOrId]);
   if (!r.rows[0]) throw new LoyaltyError("CURRENCY_NOT_FOUND", `Loại điểm không tồn tại/không hoạt động: ${codeOrId}`);
+  if (r.rows[0]!.kind === "STORED_VALUE") throw new LoyaltyError("CURRENCY_NOT_FOUND", "OCC_CASH là ví tiền — không dùng cho thao tác điểm (dùng topUp/pay).");
   return r.rows[0]!.id;
 }
 

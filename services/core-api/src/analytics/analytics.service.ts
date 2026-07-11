@@ -113,10 +113,12 @@ async function getOverviewFromPg(pool: Pool): Promise<Overview> {
        (SELECT count(*) FROM cdp.occ_identity WHERE status='active')        AS customers,
        (SELECT count(*) FROM cdp.canonical_transaction)                     AS transactions,
        (SELECT COALESCE(sum(total),0) FROM cdp.canonical_transaction)       AS revenue,
-       (SELECT COALESCE(sum(delta),0) FROM cdp.loyalty_entry
-          WHERE account LIKE 'member:%:available')                          AS loyalty_available,
-       (SELECT COALESCE(sum(delta),0) FROM cdp.loyalty_entry
-          WHERE account LIKE 'member:%:reserved')                           AS loyalty_reserved,
+       (SELECT COALESCE(sum(e.delta),0) FROM cdp.loyalty_entry e
+          JOIN cdp.point_currency c ON c.id=e.currency_id
+          WHERE e.account LIKE 'member:%:available' AND c.kind <> 'STORED_VALUE') AS loyalty_available,
+       (SELECT COALESCE(sum(e.delta),0) FROM cdp.loyalty_entry e
+          JOIN cdp.point_currency c ON c.id=e.currency_id
+          WHERE e.account LIKE 'member:%:reserved' AND c.kind <> 'STORED_VALUE')  AS loyalty_reserved,
        (SELECT COALESCE(sum(allowed_count),0) FROM cdp.activation_run)      AS activation_allowed,
        (SELECT COALESCE(sum(suppressed_count),0) FROM cdp.activation_run)   AS activation_suppressed,
        (SELECT count(*) FROM cdp.brand)                                     AS brands,

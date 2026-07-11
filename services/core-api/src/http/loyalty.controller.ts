@@ -16,6 +16,9 @@ import {
   voucherUseSchema,
   referralCreateSchema,
   referralJoinSchema,
+  cardIssueSchema,
+  cardBlockSchema,
+  storedValueSchema,
 } from "./schemas.js";
 import { earn, reserve, capture, release, getBalance, listMembers, listLedger, convert, adjust, transfer, listWallets } from "../loyalty/loyalty.service.js";
 import { setEarnRule, listEarnRules, listEarnRuleAudit, processUnearnedTransactions } from "../loyalty/earn-rule.service.js";
@@ -23,6 +26,7 @@ import { listTierGroups, listTiers, getMemberTiers, recomputeMemberTier, recompu
 import { listRewards, redeemReward, listMemberVouchers, useVoucher } from "../loyalty/reward.service.js";
 import { listChallenges, getMemberProgress, createReferralCode, joinReferral } from "../loyalty/campaign.service.js";
 import { computeLiabilitySnapshot, getLatestLiability, getSettlementReport, setPointPrice } from "../loyalty/liability.service.js";
+import { issueCard, resolveByCard, blockCard, topUp, payWithStoredValue, storedValueBalance } from "../loyalty/card.service.js";
 import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
@@ -282,5 +286,56 @@ export class LoyaltyController {
   async settlement(@Query() query: Record<string, string>) {
     const period = query["period"] ?? new Date().toISOString().slice(0, 7);
     return { data: await getSettlementReport(this.pool, period) };
+  }
+
+  // ── L8: thẻ thành viên (card/QR) + stored-value wallet ──
+
+  /** Phát thẻ cho khách — cần csr. */
+  @Roles("csr")
+  @Post("cards/issue")
+  async issueCard(@Body() body: unknown) {
+    const { occId } = validate(cardIssueSchema, body, "loyalty_card_issue");
+    return { data: await issueCard(this.pool, occId) };
+  }
+
+  /** Resolve khách theo số thẻ / QR token (POS) — cần csr. */
+  @Roles("csr")
+  @Get("cards/resolve")
+  async resolveCard(@Query() query: Record<string, string>) {
+    const q = (query["q"] ?? "").trim();
+    if (!q) return { error: { code: "INVALID_AMOUNT", message: "Thiếu tham số q (số thẻ / QR token)." } };
+    return { data: await resolveByCard(this.pool, q) };
+  }
+
+  /** Khóa thẻ (mất/thu hồi) — cần csr. */
+  @Roles("csr")
+  @Post("cards/block")
+  async blockCard(@Body() body: unknown) {
+    const dto = validate(cardBlockSchema, body, "loyalty_card_block");
+    await blockCard(this.pool, dto.cardNo, dto.status ?? "blocked");
+    return { data: { ok: true } };
+  }
+
+  /** Nạp tiền ví stored-value — cần csr. */
+  @Roles("csr")
+  @Post("stored-value/topup")
+  async svTopup(@Body() body: unknown) {
+    const dto = validate(storedValueSchema, body, "loyalty_sv_topup");
+    return { data: await topUp(this.pool, dto.occId, dto.amount, dto.idempotencyKey) };
+  }
+
+  /** Chi tiêu ví stored-value — cần csr. */
+  @Roles("csr")
+  @Post("stored-value/pay")
+  async svPay(@Body() body: unknown) {
+    const dto = validate(storedValueSchema, body, "loyalty_sv_pay");
+    return { data: await payWithStoredValue(this.pool, dto.occId, dto.amount, dto.idempotencyKey) };
+  }
+
+  /** Số dư ví stored-value. */
+  @Get("stored-value/balance")
+  async svBalance(@Query() query: Record<string, string>) {
+    const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_sv_balance");
+    return { data: { balance: await storedValueBalance(this.pool, occId) } };
   }
 }
