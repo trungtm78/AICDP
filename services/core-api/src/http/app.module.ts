@@ -32,6 +32,7 @@ import { McpController } from "./mcp.controller.js";
 import { JourneyScheduler } from "../journey/journey-scheduler.js";
 import { LoyaltyExpiryScheduler } from "../loyalty/loyalty-expiry.scheduler.js";
 import { LoyaltyEarnScheduler } from "../loyalty/loyalty-earn.scheduler.js";
+import { LoyaltyTierScheduler } from "../loyalty/loyalty-tier.scheduler.js";
 
 @Module({
   controllers: [
@@ -65,6 +66,7 @@ import { LoyaltyEarnScheduler } from "../loyalty/loyalty-earn.scheduler.js";
     JourneyScheduler,
     LoyaltyExpiryScheduler,
     LoyaltyEarnScheduler,
+    LoyaltyTierScheduler,
     // Thứ tự guard: rate-limit IP PRE-AUTH (shed flood trước khi tốn JWT/DB) -> xác thực
     // (AuthGuard) -> rate-limit theo principal/login (RateLimitGuard) -> phân quyền (RolesGuard).
     { provide: APP_GUARD, useClass: IpRateLimitGuard },

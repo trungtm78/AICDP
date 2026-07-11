@@ -15,6 +15,7 @@ import {
 } from "./schemas.js";
 import { earn, reserve, capture, release, getBalance, listMembers, listLedger, convert, adjust, transfer, listWallets } from "../loyalty/loyalty.service.js";
 import { setEarnRule, listEarnRules, listEarnRuleAudit, processUnearnedTransactions } from "../loyalty/earn-rule.service.js";
+import { listTierGroups, listTiers, getMemberTiers, recomputeMemberTier, recomputeAllTiers } from "../loyalty/tier.service.js";
 import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
@@ -137,5 +138,39 @@ export class LoyaltyController {
   @Post("earn-run")
   async earnRun() {
     return { data: await processUnearnedTransactions(this.pool) };
+  }
+
+  // ── L4: tier engine ──
+
+  /** Danh sách nhóm hạng + các hạng của từng nhóm. */
+  @Get("tier-groups")
+  async tierGroups() {
+    const groups = await listTierGroups(this.pool);
+    const withTiers = await Promise.all(groups.map(async (g) => ({ ...g, tiers: await listTiers(this.pool, g.id) })));
+    return { data: withTiers };
+  }
+
+  /** Hạng hiện tại của một khách (mọi nhóm). */
+  @Get("tiers")
+  async memberTiers(@Query() query: Record<string, string>) {
+    const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_member_tiers");
+    return { data: await getMemberTiers(this.pool, occId) };
+  }
+
+  /** Tính lại hạng cho 1 khách (mọi nhóm active) — cần csr. */
+  @Roles("csr")
+  @Post("tiers/recompute")
+  async recomputeTier(@Body() body: unknown) {
+    const { occId } = validate(loyaltyBalanceQuerySchema, body, "loyalty_recompute_tier");
+    const groups = await listTierGroups(this.pool);
+    for (const g of groups) await recomputeMemberTier(this.pool, occId, g.id);
+    return { data: await getMemberTiers(this.pool, occId) };
+  }
+
+  /** Tính lại hạng toàn hệ (quét) — cần admin. */
+  @Roles("admin")
+  @Post("tiers/recompute-all")
+  async recomputeAllTiers() {
+    return { data: await recomputeAllTiers(this.pool) };
   }
 }

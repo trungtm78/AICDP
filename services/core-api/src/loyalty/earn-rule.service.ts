@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { postAutoEarnTx, MAX_POINTS } from "./loyalty.service.js";
+import { getMemberEarnMultiplier } from "./tier.service.js";
 
 // L3 — Earn rule engine (no-code, append-only + audit) + auto-earn từ canonical_transaction.
 // Quy tắc tích điểm là DATA: rate theo tiền × multiplier, scope brand/kênh, điều kiện jsonb, phân
@@ -214,7 +215,10 @@ export async function earnForTransaction(pool: Pool, messageId: string): Promise
     if (rule) {
       // Cap trần an toàn (hóa đơn rất lớn × rate) -> KHÔNG để ném INVALID_AMOUNT làm kẹt record.
       const raw = BigInt(rule.pts);
-      const points = raw > BigInt(MAX_POINTS) ? MAX_POINTS : Number(raw);
+      const ruleP = raw > BigInt(MAX_POINTS) ? MAX_POINTS : Number(raw);
+      // Áp benefit hạng (L4): nhân earn_multiplier lớn nhất của hạng hiện tại rồi cap lại.
+      const mult = await getMemberEarnMultiplier(client, t.occ_id);
+      const points = Math.min(Math.floor(ruleP * mult), MAX_POINTS);
       if (points > 0) {
         earned = await postAutoEarnTx(client, {
           occId: t.occ_id, points, currencyId: rule.currency_id, messageId,
