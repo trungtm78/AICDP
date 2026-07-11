@@ -6,6 +6,7 @@ import {
   templateByKey,
   type CatalogConnector,
 } from "./catalog.js";
+import { encryptConfig, decryptConfig, maskConfig } from "./secrets.js";
 
 // Connector & Pipeline builder (demo-grade): lưu connection/pipeline + connector tuỳ biến.
 // Không nối RudderStack live — trạng thái mô phỏng; đây là lớp cấu hình cho giai đoạn tích hợp.
@@ -79,11 +80,39 @@ interface ConnectionRow {
   id: string; name: string; direction: "source" | "destination"; connector_key: string;
   config: Record<string, unknown>; status: Connection["status"]; created_at: string;
 }
+// config trả ra API LUÔN mask secret (không bao giờ lộ plaintext/ciphertext ra client).
 const mapConnection = (r: ConnectionRow): Connection => ({
   id: r.id, name: r.name, direction: r.direction, connectorKey: r.connector_key,
   connectorName: connectorByKey(r.connector_key)?.name ?? r.connector_key,
-  config: r.config ?? {}, status: r.status, createdAt: r.created_at,
+  config: maskConfig(r.config ?? {}), status: r.status, createdAt: r.created_at,
 });
+
+/** Field secret của connector (từ catalog tĩnh; nếu là custom -> đọc config_schema). */
+export async function secretFieldsFor(pool: Pool, connectorKey: string): Promise<string[]> {
+  const cat = connectorByKey(connectorKey);
+  if (cat) return cat.configFields.filter((f) => f.secret).map((f) => f.key);
+  const r = await pool.query<{ config_schema: unknown }>(
+    "SELECT config_schema FROM cdp.connector WHERE key=$1", [connectorKey],
+  );
+  const schema = r.rows[0]?.config_schema;
+  if (!Array.isArray(schema)) return [];
+  return (schema as Array<{ key?: string; secret?: boolean }>)
+    .filter((f) => f.secret && typeof f.key === "string")
+    .map((f) => f.key as string);
+}
+
+/** Đọc config ĐÃ GIẢI MÃ của 1 connection (CHỈ dùng nội bộ: giao hàng/health/pull — KHÔNG trả client). */
+export async function getConnectionConfigDecrypted(
+  pool: Pool,
+  id: string,
+): Promise<{ connectorKey: string; config: Record<string, unknown> } | null> {
+  const r = await pool.query<{ connector_key: string; config: Record<string, unknown> }>(
+    "SELECT connector_key, config FROM cdp.connection WHERE id=$1", [id],
+  );
+  const row = r.rows[0];
+  if (!row) return null;
+  return { connectorKey: row.connector_key, config: decryptConfig(row.config ?? {}) };
+}
 
 export async function listConnections(pool: Pool): Promise<Connection[]> {
   const r = await pool.query<ConnectionRow>(
@@ -97,11 +126,14 @@ export async function createConnection(
   pool: Pool,
   a: { name: string; direction: "source" | "destination"; connectorKey: string; config?: Record<string, unknown> | undefined; status?: Connection["status"] | undefined },
 ): Promise<Connection> {
+  // Mã hoá field secret TRƯỚC khi lưu (AES-256-GCM) — không bao giờ lưu plaintext.
+  const secretFields = await secretFieldsFor(pool, a.connectorKey);
+  const storedConfig = encryptConfig(a.config ?? {}, secretFields);
   const r = await pool.query<ConnectionRow>(
     `INSERT INTO cdp.connection (name, direction, connector_key, config, status)
      VALUES ($1,$2,$3,$4::jsonb,$5)
      RETURNING id, name, direction, connector_key, config, status, created_at`,
-    [a.name, a.direction, a.connectorKey, JSON.stringify(a.config ?? {}), a.status ?? "active"],
+    [a.name, a.direction, a.connectorKey, JSON.stringify(storedConfig), a.status ?? "active"],
   );
   return mapConnection(r.rows[0]!);
 }

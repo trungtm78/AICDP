@@ -27,11 +27,23 @@
 - [x] **Task 2 — Secret encryption** `src/connector/secrets.ts`(+spec): AES-256-GCM encrypt/decrypt/mask + encrypt/decrypt/maskConfig + `getConnectorSecretKey` (fail-fast prod). 14 test PASS, line **97.5%**. ErrorCode connector thêm ở `src/http/errors.ts`.
 - [x] **Task 3 — Migration 024** `db/migrations/024_connector_live.sql`: connection cols (inbound_token_hash, oauth_state, last_checked_at, last_error, pull_cursor) + `connector_event` + `connector_delivery` (FK cascade). Thêm vào `test-helpers/db.ts` truncateAll. Spec `connector-schema.spec.ts` 4 test (chạy migration thật PG18 + CHECK + cascade).
 - [x] **Task 4 — Framework core**: `signing.ts` (hmacHex/verifyHmac/timingSafeEqualStr — 100%) + `adapters/types.ts` (interfaces) + `adapters/registry.ts` (register/get/installStatus — 100%) + `http-client.ts` (safeFetch: assertSafeUrl + pin IP undici Agent + timeout + redirect-manual + CRLF strip; 93% line). Dep thêm: `undici` (types + Agent). 21 test.
-- [ ] **Task 5 — services nền + endpoints** (ĐANG TỚI): `delivery.service.ts` (ghi/redrive connector_delivery), `health.service.ts` (testConnection real), `data-summary.service.ts` (đếm theo entity), `inbound.service.ts` (token). Sửa `connector.service.ts` encryptConfig lúc tạo + maskConfig lúc đọc (VÁ lỗ hổng plaintext). Endpoint: POST /connections/:id/test, /test-send, GET /connections/:id/{events,deliveries,data-summary}. Đăng ký DI + schemas.
-- [ ] Checkpoint Phase 1: verification-before-completion → /review → /codex.
+- [x] **Task 5a — VÁ lỗ hổng plaintext (P0)**: `connector.service.ts` — `createConnection` encryptConfig(secret fields) trước INSERT; `mapConnection` maskConfig (API luôn mask, không lộ plaintext/ciphertext); thêm `secretFieldsFor` (catalog ∪ custom config_schema) + `getConnectionConfigDecrypted` (nội bộ, giải mã). Spec `connector-secrets.spec.ts` 5 test (real DB): mask trả API, DB lưu ciphertext, decrypt nội bộ, secretFieldsFor catalog+custom.
+- [ ] **Task 5b — services nền + endpoints** (RESUME TỪ ĐÂY): 
+  - `delivery.service.ts`: `recordDelivery(pool, {...})` INSERT connector_delivery; `listDeliveries(pool, connectionId)`; `recordEvent(pool,{...})` INSERT connector_event; `listEvents(pool, connectionId)`. (redrive/deliverRun THẬT để Phase 4.)
+  - `data-summary.service.ts`: `dataSummary(pool, connectionId)` đếm connector_event theo status/event_type + connector_delivery theo status → map sang chip data-entity (dùng `dataEntities` — SẼ thêm vào catalog metadata ở Phase 7/khi cần). Phase 1 chỉ cần đếm event/delivery.
+  - `health.service.ts`: `testConnection(pool, id)` — lấy getConnectionConfigDecrypted + registry.getOutbound(connectorKey); có adapter → gọi healthCheck, set last_checked_at/last_error/status ('active'|'error'); không adapter → INTEGRATION_NOT_AVAILABLE. TDD với fake adapter đăng ký registry.
+  - `inbound.service.ts`: `issueInboundToken(pool,id)` randomBytes(24) reveal raw 1 lần + lưu sha256 vào inbound_token_hash; `resolveInboundConnection(pool, id, token)` timingSafeEqualStr hash, status active, direction source.
+  - Endpoints trong `connector.controller.ts` (đã @Roles data_steward): `POST /connections/:id/test` (health), `GET /connections/:id/events`, `GET /connections/:id/deliveries`, `GET /connections/:id/data-summary`, `POST /connections/:id/inbound-token` (reveal 1 lần). Zod schema mới trong `http/schemas.ts` nếu cần body.
+  - Lưu ý: các service nhận `pool` tham số (không DI) như connector.service hiện tại; controller inject PG_POOL sẵn.
+- [ ] Checkpoint Phase 1: verification-before-completion → /review → /codex (SAU review).
 
 ## Test/coverage
-- Full BE suite: **389 PASS / 0 FAIL** · tsc BE sạch. Coverage patch mỗi file ≥90% line (ssrf 92%, secrets 97.5%, signing 100%, registry 100%, http-client 93%).
+- Full BE suite: **394 PASS / 0 FAIL** · tsc BE sạch. Coverage patch mỗi file ≥90% line (ssrf 92%, secrets 97.5%, signing 100%, registry 100%, http-client 93%, connector-secrets qua real-DB spec).
+
+## Commit đã tạo (Phase 1)
+- `6f79aba` Task 1-2 (ssrf-guard + secrets + ErrorCode + coverage-v8)
+- `b36cabb` Task 3-4 (migration 024 + signing/registry/http-client + undici)
+- (kế) Task 5a connector.service encrypt/mask
 
 ## Nợ/lưu ý
 - Lỗ hổng hiện trạng: `cdp.connection.config` lưu plaintext + trả nguyên qua `GET /connections` (`connector.service.ts:100`, `connector.controller.ts:66`) → Task 5/FE vá bằng encryptConfig lúc tạo + maskConfig lúc đọc.
