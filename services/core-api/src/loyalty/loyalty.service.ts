@@ -62,7 +62,7 @@ export function _resetLoyaltyCurrencyCache(): void {
   groupCurrencyId = null;
 }
 
-const MAX_POINTS = 1_000_000_000; // trần an toàn, dưới Number.MAX_SAFE_INTEGER rất xa
+export const MAX_POINTS = 1_000_000_000; // trần an toàn, dưới Number.MAX_SAFE_INTEGER rất xa
 
 function assertValidPoints(points: number): void {
   if (!Number.isSafeInteger(points) || points <= 0 || points > MAX_POINTS) {
@@ -79,6 +79,15 @@ interface OpMeta {
   type: string;
   fingerprint: string;
   reason?: string;
+  // Scope (ghi vào loyalty_txn — phục vụ auto-earn/báo cáo/liability theo brand/kênh). Optional, mặc định null.
+  brandId?: string;
+  storeId?: string;
+  source?: string;
+  refMessageId?: string;
+  correlationId?: string;
+  qualifying?: boolean;
+  // Currency dùng cho balance TRẢ VỀ (mặc định GROUP). Thao tác đa-currency đặt để balance khớp ví.
+  balanceCurrencyId?: string;
 }
 
 interface OpCtx {
@@ -115,21 +124,24 @@ async function runOp(
           "idempotency_key đã dùng cho thao tác khác (tham số không khớp).",
         );
       }
-      const balance = await balanceTx(client, meta.occId, await getGroupCurrencyId(client));
+      const balance = await balanceTx(client, meta.occId, meta.balanceCurrencyId ?? await getGroupCurrencyId(client));
       await client.query("COMMIT");
       return { txnId: row.txn_id, balance, idempotent: true };
     }
 
     const ins = await client.query<{ txn_id: string }>(
-      `INSERT INTO cdp.loyalty_txn (idempotency_key, type, occ_id, fingerprint, reason)
-       VALUES ($1,$2,$3,$4,$5) RETURNING txn_id`,
-      [meta.idempotencyKey, meta.type, meta.occId, meta.fingerprint, meta.reason ?? null],
+      `INSERT INTO cdp.loyalty_txn
+         (idempotency_key, type, occ_id, fingerprint, reason, brand_id, store_id, source, ref_message_id, correlation_id, qualifying)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING txn_id`,
+      [meta.idempotencyKey, meta.type, meta.occId, meta.fingerprint, meta.reason ?? null,
+       meta.brandId ?? null, meta.storeId ?? null, meta.source ?? null, meta.refMessageId ?? null,
+       meta.correlationId ?? null, meta.qualifying ?? true],
     );
     const txnId = ins.rows[0]!.txn_id;
 
     await work({ client, txnId });
 
-    const balance = await balanceTx(client, meta.occId, await getGroupCurrencyId(client));
+    const balance = await balanceTx(client, meta.occId, meta.balanceCurrencyId ?? await getGroupCurrencyId(client));
     await client.query("COMMIT");
     return { txnId, balance, idempotent: false };
   } catch (err) {
@@ -200,6 +212,44 @@ export async function earn(pool: Pool, a: EarnArgs): Promise<LoyaltyResult> {
       await createLotTx(ctx.client, a.occId, cur, a.points, ctx.txnId); // lô có hạn (L2)
     },
   );
+}
+
+export interface AutoEarnArgs {
+  occId: string;
+  points: number;
+  currencyId: string;      // tích vào loại điểm nào (brand currency / group)
+  messageId: string;       // canonical_transaction.message_id (idempotency + ref)
+  brandId?: string;
+  storeId?: string;
+  source?: string;
+  qualifying: boolean;     // true = điểm tính hạng
+}
+
+/**
+ * Phát hành điểm auto-earn theo rule (L3), CHẠY TRONG transaction của caller (client đã BEGIN +
+ * advisory-lock occ) — atomic với việc set canonical_transaction.loyalty_earned. Idempotent qua
+ * key ỔN ĐỊNH `sys:autoearn:{messageId}` (fingerprint = key, KHÔNG phụ thuộc points -> replay khi
+ * rule đổi vẫn idempotent, không IDEMPOTENCY_CONFLICT). Trả điểm đã tích (0 nếu đã tích trước đó).
+ */
+export async function postAutoEarnTx(client: PoolClient, a: AutoEarnArgs): Promise<number> {
+  assertValidPoints(a.points);
+  const key = `sys:autoearn:${a.messageId}`;
+  const ins = await client.query<{ txn_id: string }>(
+    `INSERT INTO cdp.loyalty_txn
+       (idempotency_key, type, occ_id, fingerprint, reason, brand_id, store_id, source, ref_message_id, qualifying)
+     VALUES ($1,'earn',$2,$1,'auto-earn',$3,$4,$5,$6,$7)
+     ON CONFLICT (idempotency_key) DO NOTHING RETURNING txn_id`,
+    [key, a.occId, a.brandId ?? null, a.storeId ?? null, a.source ?? null, a.messageId, a.qualifying],
+  );
+  if (ins.rows.length === 0) return 0; // đã tích trước đó (idempotent)
+  const txnId = ins.rows[0]!.txn_id;
+  await client.query(
+    `INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id)
+     VALUES ($1,$2,$3::bigint,$4),($1,$5,(-$3::bigint),$4)`,
+    [txnId, acc.available(a.occId), String(a.points), a.currencyId, acc.issued],
+  );
+  await createLotTx(client, a.occId, a.currencyId, a.points, txnId);
+  return a.points;
 }
 
 export interface ReserveArgs {

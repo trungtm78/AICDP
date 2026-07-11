@@ -1,4 +1,5 @@
-import { Controller, Post, Get, Body, Query, Inject } from "@nestjs/common";
+import { Controller, Post, Get, Body, Query, Inject, Param, Req } from "@nestjs/common";
+import type { Request } from "express";
 import type { Pool } from "pg";
 import { PG_POOL } from "./pg.provider.js";
 import { validate } from "./validate.js";
@@ -10,9 +11,12 @@ import {
   loyaltyConvertSchema,
   loyaltyAdjustSchema,
   loyaltyTransferSchema,
+  earnRuleSchema,
 } from "./schemas.js";
 import { earn, reserve, capture, release, getBalance, listMembers, listLedger, convert, adjust, transfer, listWallets } from "../loyalty/loyalty.service.js";
+import { setEarnRule, listEarnRules, listEarnRuleAudit, processUnearnedTransactions } from "../loyalty/earn-rule.service.js";
 import { Roles } from "./auth/roles.js";
+import type { AuthContext } from "./auth/roles.js";
 
 /** Loyalty double-entry: earn + reserve/capture/release (theo reservationId) + balance. */
 @Roles("csr", "analyst")
@@ -103,5 +107,35 @@ export class LoyaltyController {
   async ledger(@Query() query: Record<string, string>) {
     const { occId } = validate(loyaltyBalanceQuerySchema, query, "loyalty_ledger");
     return { data: await listLedger(this.pool, occId) };
+  }
+
+  // ── L3: earn rule engine (no-code) + auto-earn ──
+
+  /** Tạo/ghi đè quy tắc tích điểm (append-only, có audit) — cần data_steward. */
+  @Roles("data_steward")
+  @Post("earn-rules")
+  async createEarnRule(@Body() body: unknown, @Req() req: Request) {
+    const dto = validate(earnRuleSchema, body, "loyalty_earn_rule");
+    const changedBy = (req as Request & { auth?: AuthContext }).auth?.principalId ?? "unknown";
+    return { data: await setEarnRule(this.pool, dto, changedBy) };
+  }
+
+  /** Danh sách quy tắc đang hiệu lực. */
+  @Get("earn-rules")
+  async earnRules() {
+    return { data: await listEarnRules(this.pool) };
+  }
+
+  /** Lịch sử audit của một ruleKey. */
+  @Get("earn-rules/:ruleKey/audit")
+  async earnRuleAudit(@Param("ruleKey") ruleKey: string) {
+    return { data: await listEarnRuleAudit(this.pool, ruleKey) };
+  }
+
+  /** Kích hoạt thủ công lượt auto-earn (quét giao dịch chưa tích) — cần admin. */
+  @Roles("admin")
+  @Post("earn-run")
+  async earnRun() {
+    return { data: await processUnearnedTransactions(this.pool) };
   }
 }

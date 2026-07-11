@@ -132,6 +132,23 @@ export const loyaltyTransferSchema = z.object({
   reason: z.string().max(500).optional(),
 });
 
+// L3 — earn rule (no-code, append-only + audit)
+export const earnRuleSchema = z.object({
+  ruleKey: z.string().min(1).max(80).refine((s) => !s.startsWith("sys:"), "ruleKey không được bắt đầu 'sys:'"),
+  name: z.string().min(1).max(200),
+  currencyCode: currencyCode,
+  ratePerUnit: z.number().nonnegative().finite(),
+  multiplier: z.number().nonnegative().finite().optional(),
+  brandId: z.string().min(1).nullable().optional(),
+  channel: z.string().min(1).max(50).nullable().optional(),
+  minAmount: z.number().int().nonnegative().safe().optional(),
+  qualifying: z.boolean().optional(),
+  priority: z.number().int().optional(),
+  conditions: z.record(z.unknown()).optional(),
+  validFrom: z.string().datetime({ offset: true }).nullable().optional(),
+  validTo: z.string().datetime({ offset: true }).nullable().optional(),
+});
+
 // Purpose v1 (chốt danh mục để tránh ghi consent mục đích tùy tiện).
 export const consentPurposeEnum = z.enum([
   "marketing_email",

@@ -135,4 +135,22 @@ describe("loyalty HTTP", () => {
     expect(r.status).toBe(400);
     expect(r.body.error.code).toBe("CURRENCY_NOT_FOUND");
   });
+
+  it("L3: tạo earn-rule (append-only) -> list phản ánh; audit ghi lại", async () => {
+    const c = await http().post("/v1/loyalty/earn-rules")
+      .send({ ruleKey: "base", name: "Base", currencyCode: "OCC_POINT", ratePerUnit: 0.001 });
+    expect(c.status).toBe(201);
+    expect(c.body.data.version).toBe(1);
+    const list = await http().get("/v1/loyalty/earn-rules");
+    expect(list.status).toBe(200);
+    expect((list.body.data as Array<{ ruleKey: string }>).some((r) => r.ruleKey === "base")).toBe(true);
+    const audit = await http().get("/v1/loyalty/earn-rules/base/audit");
+    expect(audit.body.data.length).toBe(1);
+  });
+
+  it("L3: earn-rules ruleKey 'sys:' -> 400 (reserved)", async () => {
+    const r = await http().post("/v1/loyalty/earn-rules")
+      .send({ ruleKey: "sys:hack", name: "x", currencyCode: "OCC_POINT", ratePerUnit: 0.001 });
+    expect(r.status).toBe(400);
+  });
 });
