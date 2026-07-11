@@ -4,6 +4,8 @@ import type { INestApplication } from "@nestjs/common";
 import { AppModule } from "./app.module.js";
 import { AllExceptionsFilter } from "./all-exceptions.filter.js";
 import { correlationMiddleware } from "./correlation.middleware.js";
+// Side-effect: đăng ký adapter connector thật (inbound-pull, outbound...) vào registry.
+import "../connector/adapters/register-all.js";
 
 /**
  * Parse TRUST_PROXY: trống/'false' -> null (tắt); 'true' -> true; số nguyên dương -> số hop.

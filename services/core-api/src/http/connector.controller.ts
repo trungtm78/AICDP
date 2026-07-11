@@ -25,6 +25,7 @@ import { testConnection } from "../connector/health.service.js";
 import { listEvents, listDeliveries } from "../connector/logs.service.js";
 import { dataSummary } from "../connector/data-summary.service.js";
 import { issueInboundToken } from "../connector/inbound.service.js";
+import { pullConnection } from "../connector/inbound-pull.service.js";
 
 function notFound(entity: string): AppError {
   return new AppError({
@@ -96,6 +97,13 @@ export class ConnectorController {
   @HttpCode(200)
   async testConnectionRoute(@Param("id") id: string) {
     return { data: await testConnection(this.pool, id) };
+  }
+
+  @Post("connections/:id/pull")
+  @HttpCode(200)
+  async pullConnectionRoute(@Param("id") id: string) {
+    // Reverse-ETL: kéo dữ liệu nguồn (SELECT-only) nạp vào CDP. Xem inbound-pull.service.
+    return { data: await pullConnection(this.pool, id) };
   }
 
   @Post("connections/:id/inbound-token")
