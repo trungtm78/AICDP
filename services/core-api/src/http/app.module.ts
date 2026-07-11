@@ -24,6 +24,7 @@ import { AssistantController } from "./assistant.controller.js";
 import { JourneyController } from "./journey.controller.js";
 import { AuthController } from "./auth.controller.js";
 import { ConnectorController } from "./connector.controller.js";
+import { ConnectorIngestController } from "./connector-ingest.controller.js";
 import { PredictionController } from "./prediction.controller.js";
 import { DecisioningController } from "./decisioning.controller.js";
 import { RtController } from "./rt.controller.js";
@@ -48,6 +49,7 @@ import { JourneyScheduler } from "../journey/journey-scheduler.js";
     AssistantController,
     JourneyController,
     ConnectorController,
+    ConnectorIngestController,
     PredictionController,
     DecisioningController,
     RtController,

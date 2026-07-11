@@ -424,3 +424,60 @@ export const pipelineSaveSchema = z.object({
 });
 export const pipelineStatusSchema = z.object({ status: z.enum(["active", "paused", "draft"]) });
 export const applyTemplateSchema = z.object({ templateKey: z.string().min(1).max(80) });
+
+// ── Phase 2: INBOUND webhook (payload webhook-native; brand_id LẤY TỪ connection, KHÔNG từ payload) ──
+// .strict(): field lạ (vd brand_id spoof) -> 400 fail-closed, không âm thầm bỏ qua.
+export const inboundOrderSchema = z
+  .object({
+    type: z.literal("order_completed"),
+    store_id: z.string().min(1).max(120),
+    source: z.string().min(1).max(80).optional(),
+    occ_timestamp: z.string().datetime({ offset: true }).optional(),
+    identifiers: z.array(identifierSchema).max(20).optional(),
+    properties: z
+      .object({
+        pos_transaction_id: z.string().min(1).max(200),
+        currency: z.string().max(10).optional(),
+        total: z.number().finite(),
+        payment_method: z.string().max(60).optional(),
+        business_date: z.string().date().optional(),
+        items: z.array(z.unknown()).max(500).optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const inboundIdentifySchema = z
+  .object({
+    type: z.literal("identify"),
+    identifiers: z.array(identifierSchema).min(1).max(20),
+    traits: z
+      .object({
+        full_name: z.string().max(200).optional(),
+        phone: z.string().max(40).optional(),
+        email: z.string().max(200).optional(),
+        birth_date: z.string().date().optional(),
+        gender: z.string().max(20).optional(),
+        city: z.string().max(120).optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict();
+
+// Payload write-key shape Segment/RudderStack (track/identify). Không strict (SDK gửi nhiều field
+// meta context/integrations); chỉ rút field cần. brand_id vẫn từ connection.
+export const segmentTrackSchema = z.object({
+  type: z.literal("track"),
+  event: z.string().min(1).max(200),
+  userId: z.string().max(200).optional(),
+  anonymousId: z.string().max(200).optional(),
+  timestamp: z.string().datetime({ offset: true }).optional(),
+  properties: z.record(z.unknown()).optional(),
+});
+export const segmentIdentifySchema = z.object({
+  type: z.literal("identify"),
+  userId: z.string().max(200).optional(),
+  anonymousId: z.string().max(200).optional(),
+  traits: z.record(z.unknown()).optional(),
+});

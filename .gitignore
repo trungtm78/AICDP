@@ -18,6 +18,7 @@ logs/
 
 # test / coverage
 coverage/
+cov-tmp/
 test-results/
 playwright-report/
 .playwright/
