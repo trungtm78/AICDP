@@ -7,6 +7,7 @@ import {
   type CatalogConnector,
 } from "./catalog.js";
 import { encryptConfig, decryptConfig, maskConfig } from "./secrets.js";
+import { hasOutbound, hasInboundPull } from "./adapters/registry.js";
 import { AppError } from "../http/errors.js";
 
 /** Bảo đảm connectorKey tồn tại (catalog ∪ custom) + đúng direction. Chống: key sai -> secret field
@@ -43,11 +44,27 @@ export class PipelineValidationError extends Error {
 }
 
 // ── Catalog (tĩnh ∪ custom) ──
-export interface ConnectorRow extends CatalogConnector {}
+export interface ConnectorRow extends CatalogConnector {
+  installStatus?: "ready" | "planned"; // 'ready' = đã setup (chạy thật); 'planned' = chưa setup (honest stub)
+}
+
+/**
+ * Nhãn "đã setup / chưa setup" theo HIỆN THỰC THẬT (không giả success):
+ * - destination: 'ready' nếu có OutboundAdapter đăng ký (deliver thật).
+ * - source: 'ready' nếu có InboundPullAdapter (reverse-ETL/REST) HOẶC transport webhook (cổng /events
+ *   + token), sdk (write-key /track). Còn lại (rest/warehouse chưa có adapter) -> 'planned' (Group 2).
+ */
+export function installStatusFor(c: CatalogConnector): "ready" | "planned" {
+  if (c.direction === "destination") return hasOutbound(c.key) ? "ready" : "planned";
+  if (hasInboundPull(c.key)) return "ready";
+  if (c.transport === "webhook" || c.transport === "sdk") return "ready";
+  return "planned";
+}
 
 export async function getCatalog(pool: Pool): Promise<{ connectors: ConnectorRow[]; templates: typeof CATALOG_TEMPLATES }> {
   const custom = await listCustomConnectors(pool);
-  return { connectors: [...CATALOG_CONNECTORS, ...custom], templates: CATALOG_TEMPLATES };
+  const connectors = [...CATALOG_CONNECTORS, ...custom].map((c) => ({ ...c, installStatus: installStatusFor(c) }));
+  return { connectors, templates: CATALOG_TEMPLATES };
 }
 
 export interface CustomConnectorInput {

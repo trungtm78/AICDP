@@ -63,6 +63,24 @@ describe("connector endpoints — vận hành thật", () => {
     expect(r.status).toBe(401);
   });
 
+  it("catalog gắn installStatus honest (đã setup 'ready' / chưa setup 'planned')", async () => {
+    const r = await withAuth(http().get("/v1/connectors/catalog"), ADMIN_KEY);
+    expect(r.status).toBe(200);
+    const byKey = Object.fromEntries((r.body.data.connectors as Array<{ key: string; installStatus: string }>).map((c) => [c.key, c.installStatus]));
+    // Đã có adapter/handler thật -> ready
+    expect(byKey["dst_ga4"]).toBe("ready");
+    expect(byKey["dst_webhook"]).toBe("ready");
+    expect(byKey["dst_esms"]).toBe("ready");
+    expect(byKey["src_webhook"]).toBe("ready"); // webhook token endpoint
+    expect(byKey["src_js"]).toBe("ready"); // sdk write-key
+    expect(byKey["src_rest"]).toBe("ready"); // inbound-pull
+    expect(byKey["src_vnpay"]).toBe("ready"); // IPN (transport webhook)
+    // Chưa có adapter -> planned (Group 2, honest stub)
+    expect(byKey["dst_meta_ads"]).toBe("planned");
+    expect(byKey["dst_hubspot"]).toBe("planned");
+    expect(byKey["src_snowflake"]).toBe("planned");
+  });
+
   it("id không phải UUID -> 400 (không phải 500) + không lộ chi tiết DB", async () => {
     const r = await withAuth(http().get("/v1/connections/not-a-uuid/events"), ADMIN_KEY);
     expect(r.status).toBe(400);
