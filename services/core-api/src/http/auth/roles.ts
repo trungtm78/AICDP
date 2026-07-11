@@ -9,7 +9,11 @@ export type Role =
   | "analyst"
   | "compliance"
   | "executive"
-  | "connector";
+  | "connector"
+  // Loyalty (L9): manager = cấu hình chương trình (rule/tier/reward/giá điểm/liability);
+  // ops = vận hành khách (adjust/redeem/thẻ/ví/referral). Scoped company/brand ở tầng nghiệp vụ sau.
+  | "loyalty_manager"
+  | "loyalty_ops";
 
 export interface AuthContext {
   role: Role;

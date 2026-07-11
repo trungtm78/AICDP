@@ -4,7 +4,7 @@ import request from "supertest";
 import type { INestApplication } from "@nestjs/common";
 import { createApp } from "./app.factory.js";
 import { setupTestDb, truncateAll } from "../test-helpers/db.js";
-import { ADMIN_KEY } from "../test-helpers/auth.js";
+import { ADMIN_KEY, ensureKey } from "../test-helpers/auth.js";
 
 let app: INestApplication;
 
@@ -152,6 +152,24 @@ describe("loyalty HTTP", () => {
     const r = await http().post("/v1/loyalty/earn-rules")
       .send({ ruleKey: "sys:hack", name: "x", currencyCode: "OCC_POINT", ratePerUnit: 0.001 });
     expect(r.status).toBe(400);
+  });
+
+  it("L9 RBAC: loyalty_ops earn được nhưng KHÔNG tạo earn-rule (manager); loyalty_manager thì được", async () => {
+    const opsKey = await ensureKey("test-loyalty-ops", "loyalty_ops", "occ-test-loyalty-ops");
+    const mgrKey = await ensureKey("test-loyalty-mgr", "loyalty_manager", "occ-test-loyalty-mgr");
+    const occId = await makeOcc("0901000040");
+    // loyalty_ops: earn OK
+    const e = await srv().post("/v1/loyalty/earn").set("Authorization", `Bearer ${opsKey}`)
+      .send({ occId, points: 50, idempotencyKey: "ops-e1" });
+    expect(e.status).toBe(201);
+    // loyalty_ops: tạo earn-rule -> 403 (cần manager)
+    const r1 = await srv().post("/v1/loyalty/earn-rules").set("Authorization", `Bearer ${opsKey}`)
+      .send({ ruleKey: "x", name: "x", currencyCode: "OCC_POINT", ratePerUnit: 0.001 });
+    expect(r1.status).toBe(403);
+    // loyalty_manager: tạo earn-rule OK
+    const r2 = await srv().post("/v1/loyalty/earn-rules").set("Authorization", `Bearer ${mgrKey}`)
+      .send({ ruleKey: "mgr_rule", name: "x", currencyCode: "OCC_POINT", ratePerUnit: 0.001 });
+    expect(r2.status).toBe(201);
   });
 
   it("L5: đổi reward -> voucher -> dùng cross-brand", async () => {

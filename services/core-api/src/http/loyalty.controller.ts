@@ -31,12 +31,12 @@ import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
 /** Loyalty double-entry: earn + reserve/capture/release (theo reservationId) + balance. */
-@Roles("csr", "analyst")
+@Roles("csr", "analyst", "loyalty_ops", "loyalty_manager")
 @Controller("v1/loyalty")
 export class LoyaltyController {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("earn")
   async earn(@Body() body: unknown) {
     const dto = validate(loyaltyEarnSchema, body, "loyalty_earn");
@@ -50,21 +50,21 @@ export class LoyaltyController {
     };
   }
 
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("reserve")
   async reserve(@Body() body: unknown) {
     const dto = validate(loyaltyReserveSchema, body, "loyalty_reserve");
     return { data: await reserve(this.pool, dto) };
   }
 
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("capture")
   async capture(@Body() body: unknown) {
     const dto = validate(loyaltyReservationOpSchema, body, "loyalty_capture");
     return { data: await capture(this.pool, dto) };
   }
 
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("release")
   async release(@Body() body: unknown) {
     const dto = validate(loyaltyReservationOpSchema, body, "loyalty_release");
@@ -78,7 +78,7 @@ export class LoyaltyController {
   }
 
   /** Đổi điểm giữa 2 loại (brand -> điểm CHUNG tập đoàn) theo tỷ giá. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("convert")
   async convert(@Body() body: unknown) {
     const dto = validate(loyaltyConvertSchema, body, "loyalty_convert");
@@ -86,7 +86,7 @@ export class LoyaltyController {
   }
 
   /** Điều chỉnh thủ công (bù/thu hồi) — cần data_steward (nhạy cảm, có audit). */
-  @Roles("data_steward")
+  @Roles("data_steward", "loyalty_manager")
   @Post("adjust")
   async adjust(@Body() body: unknown) {
     const dto = validate(loyaltyAdjustSchema, body, "loyalty_adjust");
@@ -94,7 +94,7 @@ export class LoyaltyController {
   }
 
   /** Chuyển điểm giữa 2 khách (cùng loại điểm). */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("transfer")
   async transfer(@Body() body: unknown) {
     const dto = validate(loyaltyTransferSchema, body, "loyalty_transfer");
@@ -124,7 +124,7 @@ export class LoyaltyController {
   // ── L3: earn rule engine (no-code) + auto-earn ──
 
   /** Tạo/ghi đè quy tắc tích điểm (append-only, có audit) — cần data_steward. */
-  @Roles("data_steward")
+  @Roles("data_steward", "loyalty_manager")
   @Post("earn-rules")
   async createEarnRule(@Body() body: unknown, @Req() req: Request) {
     const dto = validate(earnRuleSchema, body, "loyalty_earn_rule");
@@ -145,7 +145,7 @@ export class LoyaltyController {
   }
 
   /** Kích hoạt thủ công lượt auto-earn (quét giao dịch chưa tích) — cần admin. */
-  @Roles("admin")
+  @Roles("admin", "loyalty_manager")
   @Post("earn-run")
   async earnRun() {
     return { data: await processUnearnedTransactions(this.pool) };
@@ -169,7 +169,7 @@ export class LoyaltyController {
   }
 
   /** Tính lại hạng cho 1 khách (mọi nhóm active) — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("tiers/recompute")
   async recomputeTier(@Body() body: unknown) {
     const { occId } = validate(loyaltyBalanceQuerySchema, body, "loyalty_recompute_tier");
@@ -179,7 +179,7 @@ export class LoyaltyController {
   }
 
   /** Tính lại hạng toàn hệ (quét) — cần admin. */
-  @Roles("admin")
+  @Roles("admin", "loyalty_manager")
   @Post("tiers/recompute-all")
   async recomputeAllTiers() {
     return { data: await recomputeAllTiers(this.pool) };
@@ -194,7 +194,7 @@ export class LoyaltyController {
   }
 
   /** Đổi điểm lấy reward (burn điểm + phát voucher) — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("rewards/redeem")
   async redeem(@Body() body: unknown) {
     const dto = validate(rewardRedeemSchema, body, "loyalty_reward_redeem");
@@ -209,7 +209,7 @@ export class LoyaltyController {
   }
 
   /** Dùng voucher tại một brand (cross-brand; FIXED tiêu partial) — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("vouchers/use")
   async useVoucher(@Body() body: unknown) {
     const dto = validate(voucherUseSchema, body, "loyalty_voucher_use");
@@ -232,7 +232,7 @@ export class LoyaltyController {
   }
 
   /** Tạo mã giới thiệu cho một khách — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("referral/create")
   async referralCreate(@Body() body: unknown) {
     const { occId } = validate(referralCreateSchema, body, "loyalty_referral_create");
@@ -240,7 +240,7 @@ export class LoyaltyController {
   }
 
   /** Referee dùng mã giới thiệu — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("referral/join")
   async referralJoin(@Body() body: unknown) {
     const dto = validate(referralJoinSchema, body, "loyalty_referral_join");
@@ -251,21 +251,21 @@ export class LoyaltyController {
   // ── L7: liability (IFRS15/ASC606) + inter-company settlement ──
 
   /** Nghĩa vụ điểm mới nhất theo pháp nhân/loại điểm. */
-  @Roles("analyst")
+  @Roles("analyst", "loyalty_manager")
   @Get("liability")
   async liability() {
     return { data: await getLatestLiability(this.pool) };
   }
 
   /** Chốt snapshot nghĩa vụ điểm (tính lại + lưu) — cần admin. */
-  @Roles("admin")
+  @Roles("admin", "loyalty_manager")
   @Post("liability/snapshot")
   async liabilitySnapshot() {
     return { data: await computeLiabilitySnapshot(this.pool) };
   }
 
   /** Đặt đơn giá điểm + breakage (append-only) — cần admin. */
-  @Roles("admin")
+  @Roles("admin", "loyalty_manager")
   @Post("liability/point-price")
   async pointPrice(@Body() body: unknown) {
     const b = body as { currencyCode?: unknown; companyCode?: unknown; pricePerPoint?: unknown; breakageRate?: unknown };
@@ -281,7 +281,7 @@ export class LoyaltyController {
   }
 
   /** Báo cáo settlement inter-company theo kỳ (YYYY-MM) — cần analyst. */
-  @Roles("analyst")
+  @Roles("analyst", "loyalty_manager")
   @Get("settlement")
   async settlement(@Query() query: Record<string, string>) {
     const period = query["period"] ?? new Date().toISOString().slice(0, 7);
@@ -291,7 +291,7 @@ export class LoyaltyController {
   // ── L8: thẻ thành viên (card/QR) + stored-value wallet ──
 
   /** Phát thẻ cho khách — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("cards/issue")
   async issueCard(@Body() body: unknown) {
     const { occId } = validate(cardIssueSchema, body, "loyalty_card_issue");
@@ -299,7 +299,7 @@ export class LoyaltyController {
   }
 
   /** Resolve khách theo số thẻ / QR token (POS) — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Get("cards/resolve")
   async resolveCard(@Query() query: Record<string, string>) {
     const q = (query["q"] ?? "").trim();
@@ -308,7 +308,7 @@ export class LoyaltyController {
   }
 
   /** Khóa thẻ (mất/thu hồi) — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("cards/block")
   async blockCard(@Body() body: unknown) {
     const dto = validate(cardBlockSchema, body, "loyalty_card_block");
@@ -317,7 +317,7 @@ export class LoyaltyController {
   }
 
   /** Nạp tiền ví stored-value — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("stored-value/topup")
   async svTopup(@Body() body: unknown) {
     const dto = validate(storedValueSchema, body, "loyalty_sv_topup");
@@ -325,7 +325,7 @@ export class LoyaltyController {
   }
 
   /** Chi tiêu ví stored-value — cần csr. */
-  @Roles("csr")
+  @Roles("csr", "loyalty_ops")
   @Post("stored-value/pay")
   async svPay(@Body() body: unknown) {
     const dto = validate(storedValueSchema, body, "loyalty_sv_pay");
