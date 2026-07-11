@@ -10,6 +10,9 @@ import {
   type CustomerListItem,
   type ConnectorCatalog,
   type Connection,
+  type ConnectionDataSummary,
+  type ConnectorEvent,
+  type ConnectorDelivery,
   type Pipeline,
   type IdentifierType,
   type CustomerPrediction,
@@ -494,6 +497,22 @@ export const api = {
     request<{ id: string; status: string }>(`/v1/connections/${encodeURIComponent(id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) }),
   deleteConnection: (id: string) =>
     request<{ deleted: true }>(`/v1/connections/${encodeURIComponent(id)}`, { method: "DELETE" }),
+
+  // ── Vận hành connection THẬT (Phase 1-6) ──
+  connectionDataSummary: (id: string) =>
+    request<ConnectionDataSummary>(`/v1/connections/${encodeURIComponent(id)}/data-summary`),
+  connectionEvents: (id: string) =>
+    request<ConnectorEvent[]>(`/v1/connections/${encodeURIComponent(id)}/events`),
+  connectionDeliveries: (id: string) =>
+    request<ConnectorDelivery[]>(`/v1/connections/${encodeURIComponent(id)}/deliveries`),
+  testConnection: (id: string) =>
+    request<{ ok: boolean; status: string; error?: string }>(`/v1/connections/${encodeURIComponent(id)}/test`, { method: "POST" }),
+  testSendConnection: (id: string) =>
+    request<{ deliveryId: string; status: string; error?: string }>(`/v1/connections/${encodeURIComponent(id)}/test-send`, { method: "POST", body: JSON.stringify({}) }),
+  pullConnection: (id: string) =>
+    request<{ pulled: number; ingested: number; rejected: number }>(`/v1/connections/${encodeURIComponent(id)}/pull`, { method: "POST" }),
+  issueInboundToken: (id: string) =>
+    request<{ token: string }>(`/v1/connections/${encodeURIComponent(id)}/inbound-token`, { method: "POST" }),
 
   listPipelines: () => request<Pipeline[]>("/v1/pipelines"),
   getPipeline: (id: string) => request<Pipeline>(`/v1/pipelines/${encodeURIComponent(id)}`),

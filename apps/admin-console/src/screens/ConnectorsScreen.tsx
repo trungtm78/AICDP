@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import {
   Plug, ArrowDownToLine, ArrowUpFromLine, Sparkles, Plus, Trash2, Play, Pause, Waypoints, Zap,
+  Activity, Send, RefreshCw, KeyRound, FlaskConical,
 } from "lucide-react";
 import { api } from "../lib/api.js";
-import { ApiError, type Connector, type ConnectorTemplate, type Connection, type Pipeline } from "../lib/types.js";
+import { ApiError, type Connector, type ConnectorTemplate, type Connection, type Pipeline, type ConnectionDataSummary } from "../lib/types.js";
 import {
   PageHeader, Panel, Button, Badge, StatusPill, Field, Input, Select, Table, type Column,
   Drawer, SegmentedControl, useToast,
@@ -27,6 +28,7 @@ export function ConnectorsScreen() {
   const [dir, setDir] = useState<"source" | "destination">("source");
   const [connecting, setConnecting] = useState<Connector | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [ops, setOps] = useState<Connection | null>(null);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["connections"] });
@@ -55,7 +57,9 @@ export function ConnectorsScreen() {
     onSuccess: (p) => navigate(`/connectors/pipelines/${p.id}`),
   });
 
-  const connectors = (catalog.data?.connectors ?? []).filter((c) => c.direction === dir);
+  const dirConnectors = (catalog.data?.connectors ?? []).filter((c) => c.direction === dir);
+  const readyConnectors = dirConnectors.filter((c) => c.installStatus !== "planned");
+  const plannedConnectors = dirConnectors.filter((c) => c.installStatus === "planned");
   const templates = catalog.data?.templates ?? [];
 
   return (
@@ -98,25 +102,26 @@ export function ConnectorsScreen() {
             ]}
           />
         </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {connectors.map((c) => (
-            <div key={c.key} className="flex flex-col rounded-lg border border-border bg-surface p-3.5">
-              <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                <span className="text-sm font-semibold text-text">{c.name}</span>
-                {c.vn && <Badge tone="warning">VN</Badge>}
-                {c.isCustom && <Badge tone="accent">Tuỳ biến</Badge>}
-              </div>
-              <div className="mb-1 text-[11px] uppercase tracking-wide text-text-subtle">{c.category}</div>
-              <p className="mb-3 flex-1 text-xs text-text-muted">{c.blurb}</p>
-              <Button size="sm" variant="secondary" onClick={() => setConnecting(c)}>Kết nối</Button>
-            </div>
-          ))}
-        </div>
+        <ConnectorGroup
+          title="Đã setup — chạy thật"
+          hint={`${readyConnectors.length} connector có tích hợp thật (gửi/nhận dữ liệu qua adapter).`}
+          connectors={readyConnectors} onConnect={setConnecting} ready
+        />
+        {plannedConnectors.length > 0 && (
+          <div className="mt-6">
+            <ConnectorGroup
+              title="Chưa setup — sắp có"
+              hint={`${plannedConnectors.length} connector chưa cài adapter (lưu cấu hình được, thao tác thật báo 'chưa khả dụng' — không giả lập).`}
+              connectors={plannedConnectors} onConnect={setConnecting} ready={false}
+            />
+          </div>
+        )}
       </Panel>
 
       {/* Connections + Pipelines đang có */}
       <ConnectionsPanel connections={connections.data ?? []} loading={connections.isLoading}
         onToggle={(c) => connStatus.mutate({ id: c.id, status: c.status === "active" ? "paused" : "active" })}
+        onOps={setOps}
         onDelete={(id) => { if (window.confirm("Xoá kết nối này?")) connDelete.mutate(id); }} />
 
       <Panel title="Pipeline ETL (kéo-thả)" icon={<Waypoints className="size-4" />}
@@ -132,20 +137,56 @@ export function ConnectorsScreen() {
       {showCreate && (
         <CreateConnectorDrawer onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); void qc.invalidateQueries({ queryKey: ["connector-catalog"] }); toast.push("Đã tạo connector tuỳ biến", "success"); }} />
       )}
+      {ops && <OperationsDrawer connection={ops} onClose={() => setOps(null)} />}
     </div>
   );
 }
 
-function ConnectionsPanel({ connections, loading, onToggle, onDelete }: { connections: Connection[]; loading: boolean; onToggle: (c: Connection) => void; onDelete: (id: string) => void }) {
+/** Nhóm connector (Đã setup / Chưa setup) — thẻ kèm nhãn trạng thái tích hợp. */
+function ConnectorGroup({ title, hint, connectors, onConnect, ready }: {
+  title: string; hint: string; connectors: Connector[]; onConnect: (c: Connector) => void; ready: boolean;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-semibold text-text">{title}</span>
+        <Badge tone={ready ? "success" : "neutral"}>{ready ? "Sẵn sàng" : "Sắp có"}</Badge>
+        <span className="text-xs text-text-subtle">{hint}</span>
+      </div>
+      {connectors.length === 0 ? (
+        <p className="text-xs text-text-subtle">Không có connector nào trong nhóm này.</p>
+      ) : (
+        <div className={`grid gap-3 sm:grid-cols-2 lg:grid-cols-3 ${ready ? "" : "opacity-80"}`}>
+          {connectors.map((c) => (
+            <div key={c.key} className="flex flex-col rounded-lg border border-border bg-surface p-3.5" data-testid={`connector-${c.key}`}>
+              <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                <span className="text-sm font-semibold text-text">{c.name}</span>
+                {c.vn && <Badge tone="warning">VN</Badge>}
+                {c.isCustom && <Badge tone="accent">Tuỳ biến</Badge>}
+                {!ready && <Badge tone="neutral">Chưa setup</Badge>}
+              </div>
+              <div className="mb-1 text-[11px] uppercase tracking-wide text-text-subtle">{c.category}</div>
+              <p className="mb-3 flex-1 text-xs text-text-muted">{c.blurb}</p>
+              <Button size="sm" variant="secondary" onClick={() => onConnect(c)}>Kết nối</Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ConnectionsPanel({ connections, loading, onToggle, onOps, onDelete }: { connections: Connection[]; loading: boolean; onToggle: (c: Connection) => void; onOps: (c: Connection) => void; onDelete: (id: string) => void }) {
   const columns: Column<Connection>[] = [
     { key: "name", header: "Tên kết nối", cell: (c) => <span className="font-medium">{c.name}</span> },
     { key: "dir", header: "Hướng", width: "110px", cell: (c) => c.direction === "source" ? <Badge tone="neutral">Nguồn</Badge> : <Badge tone="accent">Đích</Badge> },
     { key: "connector", header: "Connector", cell: (c) => <span className="text-text-muted">{c.connectorName}</span> },
     { key: "status", header: "Trạng thái", width: "120px", cell: (c) => <StatusPill tone={STATUS_TONE[c.status] ?? "neutral"}>{c.status}</StatusPill> },
     {
-      key: "act", header: "", numeric: true, width: "180px",
+      key: "act", header: "", numeric: true, width: "300px",
       cell: (c) => (
         <div className="flex justify-end gap-1">
+          <Button size="sm" variant="secondary" icon={<Activity className="size-3.5" />} onClick={() => onOps(c)}>Vận hành</Button>
           <Button size="sm" variant="ghost" icon={c.status === "active" ? <Pause className="size-3.5" /> : <Play className="size-3.5" />} onClick={() => onToggle(c)}>
             {c.status === "active" ? "Tạm dừng" : "Kích hoạt"}
           </Button>
@@ -176,6 +217,114 @@ function PipelinesTable({ pipelines, loading, onOpen }: { pipelines: Pipeline[];
   );
 }
 
+// Nhãn VN cho loại data (event_type) chảy qua connection.
+const DATA_LABEL: Record<string, string> = {
+  order_completed: "Doanh thu / Đơn", identify: "Khách / Định danh", payment: "Thanh toán",
+};
+function buildDataChips(ds: ConnectionDataSummary): Array<{ label: string; value: number; tone: "success" | "error" | "neutral" | "accent" }> {
+  const chips: Array<{ label: string; value: number; tone: "success" | "error" | "neutral" | "accent" }> = [];
+  for (const [type, n] of Object.entries(ds.events.byType)) chips.push({ label: DATA_LABEL[type] ?? type, value: n, tone: "accent" });
+  if (ds.deliveries.total > 0) chips.push({ label: "Tin đã gửi", value: ds.deliveries.sent, tone: "success" });
+  const errs = ds.events.rejected + ds.deliveries.failed;
+  if (errs > 0) chips.push({ label: "Lỗi", value: errs, tone: "error" });
+  if (ds.deliveries.skipped > 0) chips.push({ label: "Bỏ qua (thiếu liên hệ)", value: ds.deliveries.skipped, tone: "neutral" });
+  return chips;
+}
+const opErr = (toast: ReturnType<typeof useToast>) => (e: unknown) => toast.push(e instanceof ApiError ? e.message : "Lỗi thao tác", "error");
+
+/** Drawer VẬN HÀNH connection: loại data đang chảy (data-summary) + test/test-send/pull/token + nhật ký. */
+function OperationsDrawer({ connection: c, onClose }: { connection: Connection; onClose: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const isSource = c.direction === "source";
+  const summary = useQuery({ queryKey: ["conn-summary", c.id], queryFn: () => api.connectionDataSummary(c.id) });
+  const events = useQuery({ queryKey: ["conn-events", c.id], queryFn: () => api.connectionEvents(c.id), enabled: isSource });
+  const deliveries = useQuery({ queryKey: ["conn-deliveries", c.id], queryFn: () => api.connectionDeliveries(c.id), enabled: !isSource });
+  const [token, setToken] = useState<string | null>(null);
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ["conn-summary", c.id] });
+    void qc.invalidateQueries({ queryKey: ["conn-events", c.id] });
+    void qc.invalidateQueries({ queryKey: ["conn-deliveries", c.id] });
+  };
+  const testMut = useMutation({ mutationFn: () => api.testConnection(c.id), onSuccess: (r) => toast.push(r.ok ? "Kết nối OK (active)" : `Lỗi: ${r.error ?? "thất bại"}`, r.ok ? "success" : "error"), onError: opErr(toast) });
+  const testSendMut = useMutation({ mutationFn: () => api.testSendConnection(c.id), onSuccess: (r) => { toast.push(`Test-send: ${r.status}`, r.status === "sent" ? "success" : "warning"); refresh(); }, onError: opErr(toast) });
+  const pullMut = useMutation({ mutationFn: () => api.pullConnection(c.id), onSuccess: (r) => { toast.push(`Pull: ${r.ingested} nạp · ${r.rejected} lỗi (${r.pulled} kéo)`, "success"); refresh(); }, onError: opErr(toast) });
+  const tokenMut = useMutation({ mutationFn: () => api.issueInboundToken(c.id), onSuccess: (r) => setToken(r.token), onError: opErr(toast) });
+
+  const chips = summary.data ? buildDataChips(summary.data) : [];
+  return (
+    <Drawer open onClose={onClose} title={`Vận hành — ${c.name}`} description={`${c.connectorName} · ${isSource ? "Nguồn" : "Đích"}`}>
+      <div className="space-y-5">
+        {/* Loại data đang chảy */}
+        <section>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-subtle">Loại dữ liệu đang chảy</h4>
+          {summary.isLoading ? <p className="text-sm text-text-muted">Đang tải…</p>
+            : chips.length === 0 ? <p className="text-sm text-text-muted" data-testid="ops-nodata">Chưa có dữ liệu chảy qua kết nối này.</p>
+            : (
+              <div className="flex flex-wrap gap-2" data-testid="ops-datachips">
+                {chips.map((ch) => (
+                  <div key={ch.label} className="rounded-lg border border-border bg-surface px-3 py-1.5">
+                    <div className="text-[11px] text-text-subtle">{ch.label}</div>
+                    <div className="text-sm font-semibold text-text">{ch.value.toLocaleString("vi-VN")}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+        </section>
+
+        {/* Thao tác thật */}
+        <section className="flex flex-wrap gap-2">
+          {c.direction === "destination" && (
+            <>
+              <Button size="sm" variant="secondary" icon={<FlaskConical className="size-3.5" />} onClick={() => testMut.mutate()} loading={testMut.isPending}>Kiểm tra</Button>
+              <Button size="sm" variant="primary" icon={<Send className="size-3.5" />} onClick={() => testSendMut.mutate()} loading={testSendMut.isPending}>Gửi thử</Button>
+            </>
+          )}
+          {isSource && (
+            <>
+              <Button size="sm" variant="secondary" icon={<KeyRound className="size-3.5" />} onClick={() => tokenMut.mutate()} loading={tokenMut.isPending}>Cấp token cổng vào</Button>
+              <Button size="sm" variant="primary" icon={<RefreshCw className="size-3.5" />} onClick={() => pullMut.mutate()} loading={pullMut.isPending}>Kéo dữ liệu (pull)</Button>
+            </>
+          )}
+        </section>
+
+        {token && (
+          <div className="rounded-lg border border-warning/40 bg-warning/5 p-3">
+            <p className="mb-1 text-xs font-semibold text-warning">Token cổng vào (chỉ hiện 1 lần — lưu ngay):</p>
+            <code className="break-all text-xs text-text" data-testid="ops-token">{token}</code>
+          </div>
+        )}
+
+        {/* Nhật ký */}
+        <section>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-subtle">{isSource ? "Sự kiện nhận gần đây" : "Lượt gửi gần đây"}</h4>
+          {isSource ? (
+            <LogList rows={(events.data ?? []).map((e) => ({ id: e.id, a: e.eventType, b: e.status, err: e.error }))} loading={events.isLoading} />
+          ) : (
+            <LogList rows={(deliveries.data ?? []).map((d) => ({ id: d.id, a: `${d.channel}${d.recipient ? ` · ${d.recipient}` : ""}`, b: d.status, err: d.error }))} loading={deliveries.isLoading} />
+          )}
+        </section>
+      </div>
+    </Drawer>
+  );
+}
+
+function LogList({ rows, loading }: { rows: Array<{ id: string; a: string; b: string; err: string | null }>; loading: boolean }) {
+  if (loading) return <p className="text-sm text-text-muted">Đang tải…</p>;
+  if (rows.length === 0) return <p className="text-sm text-text-muted">Chưa có bản ghi.</p>;
+  const tone = (s: string) => (s === "ingested" || s === "sent" ? "success" : s === "rejected" || s === "failed" ? "error" : "neutral");
+  return (
+    <div className="space-y-1" data-testid="ops-log">
+      {rows.slice(0, 20).map((r) => (
+        <div key={r.id} className="flex items-center justify-between gap-2 rounded border border-border bg-surface px-2.5 py-1.5 text-xs">
+          <span className="truncate text-text-muted">{r.a}</span>
+          <Badge tone={tone(r.b)}>{r.b}</Badge>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Drawer cấu hình 1 connector → tạo connection. */
 function ConnectDrawer({ connector, onClose, onSaved }: { connector: Connector; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(connector.name);
@@ -198,7 +347,7 @@ function ConnectDrawer({ connector, onClose, onSaved }: { connector: Connector; 
           </Field>
         ))}
         {err && <p className="text-sm text-error">{err}</p>}
-        <p className="text-xs text-text-subtle">Demo: cấu hình được lưu để mô phỏng; sẵn sàng cắm RudderStack ở giai đoạn tích hợp.</p>
+        <p className="text-xs text-text-subtle">Field bí mật được mã hoá at-rest (AES-256-GCM) và luôn hiển thị dạng mask. Sau khi lưu, dùng "Vận hành" để test/gửi thử/kéo dữ liệu và xem loại data đang chảy.</p>
       </div>
     </Drawer>
   );

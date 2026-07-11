@@ -60,6 +60,7 @@ export interface Connector {
   key: string; name: string; direction: "source" | "destination"; category: string;
   transport: "rest" | "webhook" | "database" | "sdk" | "warehouse" | "event-stream" | "reverse-etl" | "warehouse";
   vn?: boolean; blurb: string; configFields: ConnectorConfigField[]; isCustom?: boolean;
+  installStatus?: "ready" | "planned"; // 'ready' = đã setup (chạy thật); 'planned' = chưa setup
 }
 export interface ConnectorTemplate {
   key: string; name: string; blurb: string; kind: "connection" | "pipeline";
@@ -70,6 +71,20 @@ export interface ConnectorCatalog { connectors: Connector[]; templates: Connecto
 export interface Connection {
   id: string; name: string; direction: "source" | "destination"; connectorKey: string; connectorName: string;
   config: Record<string, unknown>; status: "active" | "paused" | "draft" | "error"; createdAt: string;
+}
+// Vận hành connection THẬT (Phase 1-6)
+export interface ConnectionDataSummary {
+  events: { total: number; ingested: number; rejected: number; byType: Record<string, number> };
+  deliveries: { total: number; sent: number; failed: number; skipped: number };
+}
+export interface ConnectorEvent {
+  id: string; eventType: string; messageId: string | null; occId: string | null;
+  status: string; error: string | null; receivedAt: string;
+}
+export interface ConnectorDelivery {
+  id: string; runId: string | null; occId: string | null; channel: string; recipient: string | null;
+  status: string; providerMessageId: string | null; error: string | null; attempts: number;
+  createdAt: string; deliveredAt: string | null;
 }
 export interface PipelineNode { id: string; type: "source" | "transform" | "destination"; config?: Record<string, unknown>; pos?: { x: number; y: number } }
 export interface PipelineEdge { from: string; to: string }
