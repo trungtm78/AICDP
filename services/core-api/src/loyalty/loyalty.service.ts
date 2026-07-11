@@ -197,6 +197,7 @@ export async function earn(pool: Pool, a: EarnArgs): Promise<LoyaltyResult> {
         { account: acc.available(a.occId), delta: a.points, currencyId: cur },
         { account: acc.issued, delta: -a.points, currencyId: cur },
       ]);
+      await createLotTx(ctx.client, a.occId, cur, a.points, ctx.txnId); // lô có hạn (L2)
     },
   );
 }
@@ -230,10 +231,13 @@ export async function reserve(pool: Pool, a: ReserveArgs): Promise<ReserveResult
       if (avail < 0) {
         throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ điểm khả dụng để giữ.");
       }
+      // Rời tầng available -> tiêu lô FIFO; LƯU lát đã tiêu (kèm expire_at gốc) để release TRẢ đúng
+      // hạn (không reset đồng hồ đáo hạn) (L2).
+      const consumed = await consumeLotsFifoTx(ctx.client, a.occId, cur, a.points);
       const r = await ctx.client.query<{ reservation_id: string }>(
-        `INSERT INTO cdp.loyalty_reservation (occ_id, points, reserve_txn)
-         VALUES ($1,$2,$3) RETURNING reservation_id`,
-        [a.occId, a.points, ctx.txnId],
+        `INSERT INTO cdp.loyalty_reservation (occ_id, points, reserve_txn, consumed_lots)
+         VALUES ($1,$2,$3,$4::jsonb) RETURNING reservation_id`,
+        [a.occId, a.points, ctx.txnId, JSON.stringify(consumed)],
       );
       reservationId = r.rows[0]!.reservation_id;
     },
@@ -292,8 +296,8 @@ async function settleReservation(
       fingerprint: `${mode}:${a.reservationId}`,
     },
     async (ctx) => {
-      const r = await ctx.client.query<{ points: string; status: string }>(
-        "SELECT points, status FROM cdp.loyalty_reservation WHERE reservation_id=$1 FOR UPDATE",
+      const r = await ctx.client.query<{ points: string; status: string; consumed_lots: LotSlice[] }>(
+        "SELECT points, status, consumed_lots FROM cdp.loyalty_reservation WHERE reservation_id=$1 FOR UPDATE",
         [a.reservationId],
       );
       const row = r.rows[0]!;
@@ -316,6 +320,10 @@ async function settleReservation(
               { account: acc.available(occId), delta: points, currencyId: cur },
             ];
       await postEntries(ctx, lines);
+      // release: điểm quay lại available -> TÁI TẠO đúng lô đã tiêu lúc reserve, BẢO TOÀN expire_at gốc
+      // (không reset đồng hồ -> chống điểm bất tử; lô đã quá hạn sẽ được scheduler breakage ngay).
+      // capture: available không đổi (reserved -> redeemed), lô đã tiêu vĩnh viễn nên không đụng (L2).
+      if (mode === "release") await createLotsFromSlicesTx(ctx.client, occId, cur, row.consumed_lots, ctx.txnId);
       await ctx.client.query(
         "UPDATE cdp.loyalty_reservation SET status=$2, updated_at=now() WHERE reservation_id=$1",
         [a.reservationId, mode === "capture" ? "captured" : "released"],
@@ -351,6 +359,136 @@ async function computeConvertedPoints(db: Queryable, fromId: string, toId: strin
   );
   if (!r.rows[0]) throw new LoyaltyError("CONVERSION_NOT_FOUND", "Chưa cấu hình tỷ giá quy đổi giữa 2 loại điểm.");
   return r.rows[0]!.tp;
+}
+
+// ── L2: point lots (lô điểm) + expiry/breakage ──
+// Lô bám tầng AVAILABLE: available(occ,cur) == Σ lô 'active'.points_remaining. Mọi thao tác TĂNG
+// available -> tạo lô mới (expiry theo policy); mọi thao tác GIẢM available -> tiêu lô FIFO theo
+// expire_at (hết hạn sớm trước). Bất biến này để scheduler đáo hạn tính breakage đúng.
+
+/** Một "lát" điểm đã tiêu từ một lô: giữ expire_at gốc để tái tạo lô bảo toàn hạn (release/transfer/merge). */
+export interface LotSlice { e: string | null; p: string } // e=expire_at ISO|null, p=points (string bigint)
+
+function toBig(points: number | bigint | string): bigint {
+  return typeof points === "bigint" ? points : BigInt(points);
+}
+
+/** Tạo lô điểm cho phần AVAILABLE vừa tăng; expire_at tính theo expiration_policy của currency (đồng
+ *  hồ từ now). Dùng cho earn/adjust+/convert-mint (điểm MỚI). points nhận number|bigint|string (bigint-safe). */
+export async function createLotTx(
+  client: PoolClient, occId: string, currencyId: string, points: number | bigint | string, earnTxn: string,
+): Promise<void> {
+  await client.query(
+    `INSERT INTO cdp.loyalty_lot (occ_id, currency_id, points_original, points_remaining, earn_txn, issuing_company_id, expire_at)
+     SELECT $1,$2,$3::bigint,$3::bigint,$4,
+            (SELECT company_id FROM cdp.point_currency WHERE id=$2),
+            (SELECT CASE p.mode
+                      WHEN 'NONE'    THEN NULL
+                      WHEN 'ROLLING' THEN now() + (p.duration_months || ' months')::interval
+                      WHEN 'FIXED'   THEN date_trunc('year', now() + (p.duration_months || ' months')::interval)
+                                          + interval '1 year' - interval '1 second'
+                    END
+               FROM cdp.expiration_policy p WHERE p.currency_id=$2 AND p.is_active)`,
+    [occId, currencyId, toBig(points).toString(), earnTxn],
+  );
+}
+
+/** Tái tạo lô từ các lát đã tiêu, BẢO TOÀN expire_at gốc (không reset đồng hồ đáo hạn). Dùng cho
+ *  release (trả điểm về available) / transfer / merge (chuyển điểm sang khách khác). */
+export async function createLotsFromSlicesTx(
+  client: PoolClient, occId: string, currencyId: string, slices: LotSlice[], earnTxn: string,
+): Promise<void> {
+  for (const s of slices) {
+    if (toBig(s.p) <= 0n) continue;
+    await client.query(
+      `INSERT INTO cdp.loyalty_lot (occ_id, currency_id, points_original, points_remaining, earn_txn, issuing_company_id, expire_at)
+       VALUES ($1,$2,$3::bigint,$3::bigint,$4,(SELECT company_id FROM cdp.point_currency WHERE id=$2),$5::timestamptz)`,
+      [occId, currencyId, toBig(s.p).toString(), earnTxn, s.e],
+    );
+  }
+}
+
+/** Tiêu `points` từ các lô active theo FIFO (expire_at sớm trước). Cập nhật points_remaining +
+ *  status='exhausted' khi cạn. Ném INSUFFICIENT_BALANCE nếu tổng lô còn hạn không đủ (bất biến vỡ).
+ *  Trả về các lát đã tiêu (kèm expire_at gốc) để caller tái tạo lô bảo toàn hạn nếu cần. Bigint-safe. */
+export async function consumeLotsFifoTx(
+  client: PoolClient, occId: string, currencyId: string, points: number | bigint | string,
+): Promise<LotSlice[]> {
+  const lots = await client.query<{ lot_id: string; rem: string; expire_at: string | null }>(
+    `SELECT lot_id, points_remaining::text AS rem, expire_at FROM cdp.loyalty_lot
+      WHERE occ_id=$1 AND currency_id=$2 AND status='active' AND points_remaining > 0
+      ORDER BY expire_at ASC NULLS LAST, created_at ASC
+      FOR UPDATE`,
+    [occId, currencyId],
+  );
+  let remaining = toBig(points);
+  const consumed: LotSlice[] = [];
+  for (const l of lots.rows) {
+    if (remaining <= 0n) break;
+    const rem = BigInt(l.rem);
+    const take = rem < remaining ? rem : remaining;
+    const left = rem - take;
+    await client.query(
+      "UPDATE cdp.loyalty_lot SET points_remaining=$2::bigint, status=CASE WHEN $2::bigint=0 THEN 'exhausted' ELSE 'active' END WHERE lot_id=$1",
+      [l.lot_id, left.toString()],
+    );
+    consumed.push({ e: l.expire_at, p: take.toString() });
+    remaining -= take;
+  }
+  if (remaining > 0n) {
+    throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ lô điểm còn hạn để tiêu.");
+  }
+  return consumed;
+}
+
+/**
+ * Scheduler đáo hạn: mọi lô active đã tới hạn (expire_at <= now, còn điểm) -> hạch toán breakage
+ * (-available / +system:breakage per currency: giảm liability, ghi nhận điểm vỡ) + set lô 'expired'.
+ * Idempotent theo lô (idempotency_key = expire:{lot_id}). Lock per occ. Trả số lô đã đáo hạn.
+ */
+export async function expireLots(pool: Pool): Promise<number> {
+  const due = await pool.query<{ occ_id: string }>(
+    "SELECT DISTINCT occ_id FROM cdp.loyalty_lot WHERE status='active' AND expire_at IS NOT NULL AND expire_at <= now() AND points_remaining > 0",
+  );
+  let count = 0;
+  for (const { occ_id } of due.rows) {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SELECT pg_advisory_xact_lock(hashtext($1))", [`loyalty:${occ_id}`]);
+      const lots = await client.query<{ lot_id: string; currency_id: string; rem: string }>(
+        `SELECT lot_id, currency_id, points_remaining::text AS rem FROM cdp.loyalty_lot
+          WHERE occ_id=$1 AND status='active' AND expire_at IS NOT NULL AND expire_at <= now() AND points_remaining > 0
+          FOR UPDATE`,
+        [occ_id],
+      );
+      for (const lot of lots.rows) {
+        // Key hệ thống có namespace 'sys:' (op công khai bị cấm prefix này ở schema) -> không đụng
+        // idempotency_key của user. Dedup thật sự là status='expired' + FOR UPDATE + advisory lock.
+        const key = `sys:expire:${lot.lot_id}`;
+        const ins = await client.query<{ txn_id: string }>(
+          `INSERT INTO cdp.loyalty_txn (idempotency_key, type, occ_id, fingerprint, reason)
+           VALUES ($1,'expire',$2,$1,'point-expiry') ON CONFLICT (idempotency_key) DO NOTHING RETURNING txn_id`,
+          [key, occ_id],
+        );
+        if (ins.rows.length === 0) continue; // đã đáo hạn trước đó (idempotent)
+        await client.query(
+          `INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id)
+           VALUES ($1,$2,(-$3::bigint),$4),($1,$5,$3::bigint,$4)`,
+          [ins.rows[0]!.txn_id, `member:${occ_id}:available`, lot.rem, lot.currency_id, "system:breakage"],
+        );
+        await client.query("UPDATE cdp.loyalty_lot SET points_remaining=0, status='expired' WHERE lot_id=$1", [lot.lot_id]);
+        count++;
+      }
+      await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+  return count;
 }
 
 export interface ConvertArgs {
@@ -404,6 +542,8 @@ export async function convert(pool: Pool, a: ConvertArgs): Promise<ConvertResult
       ]);
       const availFrom = await accountBalanceTx(ctx.client, acc.available(a.occId), fromId);
       if (availFrom < 0) throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ điểm loại nguồn để đổi.");
+      await consumeLotsFifoTx(ctx.client, a.occId, fromId, a.points);  // burn lô 'from' FIFO (L2)
+      await createLotTx(ctx.client, a.occId, toId, toPoints, ctx.txnId); // mint lô 'to' có hạn (L2)
     },
   );
   // Replay idempotent: work KHÔNG chạy -> lấy lại số điểm đã mint từ ledger của txn cũ (mint = +delta 'to').
@@ -450,6 +590,9 @@ export async function adjust(pool: Pool, a: AdjustArgs): Promise<LoyaltyResult> 
       ]);
       const avail = await accountBalanceTx(ctx.client, acc.available(a.occId), cur);
       if (avail < 0) throw new LoyaltyError("INSUFFICIENT_BALANCE", "Điều chỉnh làm số dư âm — từ chối.");
+      // Đồng bộ lô: cộng -> lô mới; trừ -> tiêu FIFO (L2).
+      if (a.points > 0) await createLotTx(ctx.client, a.occId, cur, a.points, ctx.txnId);
+      else await consumeLotsFifoTx(ctx.client, a.occId, cur, -a.points);
     },
   );
 }
@@ -500,6 +643,10 @@ export async function transfer(pool: Pool, a: TransferArgs): Promise<LoyaltyResu
     ]);
     const availFrom = await accountBalanceTx(client, acc.available(a.fromOccId), cur);
     if (availFrom < 0) throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ điểm để chuyển.");
+    // Tiêu lô người gửi (FIFO) rồi tạo lô người nhận BẢO TOÀN expire_at gốc (chuyển điểm KHÔNG gia
+    // hạn tuổi thọ -> breakage đúng, chống né đáo hạn qua transfer) (L2).
+    const moved = await consumeLotsFifoTx(client, a.fromOccId, cur, a.points);
+    await createLotsFromSlicesTx(client, a.toOccId, cur, moved, txnId);
     const balance = await balanceTx(client, a.fromOccId, cur);
     await client.query("COMMIT");
     return { txnId, balance, idempotent: false };

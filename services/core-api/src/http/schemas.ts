@@ -80,23 +80,26 @@ export const identifySchema = z.object({
 // points: số nguyên trong khoảng an toàn (chống precision-loss bigint); dấu/biên trị
 // nghiệp vụ do service quyết (trả INVALID_AMOUNT) để giữ mã lỗi nhất quán.
 const pointsSchema = z.number().int().safe();
+// Prefix 'sys:' dành riêng cho idempotency_key do HỆ THỐNG sinh (vd đáo hạn lô: sys:expire:{lot_id}).
+// Cấm op công khai dùng để không đụng/không giả mạo txn hệ thống.
+const idempotencyKey = z.string().min(1).max(200).refine((s) => !s.startsWith("sys:"), "idempotencyKey không được bắt đầu bằng 'sys:' (reserved)");
 
 export const loyaltyEarnSchema = z.object({
   occId: z.string().uuid(),
   points: pointsSchema,
-  idempotencyKey: z.string().min(1),
+  idempotencyKey,
   reason: z.string().optional(),
 });
 
 export const loyaltyReserveSchema = z.object({
   occId: z.string().uuid(),
   points: pointsSchema,
-  idempotencyKey: z.string().min(1),
+  idempotencyKey,
 });
 
 export const loyaltyReservationOpSchema = z.object({
   reservationId: z.string().uuid(),
-  idempotencyKey: z.string().min(1),
+  idempotencyKey,
 });
 
 export const loyaltyBalanceQuerySchema = z.object({
@@ -110,14 +113,14 @@ export const loyaltyConvertSchema = z.object({
   fromCurrency: currencyCode,
   toCurrency: currencyCode,
   points: pointsSchema.refine((n) => n > 0, "points phải > 0"),
-  idempotencyKey: z.string().min(1),
+  idempotencyKey,
   reason: z.string().max(500).optional(),
 });
 export const loyaltyAdjustSchema = z.object({
   occId: z.string().uuid(),
   points: z.number().int().safe(), // ± (khác 0 kiểm ở service)
   currency: currencyCode.optional(),
-  idempotencyKey: z.string().min(1),
+  idempotencyKey,
   reason: z.string().min(1).max(500),
 });
 export const loyaltyTransferSchema = z.object({
@@ -125,7 +128,7 @@ export const loyaltyTransferSchema = z.object({
   toOccId: z.string().uuid(),
   points: pointsSchema.refine((n) => n > 0, "points phải > 0"),
   currency: currencyCode.optional(),
-  idempotencyKey: z.string().min(1),
+  idempotencyKey,
   reason: z.string().max(500).optional(),
 });
 

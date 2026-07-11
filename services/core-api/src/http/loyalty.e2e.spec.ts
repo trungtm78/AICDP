@@ -121,6 +121,13 @@ describe("loyalty HTTP", () => {
     expect(balB.body.data.available).toBe(30);
   });
 
+  it("L2: idempotencyKey prefix 'sys:' bị từ chối (reserved cho txn hệ thống) -> 400", async () => {
+    const occId = await makeOcc("0901000020");
+    const r = await http().post("/v1/loyalty/earn")
+      .send({ occId, points: 10, idempotencyKey: "sys:expire:hack" });
+    expect(r.status).toBe(400);
+  });
+
   it("L1: convert loại điểm không tồn tại -> 400 CURRENCY_NOT_FOUND", async () => {
     const occId = await makeOcc("0901000013");
     const r = await http().post("/v1/loyalty/convert")

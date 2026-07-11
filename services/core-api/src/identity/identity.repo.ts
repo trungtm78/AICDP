@@ -5,6 +5,7 @@ import {
   type NormalizedIdentifier,
 } from "./normalize.js";
 import { appendConsentRecord } from "../consent/consent.service.js";
+import { consumeLotsFifoTx, createLotsFromSlicesTx } from "../loyalty/loyalty.service.js";
 
 export interface RawIdentifier {
   type: IdentifierType;
@@ -244,6 +245,13 @@ async function transferLoyalty(
       "INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id) VALUES ($1,$2,(-$3::bigint),$4),($1,$5,$3::bigint,$4)",
       [txnId, fromAcc, amount, cur, toAcc],
     );
+    // Đồng bộ lô (L2): lô bám tầng AVAILABLE -> merge available thì tiêu hết lô người bị gộp + tạo
+    // lô cho survivor BẢO TOÀN expire_at gốc (không reset đáo hạn). Reserved không lot-tracked nên bỏ
+    // qua. amount dạng string bigint (KHÔNG Number() — precision >2^53). amount = Σ lô from -> tiêu cạn.
+    if (kind === "available") {
+      const moved = await consumeLotsFifoTx(client, from, cur, amount);
+      await createLotsFromSlicesTx(client, to, cur, moved, txnId);
+    }
   }
 }
 
