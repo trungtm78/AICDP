@@ -14,8 +14,8 @@
 - Coverage: đã cài `@vitest/coverage-v8@3.2.6` (devDep). Đo: `pnpm exec vitest run <files> --coverage --coverage.provider=v8 --coverage.include='...' --coverage.reporter=json-summary --coverage.reportsDirectory=./cov-tmp` rồi đọc `cov-tmp/coverage-summary.json`.
 
 ## Phase (milestone)
-- [~] **Phase 1 — Framework + nền bảo mật P0** (ĐANG LÀM: Task 3/5)
-- [ ] Phase 2 — INBOUND thật (webhook token + write-key + reverse-ETL)
+- [x] **Phase 1 — Framework + nền bảo mật P0 HOÀN TẤT** (7 commit 6f79aba→30d1077). Qua checkpoint /review (tìm P0 SSRF IPv6-mapped + 5 hardening) + /codex cross-model (tìm 2×P1 rò secret plaintext + SSRF fail-closed) — TẤT CẢ đã fix. **418 test PASS**, tsc sạch, patch coverage ≥90% mọi file.
+- [ ] **Phase 2 — INBOUND thật (RESUME TỪ ĐÂY)**: cổng webhook công khai `@Public() POST /v1/connectors/sources/:id/events` (mới `src/http/connector-ingest.controller.ts`) header X-Connector-Token → `resolveInboundConnection` (đã có) → map payload → gọi `ingestOrderCompleted`/`ingestIdentify` (đã có) → `recordEvent` (đã có). Write-key endpoint (shape Segment). Postgres reverse-ETL puller (`adapters/inbound-postgres.ts` implement InboundPullAdapter + POST /connections/:id/pull, dùng pull_cursor). Đăng ký controller mới ở `app.factory.ts`. NHỚ: `@Public()` route phải rate-limit theo connection + zod strict + body-size; brand_id suy từ connection (chống spoof). TDD + e2e.
 - [ ] Phase 3 — Cổng thanh toán IPN (VNPay/MoMo/ZaloPay)
 - [ ] Phase 4 — OUTBOUND 1A (analytics+messaging verify-free) + wiring activation
 - [ ] Phase 5 — VN 1B (KiotViet/GHN/MISA…) + messaging 1B (Zalo ZNS/VietGuys/eSMS…)
@@ -41,10 +41,21 @@
 ## Test/coverage
 - Full BE suite: **394 PASS / 0 FAIL** · tsc BE sạch. Coverage patch mỗi file ≥90% line (ssrf 92%, secrets 97.5%, signing 100%, registry 100%, http-client 93%, connector-secrets qua real-DB spec).
 
-## Commit đã tạo (Phase 1)
+## Commit Phase 1 (7)
 - `6f79aba` Task 1-2 (ssrf-guard + secrets + ErrorCode + coverage-v8)
 - `b36cabb` Task 3-4 (migration 024 + signing/registry/http-client + undici)
-- (kế) Task 5a connector.service encrypt/mask
+- `3184184` Task 5a (connector.service encrypt/mask, vá plaintext)
+- `a5f2ac0` Task 5b (logs/data-summary/inbound/health + endpoints)
+- `b1f81d0` /review fixes (P0 SSRF IPv6-mapped hex + 5 hardening)
+- `30d1077` /codex fixes (2×P1 rò secret + SSRF fail-closed ::ffff:0:0/96, fec0::/10)
+
+## Adapter framework — API sẵn cho Phase 2+
+- `adapters/registry.ts`: registerOutbound/getOutbound/installStatus; `registerInboundPull/getInboundPull`.
+- `adapters/types.ts`: OutboundAdapter{deliver,healthCheck} · InboundPullAdapter{pull} · DeliveryResult · HealthResult.
+- `http-client.ts safeFetch`: gọi HTTP ngoài AN TOÀN (SSRF + pin IP) — adapter outbound PHẢI dùng cái này.
+- `signing.ts`: hmacHex/verifyHmac/timingSafeEqualStr (IPN + webhook signature).
+- `secrets.ts`: getConnectionConfigDecrypted (connector.service) cho adapter đọc config đã giải mã.
+- `logs.service.ts recordEvent/recordDelivery` · `data-summary.service dataSummary` · `inbound.service resolveInboundConnection`.
 
 ## Nợ/lưu ý
 - Lỗ hổng hiện trạng: `cdp.connection.config` lưu plaintext + trả nguyên qua `GET /connections` (`connector.service.ts:100`, `connector.controller.ts:66`) → Task 5/FE vá bằng encryptConfig lúc tạo + maskConfig lúc đọc.
