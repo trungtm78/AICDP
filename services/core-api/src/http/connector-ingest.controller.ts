@@ -7,6 +7,7 @@ import { AppError } from "./errors.js";
 import { resolveInboundConnection, resolveWriteKeyConnection } from "../connector/inbound.service.js";
 import { ingestInboundEvent } from "../connector/inbound-ingest.service.js";
 import { mapSegmentPayload } from "../connector/segment-map.js";
+import { applyPayloadMapping } from "../connector/payload-map.js";
 import { processPaymentIpn } from "../connector/payment/payment-ipn.service.js";
 import { checkInboundRate } from "../connector/connector-inbound-ratelimit.js";
 
@@ -56,7 +57,11 @@ export class ConnectorIngestController {
       });
     }
 
-    const result = await ingestInboundEvent(this.pool, resolved, body);
+    // Nếu connection khai payloadMapping (nguồn native KiotViet/GHN/MISA/custom) -> map field-path
+    // về shape CDP trước; ngược lại dùng payload webhook-native as-is.
+    const mapping = resolved.config["payloadMapping"];
+    const payload = mapping && typeof mapping === "object" ? applyPayloadMapping(body, mapping) : body;
+    const result = await ingestInboundEvent(this.pool, resolved, payload);
     return { data: result };
   }
 

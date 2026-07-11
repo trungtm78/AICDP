@@ -138,6 +138,35 @@ describe("cổng webhook inbound — chạy thật", () => {
     expect(ev.body.data[0].status).toBe("ingested");
   });
 
+  it("nguồn VN (KiotViet-like) native payload + payloadMapping -> map & ingest, brand từ connection", async () => {
+    const c = await withAuth(
+      http().post("/v1/connections").send({
+        name: "KiotViet", direction: "source", connectorKey: "src_kiotviet",
+        config: {
+          brand_id: "givral",
+          payloadMapping: {
+            eventType: "order_completed",
+            store_id: "data.branch", pos_transaction_id: "data.code", total: "data.total",
+            occ_timestamp: "data.buyDate", phone: "data.customer.phone",
+          },
+        },
+      }),
+      ADMIN_KEY,
+    );
+    const id = c.body.data.id as string;
+    const t = await withAuth(http().post(`/v1/connections/${id}/inbound-token`), ADMIN_KEY);
+    const token = t.body.data.token as string;
+    const r = await http()
+      .post(`/v1/connectors/sources/${id}/events`)
+      .set("X-Connector-Token", token)
+      .send({ data: { code: "HD-9", total: 320000, branch: "kv1", buyDate: "2026-07-11T08:00:00Z", customer: { phone: "0900000009" } } });
+    expect(r.status).toBe(202);
+    const tx = await pool.query("SELECT brand_id, store_id, total FROM cdp.canonical_transaction WHERE message_id=$1", ["givral:kv1:HD-9"]);
+    expect(tx.rowCount).toBe(1);
+    expect(tx.rows[0]!.brand_id).toBe("givral");
+    expect(Number(tx.rows[0]!.total)).toBe(320000);
+  });
+
   it("connection direction=destination -> 401 (cổng vào chỉ cho source)", async () => {
     const c = await withAuth(
       http().post("/v1/connections").send({ name: "zalo", direction: "destination", connectorKey: "dst_zalo_zns", config: {} }),
