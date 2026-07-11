@@ -22,6 +22,7 @@ import { setEarnRule, listEarnRules, listEarnRuleAudit, processUnearnedTransacti
 import { listTierGroups, listTiers, getMemberTiers, recomputeMemberTier, recomputeAllTiers } from "../loyalty/tier.service.js";
 import { listRewards, redeemReward, listMemberVouchers, useVoucher } from "../loyalty/reward.service.js";
 import { listChallenges, getMemberProgress, createReferralCode, joinReferral } from "../loyalty/campaign.service.js";
+import { computeLiabilitySnapshot, getLatestLiability, getSettlementReport, setPointPrice } from "../loyalty/liability.service.js";
 import { Roles } from "./auth/roles.js";
 import type { AuthContext } from "./auth/roles.js";
 
@@ -241,5 +242,45 @@ export class LoyaltyController {
     const dto = validate(referralJoinSchema, body, "loyalty_referral_join");
     await joinReferral(this.pool, dto.code, dto.refereeOccId);
     return { data: { ok: true } };
+  }
+
+  // ── L7: liability (IFRS15/ASC606) + inter-company settlement ──
+
+  /** Nghĩa vụ điểm mới nhất theo pháp nhân/loại điểm. */
+  @Roles("analyst")
+  @Get("liability")
+  async liability() {
+    return { data: await getLatestLiability(this.pool) };
+  }
+
+  /** Chốt snapshot nghĩa vụ điểm (tính lại + lưu) — cần admin. */
+  @Roles("admin")
+  @Post("liability/snapshot")
+  async liabilitySnapshot() {
+    return { data: await computeLiabilitySnapshot(this.pool) };
+  }
+
+  /** Đặt đơn giá điểm + breakage (append-only) — cần admin. */
+  @Roles("admin")
+  @Post("liability/point-price")
+  async pointPrice(@Body() body: unknown) {
+    const b = body as { currencyCode?: unknown; companyCode?: unknown; pricePerPoint?: unknown; breakageRate?: unknown };
+    if (typeof b.currencyCode !== "string" || typeof b.pricePerPoint !== "number") {
+      return { error: { code: "INVALID_AMOUNT", message: "currencyCode (string) + pricePerPoint (number) bắt buộc." } };
+    }
+    await setPointPrice(this.pool, {
+      currencyCode: b.currencyCode, pricePerPoint: b.pricePerPoint,
+      ...(typeof b.companyCode === "string" ? { companyCode: b.companyCode } : {}),
+      ...(typeof b.breakageRate === "number" ? { breakageRate: b.breakageRate } : {}),
+    });
+    return { data: { ok: true } };
+  }
+
+  /** Báo cáo settlement inter-company theo kỳ (YYYY-MM) — cần analyst. */
+  @Roles("analyst")
+  @Get("settlement")
+  async settlement(@Query() query: Record<string, string>) {
+    const period = query["period"] ?? new Date().toISOString().slice(0, 7);
+    return { data: await getSettlementReport(this.pool, period) };
   }
 }

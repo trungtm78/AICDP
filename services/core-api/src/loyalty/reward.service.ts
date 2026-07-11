@@ -1,5 +1,6 @@
 import type { Pool, PoolClient } from "pg";
 import { LoyaltyError, consumeLotsFifoTx } from "./loyalty.service.js";
+import { recordSettlementForRedeemTx } from "./liability.service.js";
 
 // L5 — Reward catalog + redemption cross-brand. Đổi điểm CHUNG (OCC_POINT) lấy reward -> tiêu ở BRAND
 // bất kỳ. Redeem = burn điểm ATOMIC (available -> redeemed, giống capture) + phát voucher, trong MỘT
@@ -141,7 +142,13 @@ export async function redeemReward(pool: Pool, a: RedeemArgs): Promise<RedeemRes
       `INSERT INTO cdp.loyalty_entry (txn_id, account, delta, currency_id)
        VALUES ($1,$2,(-$3::bigint),$4),($1,'system:redeemed',$3::bigint,$4)`,
       [txnId, `member:${a.occId}:available`, costStr, reward.currencyId]);
-    await consumeLotsFifoTx(client, a.occId, reward.currencyId, costStr);
+    const burned = await consumeLotsFifoTx(client, a.occId, reward.currencyId, costStr);
+    // Settlement (L7): cty nơi tiêu = cty của brand reward (nếu có), else coalition (null). Điểm burn
+    // thuộc cty phát hành khác -> ghi nghĩa vụ bù trừ inter-company.
+    const redeemingCompanyId = reward.redeemableAtBrandId
+      ? (await client.query<{ cid: string | null }>("SELECT company_id AS cid FROM cdp.brand WHERE brand_id=$1", [reward.redeemableAtBrandId])).rows[0]?.cid ?? null
+      : null;
+    await recordSettlementForRedeemTx(client, { redeemTxnId: txnId, slices: burned, redeemingCompanyId, currencyId: reward.currencyId });
 
     // Phát voucher (type VOUCHER). Các type khác (GIFT/PAY_WITH_POINTS/PARTNER): chỉ burn điểm.
     let voucherId: string | null = null, voucherCode: string | null = null;

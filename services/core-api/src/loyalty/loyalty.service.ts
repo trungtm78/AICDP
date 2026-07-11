@@ -20,7 +20,8 @@ export type LoyaltyErrorCode =
   | "OUT_OF_STOCK"
   | "VOUCHER_NOT_FOUND"
   | "VOUCHER_INVALID_STATE"
-  | "VOUCHER_BRAND_MISMATCH";
+  | "VOUCHER_BRAND_MISMATCH"
+  | "SETTLEMENT_PRICE_MISSING";
 
 export class LoyaltyError extends Error {
   readonly code: LoyaltyErrorCode;
@@ -452,8 +453,9 @@ async function computeConvertedPoints(db: Queryable, fromId: string, toId: strin
 // available -> tạo lô mới (expiry theo policy); mọi thao tác GIẢM available -> tiêu lô FIFO theo
 // expire_at (hết hạn sớm trước). Bất biến này để scheduler đáo hạn tính breakage đúng.
 
-/** Một "lát" điểm đã tiêu từ một lô: giữ expire_at gốc để tái tạo lô bảo toàn hạn (release/transfer/merge). */
-export interface LotSlice { e: string | null; p: string } // e=expire_at ISO|null, p=points (string bigint)
+/** Một "lát" điểm đã tiêu từ một lô: giữ expire_at + issuing_company gốc để tái tạo lô bảo toàn hạn +
+ *  pháp nhân phát hành (release/transfer/merge) và phục vụ settlement (L7). */
+export interface LotSlice { e: string | null; p: string; c: string | null } // e=expire_at, p=points, c=issuing_company_id
 
 function toBig(points: number | bigint | string): bigint {
   return typeof points === "bigint" ? points : BigInt(points);
@@ -463,11 +465,12 @@ function toBig(points: number | bigint | string): bigint {
  *  hồ từ now). Dùng cho earn/adjust+/convert-mint (điểm MỚI). points nhận number|bigint|string (bigint-safe). */
 export async function createLotTx(
   client: PoolClient, occId: string, currencyId: string, points: number | bigint | string, earnTxn: string,
+  issuingCompanyId?: string | null,
 ): Promise<void> {
   await client.query(
     `INSERT INTO cdp.loyalty_lot (occ_id, currency_id, points_original, points_remaining, earn_txn, issuing_company_id, expire_at)
      SELECT $1,$2,$3::bigint,$3::bigint,$4,
-            (SELECT company_id FROM cdp.point_currency WHERE id=$2),
+            COALESCE($5::uuid, (SELECT company_id FROM cdp.point_currency WHERE id=$2)),
             (SELECT CASE p.mode
                       WHEN 'NONE'    THEN NULL
                       WHEN 'ROLLING' THEN now() + (p.duration_months || ' months')::interval
@@ -475,7 +478,7 @@ export async function createLotTx(
                                           + interval '1 year' - interval '1 second'
                     END
                FROM cdp.expiration_policy p WHERE p.currency_id=$2 AND p.is_active)`,
-    [occId, currencyId, toBig(points).toString(), earnTxn],
+    [occId, currencyId, toBig(points).toString(), earnTxn, issuingCompanyId ?? null],
   );
 }
 
@@ -486,10 +489,11 @@ export async function createLotsFromSlicesTx(
 ): Promise<void> {
   for (const s of slices) {
     if (toBig(s.p) <= 0n) continue;
+    // Bảo toàn issuing_company gốc của lát (s.c); fallback công ty của currency nếu thiếu.
     await client.query(
       `INSERT INTO cdp.loyalty_lot (occ_id, currency_id, points_original, points_remaining, earn_txn, issuing_company_id, expire_at)
-       VALUES ($1,$2,$3::bigint,$3::bigint,$4,(SELECT company_id FROM cdp.point_currency WHERE id=$2),$5::timestamptz)`,
-      [occId, currencyId, toBig(s.p).toString(), earnTxn, s.e],
+       VALUES ($1,$2,$3::bigint,$3::bigint,$4,COALESCE($6::uuid,(SELECT company_id FROM cdp.point_currency WHERE id=$2)),$5::timestamptz)`,
+      [occId, currencyId, toBig(s.p).toString(), earnTxn, s.e, s.c],
     );
   }
 }
@@ -500,8 +504,8 @@ export async function createLotsFromSlicesTx(
 export async function consumeLotsFifoTx(
   client: PoolClient, occId: string, currencyId: string, points: number | bigint | string,
 ): Promise<LotSlice[]> {
-  const lots = await client.query<{ lot_id: string; rem: string; expire_at: string | null }>(
-    `SELECT lot_id, points_remaining::text AS rem, expire_at FROM cdp.loyalty_lot
+  const lots = await client.query<{ lot_id: string; rem: string; expire_at: string | null; company: string | null }>(
+    `SELECT lot_id, points_remaining::text AS rem, expire_at, issuing_company_id AS company FROM cdp.loyalty_lot
       WHERE occ_id=$1 AND currency_id=$2 AND status='active' AND points_remaining > 0
       ORDER BY expire_at ASC NULLS LAST, created_at ASC
       FOR UPDATE`,
@@ -518,7 +522,7 @@ export async function consumeLotsFifoTx(
       "UPDATE cdp.loyalty_lot SET points_remaining=$2::bigint, status=CASE WHEN $2::bigint=0 THEN 'exhausted' ELSE 'active' END WHERE lot_id=$1",
       [l.lot_id, left.toString()],
     );
-    consumed.push({ e: l.expire_at, p: take.toString() });
+    consumed.push({ e: l.expire_at, p: take.toString(), c: l.company });
     remaining -= take;
   }
   if (remaining > 0n) {
@@ -628,8 +632,22 @@ export async function convert(pool: Pool, a: ConvertArgs): Promise<ConvertResult
       ]);
       const availFrom = await accountBalanceTx(ctx.client, acc.available(a.occId), fromId);
       if (availFrom < 0) throw new LoyaltyError("INSUFFICIENT_BALANCE", "Không đủ điểm loại nguồn để đổi.");
-      await consumeLotsFifoTx(ctx.client, a.occId, fromId, a.points);  // burn lô 'from' FIFO (L2)
-      await createLotTx(ctx.client, a.occId, toId, toPoints, ctx.txnId); // mint lô 'to' có hạn (L2)
+      const burned = await consumeLotsFifoTx(ctx.client, a.occId, fromId, a.points);  // burn lô 'from' FIFO (L2)
+      // BẢO TOÀN attribution pháp nhân phát hành (L7): phân bổ toPoints cho từng issuing company theo
+      // tỉ lệ điểm 'from' đã burn của công ty đó (mint lô 'to' giữ issuing_company -> liability/settlement
+      // coalition đúng, không rơi về NULL). Remainder dồn vào công ty cuối để Σ = toPoints (không hụt/mint dư).
+      const byCo = new Map<string | null, bigint>();
+      for (const s of burned) byCo.set(s.c, (byCo.get(s.c) ?? 0n) + BigInt(s.p));
+      const fromTotal = BigInt(a.points);
+      const toTotal = BigInt(toPoints);
+      const entries = [...byCo.entries()];
+      let allocated = 0n;
+      for (let i = 0; i < entries.length; i++) {
+        const [co, p] = entries[i]!;
+        const alloc = i === entries.length - 1 ? toTotal - allocated : (toTotal * p) / fromTotal;
+        allocated += alloc;
+        if (alloc > 0n) await createLotTx(ctx.client, a.occId, toId, alloc, ctx.txnId, co); // mint 'to' giữ issuing (L2/L7)
+      }
     },
   );
   // Replay idempotent: work KHÔNG chạy -> lấy lại số điểm đã mint từ ledger của txn cũ (mint = +delta 'to').

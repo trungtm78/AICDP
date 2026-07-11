@@ -48,6 +48,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         VOUCHER_NOT_FOUND: 404,
         VOUCHER_INVALID_STATE: 409,
         VOUCHER_BRAND_MISMATCH: 400,
+        SETTLEMENT_PRICE_MISSING: 409,
       };
       return new AppError({
         code: exception.code,
